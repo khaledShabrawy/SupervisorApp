@@ -57,7 +57,7 @@ export default function LoginScreen() {
           <View style={s.logoCircle}>
             <Text style={s.logoIcon}>🛡️</Text>
           </View>
-          <Text style={s.appName}>Corona Supervisor</Text>
+          <Text style={s.appName}>Mydan</Text>
           <Text style={s.appSubtitle}>نظام إدارة المشرفين الميدانيين</Text>
         </View>
 

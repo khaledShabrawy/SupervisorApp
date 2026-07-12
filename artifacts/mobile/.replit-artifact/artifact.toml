@@ -1,6 +1,6 @@
 kind = "mobile"
 previewPath = "/"
-title = "Corona Supervisor"
+title = "Mydan"
 version = "1.0.0"
 id = "artifacts/mobile"
 router = "expo-domain"
