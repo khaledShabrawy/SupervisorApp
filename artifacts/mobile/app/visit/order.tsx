@@ -1,0 +1,222 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '@/contexts/AuthContext';
+import { useVisit } from '@/contexts/VisitContext';
+import { useColors } from '@/hooks/useColors';
+import { supabase } from '@/lib/supabase';
+import type { OrderItem, Product } from '@/lib/types';
+
+export default function OrderScreen() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const { activeVisit } = useVisit();
+  const { supervisor } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [cart, setCart] = useState<Record<string, number>>({});
+  const [search, setSearch] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const s = styles(colors, insets);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('products').select('*').eq('is_active', true);
+      setProducts((data ?? []) as Product[]);
+      setLoading(false);
+    })();
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return products;
+    return products.filter(
+      (p) =>
+        p.name.includes(search) ||
+        p.category.includes(search)
+    );
+  }, [products, search]);
+
+  const setQty = (id: string, qty: number) => {
+    if (qty <= 0) {
+      const next = { ...cart };
+      delete next[id];
+      setCart(next);
+    } else {
+      setCart((prev) => ({ ...prev, [id]: qty }));
+    }
+    Haptics.selectionAsync();
+  };
+
+  const cartItems: OrderItem[] = products
+    .filter((p) => (cart[p.id] ?? 0) > 0)
+    .map((p) => ({ product_id: p.id, product_name: p.name, category: p.category, quantity: cart[p.id] }));
+
+  const totalUnits = cartItems.reduce((sum, i) => sum + i.quantity, 0);
+
+  const handleSubmit = async () => {
+    if (!activeVisit || !supervisor) { Alert.alert('خطأ', 'لا توجد زيارة نشطة'); return; }
+    if (cartItems.length === 0) { Alert.alert('تنبيه', 'يرجى إضافة منتج واحد على الأقل'); return; }
+    setSubmitting(true);
+    try {
+      const rows = cartItems.map((i) => ({
+        visit_id: activeVisit.visitId,
+        supervisor_id: supervisor.id,
+        customer_id: activeVisit.customerId,
+        product_id: i.product_id,
+        quantity: i.quantity,
+        status: 'pending',
+      }));
+      const { error } = await supabase.from('orders').insert(rows);
+      if (error) throw error;
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('✅ تم تسجيل الأوردر بنجاح', `${cartItems.length} أصناف · ${totalUnits} وحدة`, [
+        { text: 'حسناً', onPress: () => router.back() },
+      ]);
+    } catch {
+      Alert.alert('خطأ', 'تعذر إرسال الأوردر');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={s.loadingContainer}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={s.container}>
+      {/* Search */}
+      <View style={s.searchBar}>
+        <Ionicons name="search" size={18} color={colors.mutedForeground} />
+        <TextInput
+          style={s.searchInput}
+          value={search}
+          onChangeText={setSearch}
+          placeholder="ابحث عن منتج..."
+          placeholderTextColor={colors.mutedForeground}
+          textAlign="right"
+        />
+      </View>
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={s.listContent}
+        renderItem={({ item }) => {
+          const qty = cart[item.id] ?? 0;
+          return (
+            <View style={[s.productRow, qty > 0 && s.productRowSelected]}>
+              <View style={s.qtyControl}>
+                <TouchableOpacity style={s.qtyBtn} onPress={() => setQty(item.id, qty + 1)} activeOpacity={0.8}>
+                  <Ionicons name="add" size={18} color="#fff" />
+                </TouchableOpacity>
+                <Text style={s.qtyNum}>{qty}</Text>
+                <TouchableOpacity style={[s.qtyBtn, { backgroundColor: qty > 0 ? colors.destructive : colors.border }]}
+                  onPress={() => setQty(item.id, qty - 1)} activeOpacity={0.8} disabled={qty === 0}>
+                  <Ionicons name="remove" size={18} color="#fff" />
+                </TouchableOpacity>
+              </View>
+              <View style={s.productInfo}>
+                <Text style={s.productName}>{item.name}</Text>
+                <Text style={s.productCategory}>{item.category}</Text>
+              </View>
+            </View>
+          );
+        }}
+        ListFooterComponent={
+          cartItems.length > 0 ? (
+            <View style={s.cartSummary}>
+              <Text style={s.cartTitle}>ملخص الأوردر</Text>
+              {cartItems.map((i) => (
+                <View key={i.product_id} style={s.cartRow}>
+                  <Text style={s.cartQty}>× {i.quantity}</Text>
+                  <Text style={s.cartProduct}>{i.product_name}</Text>
+                </View>
+              ))}
+              <View style={s.cartTotal}>
+                <Text style={s.cartTotalLabel}>المجموع</Text>
+                <Text style={s.cartTotalValue}>{totalUnits} وحدة</Text>
+              </View>
+              <TouchableOpacity
+                style={[s.submitBtn, submitting && s.submitBtnDisabled]}
+                onPress={handleSubmit}
+                disabled={submitting}
+                activeOpacity={0.85}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                    <Text style={s.submitBtnText}>إرسال الأوردر</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null
+        }
+      />
+    </View>
+  );
+}
+
+const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof useSafeAreaInsets>) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    searchBar: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      margin: 16, backgroundColor: colors.card, borderRadius: 12,
+      paddingHorizontal: 14, paddingVertical: 10,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    searchInput: { flex: 1, fontSize: 14, color: colors.foreground, fontFamily: 'Cairo_400Regular' },
+    listContent: { paddingHorizontal: 16, paddingBottom: 40 },
+    productRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: colors.card, borderRadius: 12, padding: 12, marginBottom: 8,
+    },
+    productRowSelected: { borderWidth: 1.5, borderColor: colors.primary },
+    productInfo: { flex: 1, alignItems: 'flex-end', marginLeft: 10 },
+    productName: { fontSize: 14, fontWeight: '600' as const, color: colors.foreground, fontFamily: 'Cairo_600SemiBold', textAlign: 'right' },
+    productCategory: { fontSize: 12, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'right' },
+    qtyControl: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    qtyBtn: {
+      width: 28, height: 28, borderRadius: 7,
+      backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center',
+    },
+    qtyNum: { fontSize: 15, fontWeight: '700' as const, color: colors.foreground, fontFamily: 'Cairo_700Bold', minWidth: 24, textAlign: 'center' },
+    cartSummary: {
+      backgroundColor: colors.card, borderRadius: 16, padding: 16, marginTop: 16,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    cartTitle: { fontSize: 16, fontWeight: '700' as const, color: colors.foreground, fontFamily: 'Cairo_700Bold', textAlign: 'right', marginBottom: 12 },
+    cartRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border },
+    cartProduct: { fontSize: 14, color: colors.foreground, fontFamily: 'Cairo_400Regular', textAlign: 'right', flex: 1 },
+    cartQty: { fontSize: 14, fontWeight: '600' as const, color: colors.primary, fontFamily: 'Cairo_700Bold' },
+    cartTotal: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 10, marginTop: 4 },
+    cartTotalLabel: { fontSize: 15, fontWeight: '700' as const, color: colors.foreground, fontFamily: 'Cairo_700Bold' },
+    cartTotalValue: { fontSize: 15, fontWeight: '700' as const, color: colors.primary, fontFamily: 'Cairo_700Bold' },
+    submitBtn: {
+      backgroundColor: colors.success, borderRadius: 14, paddingVertical: 15,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14,
+    },
+    submitBtnDisabled: { opacity: 0.6 },
+    submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
+  });
