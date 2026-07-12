@@ -12,8 +12,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useOffline } from '@/contexts/OfflineContext';
 import { useVisit } from '@/contexts/VisitContext';
 import { useColors } from '@/hooks/useColors';
+import { enqueue } from '@/lib/offlineQueue';
 import { supabase } from '@/lib/supabase';
 import type { CompetitorProduct } from '@/lib/types';
 
@@ -21,6 +23,7 @@ export default function CompetitorScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { activeVisit } = useVisit();
+  const { isOnline, refreshCount } = useOffline();
   const [items, setItems] = useState<CompetitorProduct[]>([]);
   const [brand, setBrand] = useState('');
   const [product, setProduct] = useState('');
@@ -53,17 +56,31 @@ export default function CompetitorScreen() {
     if (items.length === 0) { Alert.alert('تنبيه', 'يرجى إضافة منتج واحد على الأقل'); return; }
     setSaving(true);
     try {
+      const mustQueue = !isOnline || activeVisit.isPending;
+
       const rows = items.map((i) => ({
-        visit_id: activeVisit.visitId,
         brand_name: i.brand_name,
         product_name: i.product_name,
         quantity: i.quantity,
         photo_url: null,
       }));
-      const { error } = await supabase.from('competitor_products').insert(rows);
-      if (error) throw error;
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('✅ تم', 'تم حفظ منتجات المنافسين', [{ text: 'حسناً', onPress: () => router.back() }]);
+
+      if (mustQueue) {
+        for (const row of rows) {
+          await enqueue('competitor_products', row, activeVisit.visitId);
+        }
+        await refreshCount();
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('💾 محفوظ محلياً', `${items.length} منتج — سيُرسل عند عودة الاتصال`, [
+          { text: 'حسناً', onPress: () => router.back() },
+        ]);
+      } else {
+        const onlineRows = rows.map((r) => ({ ...r, visit_id: activeVisit.visitId }));
+        const { error } = await supabase.from('competitor_products').insert(onlineRows);
+        if (error) throw error;
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('✅ تم', 'تم حفظ منتجات المنافسين', [{ text: 'حسناً', onPress: () => router.back() }]);
+      }
     } catch {
       Alert.alert('خطأ', 'تعذر حفظ البيانات');
     } finally {
@@ -73,6 +90,15 @@ export default function CompetitorScreen() {
 
   return (
     <View style={s.container}>
+      {(!isOnline || activeVisit?.isPending) && (
+        <View style={s.offlineBanner}>
+          <Ionicons name="cloud-offline" size={16} color="#92400E" />
+          <Text style={s.offlineText}>
+            {!isOnline ? 'لا يوجد اتصال — سيُحفظ محلياً' : 'الزيارة معلقة — سيُرسل مع الزيارة'}
+          </Text>
+        </View>
+      )}
+
       {/* Add Form */}
       <View style={s.formCard}>
         <Text style={s.formTitle}>إضافة منتج منافس</Text>
@@ -144,8 +170,10 @@ export default function CompetitorScreen() {
               disabled={saving}
               activeOpacity={0.85}
             >
-              <Ionicons name="save" size={20} color="#fff" />
-              <Text style={s.saveBtnText}>حفظ المنتجات ({items.length})</Text>
+              <Ionicons name={!isOnline || activeVisit?.isPending ? 'cloud-upload' : 'save'} size={20} color="#fff" />
+              <Text style={s.saveBtnText}>
+                {!isOnline || activeVisit?.isPending ? `حفظ محلياً (${items.length})` : `حفظ المنتجات (${items.length})`}
+              </Text>
             </TouchableOpacity>
           ) : null
         }
@@ -157,6 +185,11 @@ export default function CompetitorScreen() {
 const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof useSafeAreaInsets>) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
+    offlineBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: '#FEF3C7', paddingHorizontal: 16, paddingVertical: 10,
+    },
+    offlineText: { fontSize: 12, color: '#92400E', fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, flex: 1, textAlign: 'right' },
     formCard: {
       backgroundColor: colors.card, margin: 16, borderRadius: 16, padding: 16,
       shadowColor: '#000', shadowOffset: { width: 0, height: 2 },

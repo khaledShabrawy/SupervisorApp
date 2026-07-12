@@ -14,9 +14,11 @@ import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOffline } from '@/contexts/OfflineContext';
 import { useVisit } from '@/contexts/VisitContext';
 import { useColors } from '@/hooks/useColors';
 import { distanceKm } from '@/lib/haversine';
+import { enqueue } from '@/lib/offlineQueue';
 import { supabase } from '@/lib/supabase';
 import type { Customer } from '@/lib/types';
 
@@ -28,6 +30,7 @@ export default function CustomerVisitScreen() {
   const { customerId, lat, lng } = useLocalSearchParams<{ customerId: string; lat: string; lng: string }>();
   const { supervisor } = useAuth();
   const { setActiveVisit, activeVisit } = useVisit();
+  const { isOnline, refreshCount } = useOffline();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,17 +40,19 @@ export default function CustomerVisitScreen() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('customers').select('*').eq('id', customerId).single();
-      if (data) {
-        setCustomer(data as Customer);
-        if (lat && lng) {
-          const d = distanceKm(Number(lat), Number(lng), data.latitude, data.longitude) * 1000;
-          setDistance(d);
+      if (isOnline) {
+        const { data } = await supabase.from('customers').select('*').eq('id', customerId).single();
+        if (data) {
+          setCustomer(data as Customer);
+          if (lat && lng) {
+            const d = distanceKm(Number(lat), Number(lng), data.latitude, data.longitude) * 1000;
+            setDistance(d);
+          }
         }
       }
       setLoading(false);
     })();
-  }, [customerId]);
+  }, [customerId, isOnline]);
 
   const handleStatus = async (status: VisitStatus) => {
     if (!customer || !supervisor) return;
@@ -55,49 +60,67 @@ export default function CustomerVisitScreen() {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Check duplicate visit in last 30 min
-      const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-      const { data: existing } = await supabase
-        .from('visits')
-        .select('id')
-        .eq('supervisor_id', supervisor.id)
-        .eq('customer_id', customer.id)
-        .gte('visit_date', thirtyMinsAgo)
-        .maybeSingle();
+      const onBeat = distance !== null ? distance <= 500 : true;
+      const visitPayload = {
+        supervisor_id: supervisor.id,
+        customer_id: customer.id,
+        status,
+        latitude: Number(lat) || 0,
+        longitude: Number(lng) || 0,
+        geo_distance: distance ?? 0,
+        on_beat: onBeat,
+        visit_date: new Date().toISOString(),
+        notes: '',
+      };
 
-      if (existing) {
-        Alert.alert('تنبيه', 'لقد قمت بزيارة هذا العميل منذ أقل من 30 دقيقة');
-        setSaving(false);
-        return;
+      if (isOnline) {
+        // ── Online path ─────────────────────────────────────────────────────
+        const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+        const { data: existing } = await supabase
+          .from('visits')
+          .select('id')
+          .eq('supervisor_id', supervisor.id)
+          .eq('customer_id', customer.id)
+          .gte('visit_date', thirtyMinsAgo)
+          .maybeSingle();
+
+        if (existing) {
+          Alert.alert('تنبيه', 'لقد قمت بزيارة هذا العميل منذ أقل من 30 دقيقة');
+          setSaving(false);
+          return;
+        }
+
+        const { data: visit, error } = await supabase
+          .from('visits')
+          .insert(visitPayload)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setActiveVisit({
+          visitId: visit.id,
+          customerId: customer.id,
+          customerName: customer.name,
+          customerType: customer.type,
+          visitStatus: status,
+          isPending: false,
+        });
+      } else {
+        // ── Offline path ─────────────────────────────────────────────────────
+        const localId = await enqueue('visits', visitPayload);
+        await refreshCount();
+
+        setActiveVisit({
+          visitId: localId,
+          customerId: customer.id,
+          customerName: customer.name,
+          customerType: customer.type,
+          visitStatus: status,
+          isPending: true,
+        });
       }
 
-      const onBeat = distance !== null ? distance <= 500 : true;
-
-      const { data: visit, error } = await supabase
-        .from('visits')
-        .insert({
-          supervisor_id: supervisor.id,
-          customer_id: customer.id,
-          status,
-          latitude: Number(lat) || 0,
-          longitude: Number(lng) || 0,
-          geo_distance: distance ?? 0,
-          on_beat: onBeat,
-          visit_date: new Date().toISOString(),
-          notes: '',
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setActiveVisit({
-        visitId: visit.id,
-        customerId: customer.id,
-        customerName: customer.name,
-        customerType: customer.type,
-        visitStatus: status,
-      });
       setVisitSaved(true);
     } catch (e) {
       Alert.alert('خطأ', 'تعذر حفظ الزيارة. تحقق من الاتصال.');
@@ -137,6 +160,14 @@ export default function CustomerVisitScreen() {
           <Text style={s.customerAddress}>{customer.address}</Text>
         </View>
       </View>
+
+      {/* Offline Banner */}
+      {!isOnline && (
+        <View style={s.offlineBanner}>
+          <Ionicons name="cloud-offline" size={18} color="#92400E" />
+          <Text style={s.offlineText}>وضع عدم الاتصال — ستُحفظ الزيارة وتُرسل عند عودة الإنترنت</Text>
+        </View>
+      )}
 
       {/* Geofence Warning */}
       {outOfRange && (
@@ -196,9 +227,15 @@ export default function CustomerVisitScreen() {
         /* Action Menu */
         <View style={s.section}>
           <View style={s.visitConfirm}>
-            <Ionicons name="checkmark-circle" size={24} color={colors.success} />
-            <Text style={s.visitConfirmText}>
-              تم تسجيل الزيارة — {activeVisit?.visitStatus}
+            <Ionicons
+              name={activeVisit?.isPending ? 'time' : 'checkmark-circle'}
+              size={24}
+              color={activeVisit?.isPending ? '#D97706' : colors.success}
+            />
+            <Text style={[s.visitConfirmText, activeVisit?.isPending && { color: '#92400E' }]}>
+              {activeVisit?.isPending
+                ? 'محفوظة محلياً — ستُرسل عند الاتصال'
+                : `تم تسجيل الزيارة — ${activeVisit?.visitStatus}`}
             </Text>
           </View>
 
@@ -230,7 +267,7 @@ export default function CustomerVisitScreen() {
 
           <TouchableOpacity
             style={[s.actionBtn, { borderColor: colors.success }]}
-            onPress={() => { router.back(); }}
+            onPress={() => router.back()}
             activeOpacity={0.85}
           >
             <View style={[s.actionIcon, { backgroundColor: `${colors.success}18` }]}>
@@ -267,6 +304,11 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     customerName: { fontSize: 18, fontWeight: '700' as const, color: colors.foreground, fontFamily: 'Cairo_700Bold', textAlign: 'right' },
     customerType: { fontSize: 13, color: colors.primary, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, textAlign: 'right' },
     customerAddress: { fontSize: 12, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'right', marginTop: 2 },
+    offlineBanner: {
+      backgroundColor: '#FEF3C7', borderRadius: 10, padding: 12,
+      flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12,
+    },
+    offlineText: { fontSize: 12, color: '#92400E', fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, flex: 1, textAlign: 'right' },
     warnBanner: {
       backgroundColor: '#FEE2E2', borderRadius: 10, padding: 12,
       flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12,

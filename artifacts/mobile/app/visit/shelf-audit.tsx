@@ -15,8 +15,10 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useOffline } from '@/contexts/OfflineContext';
 import { useVisit } from '@/contexts/VisitContext';
 import { useColors } from '@/hooks/useColors';
+import { enqueue } from '@/lib/offlineQueue';
 import { supabase } from '@/lib/supabase';
 import type { AIAnalysis, Product, ShelfAuditItem } from '@/lib/types';
 
@@ -56,6 +58,7 @@ export default function ShelfAuditScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { activeVisit } = useVisit();
+  const { isOnline, refreshCount } = useOffline();
   const [products, setProducts] = useState<Product[]>([]);
   const [auditItems, setAuditItems] = useState<ShelfAuditItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,19 +68,21 @@ export default function ShelfAuditScreen() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('products').select('*').eq('is_active', true);
-      const prods = (data ?? []) as Product[];
-      setProducts(prods);
-      setAuditItems(prods.map((p) => ({
-        product_id: p.id,
-        product_name: p.name,
-        category: p.category,
-        is_present: false,
-        quantity: 0,
-      })));
+      if (isOnline) {
+        const { data } = await supabase.from('products').select('*').eq('is_active', true);
+        const prods = (data ?? []) as Product[];
+        setProducts(prods);
+        setAuditItems(prods.map((p) => ({
+          product_id: p.id,
+          product_name: p.name,
+          category: p.category,
+          is_present: false,
+          quantity: 0,
+        })));
+      }
       setLoading(false);
     })();
-  }, []);
+  }, [isOnline]);
 
   const toggle = (id: string) => {
     setAuditItems((prev) =>
@@ -124,14 +129,12 @@ export default function ShelfAuditScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!activeVisit) {
-      Alert.alert('خطأ', 'لا توجد زيارة نشطة');
-      return;
-    }
+    if (!activeVisit) { Alert.alert('خطأ', 'لا توجد زيارة نشطة'); return; }
     setSubmitting(true);
     try {
+      const mustQueue = !isOnline || activeVisit.isPending;
+
       const rows = auditItems.map((item) => ({
-        visit_id: activeVisit.visitId,
         product_id: item.product_id,
         is_present: item.is_present,
         quantity: item.quantity,
@@ -140,11 +143,22 @@ export default function ShelfAuditScreen() {
         display_order: item.ai_analysis?.display_order ?? null,
       }));
 
-      const { error } = await supabase.from('shelf_audit').insert(rows);
-      if (error) throw error;
-
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('✅ تم', 'تم حفظ كشف الرف بنجاح', [{ text: 'حسناً', onPress: () => router.back() }]);
+      if (mustQueue) {
+        for (const row of rows) {
+          await enqueue('shelf_audit', row, activeVisit.visitId);
+        }
+        await refreshCount();
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('💾 محفوظ محلياً', 'كشف الرف سيُرسل عند عودة الاتصال', [
+          { text: 'حسناً', onPress: () => router.back() },
+        ]);
+      } else {
+        const onlineRows = rows.map((r) => ({ ...r, visit_id: activeVisit.visitId }));
+        const { error } = await supabase.from('shelf_audit').insert(onlineRows);
+        if (error) throw error;
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('✅ تم', 'تم حفظ كشف الرف بنجاح', [{ text: 'حسناً', onPress: () => router.back() }]);
+      }
     } catch {
       Alert.alert('خطأ', 'تعذر حفظ كشف الرف');
     } finally {
@@ -162,6 +176,15 @@ export default function ShelfAuditScreen() {
 
   return (
     <View style={s.container}>
+      {(!isOnline || activeVisit?.isPending) && (
+        <View style={s.offlineBanner}>
+          <Ionicons name="cloud-offline" size={16} color="#92400E" />
+          <Text style={s.offlineText}>
+            {!isOnline ? 'لا يوجد اتصال — سيُحفظ الكشف محلياً' : 'الزيارة معلقة — سيُرسل مع الزيارة'}
+          </Text>
+        </View>
+      )}
+
       <FlatList
         data={auditItems}
         keyExtractor={(item) => item.product_id}
@@ -234,8 +257,10 @@ export default function ShelfAuditScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                <Text style={s.submitBtnText}>إرسال الكشف</Text>
+                <Ionicons name={!isOnline || activeVisit?.isPending ? 'cloud-upload' : 'checkmark-circle'} size={20} color="#fff" />
+                <Text style={s.submitBtnText}>
+                  {!isOnline || activeVisit?.isPending ? 'حفظ محلياً' : 'إرسال الكشف'}
+                </Text>
               </>
             )}
           </TouchableOpacity>
@@ -249,6 +274,11 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    offlineBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: '#FEF3C7', paddingHorizontal: 16, paddingVertical: 10,
+    },
+    offlineText: { fontSize: 12, color: '#92400E', fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, flex: 1, textAlign: 'right' },
     listContent: { padding: 16, paddingBottom: 40 },
     productCard: {
       backgroundColor: colors.card, borderRadius: 14, padding: 14,

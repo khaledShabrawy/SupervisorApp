@@ -57,6 +57,7 @@
   },
   "dependencies": {
     "@expo-google-fonts/cairo": "^0.4.2",
+    "@react-native-community/netinfo": "^11.4.1",
     "@supabase/supabase-js": "^2.110.2"
   }
 }

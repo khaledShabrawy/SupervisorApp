@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOffline } from '@/contexts/OfflineContext';
 import { useColors } from '@/hooks/useColors';
 import { supabase } from '@/lib/supabase';
 import type { Target, Visit } from '@/lib/types';
@@ -24,6 +25,7 @@ export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { supervisor } = useAuth();
+  const { isOnline, pendingCount, isSyncing, syncNow } = useOffline();
 
   const { data: target, isLoading: targetLoading } = useQuery<Target | null>({
     queryKey: ['target', supervisor?.id, today()],
@@ -80,6 +82,28 @@ export default function HomeScreen() {
       contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
     >
+      {/* Offline / Sync Banner */}
+      {(!isOnline || pendingCount > 0) && (
+        <TouchableOpacity
+          style={[s.syncBanner, !isOnline ? s.syncBannerOffline : s.syncBannerPending]}
+          onPress={isOnline ? syncNow : undefined}
+          activeOpacity={isOnline ? 0.8 : 1}
+        >
+          {isSyncing ? (
+            <ActivityIndicator size="small" color="#92400E" />
+          ) : (
+            <Ionicons name={isOnline ? 'cloud-upload' : 'cloud-offline'} size={16} color="#92400E" />
+          )}
+          <Text style={s.syncBannerText}>
+            {!isOnline
+              ? 'لا يوجد اتصال — البيانات تُحفظ محلياً'
+              : isSyncing
+              ? 'جارٍ مزامنة البيانات...'
+              : `${pendingCount} عنصر في انتظار الإرسال — اضغط للمزامنة`}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* Header */}
       <View style={s.header}>
         <View>
@@ -170,6 +194,17 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     content: {
       paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 8),
       paddingBottom: 20,
+    },
+    syncBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      paddingHorizontal: 16, paddingVertical: 10, marginHorizontal: 16,
+      marginBottom: 8, borderRadius: 10,
+    },
+    syncBannerOffline: { backgroundColor: '#FEE2E2' },
+    syncBannerPending: { backgroundColor: '#FEF3C7' },
+    syncBannerText: {
+      flex: 1, fontSize: 12, color: '#92400E',
+      fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, textAlign: 'right',
     },
     header: {
       flexDirection: 'row',

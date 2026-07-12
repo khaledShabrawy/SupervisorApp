@@ -14,8 +14,10 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOffline } from '@/contexts/OfflineContext';
 import { useVisit } from '@/contexts/VisitContext';
 import { useColors } from '@/hooks/useColors';
+import { enqueue } from '@/lib/offlineQueue';
 import { supabase } from '@/lib/supabase';
 import type { OrderItem, Product } from '@/lib/types';
 
@@ -24,6 +26,7 @@ export default function OrderScreen() {
   const insets = useSafeAreaInsets();
   const { activeVisit } = useVisit();
   const { supervisor } = useAuth();
+  const { isOnline, refreshCount } = useOffline();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -33,18 +36,18 @@ export default function OrderScreen() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('products').select('*').eq('is_active', true);
-      setProducts((data ?? []) as Product[]);
+      if (isOnline) {
+        const { data } = await supabase.from('products').select('*').eq('is_active', true);
+        setProducts((data ?? []) as Product[]);
+      }
       setLoading(false);
     })();
-  }, []);
+  }, [isOnline]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return products;
     return products.filter(
-      (p) =>
-        p.name.includes(search) ||
-        p.category.includes(search)
+      (p) => p.name.includes(search) || p.category.includes(search)
     );
   }, [products, search]);
 
@@ -70,20 +73,48 @@ export default function OrderScreen() {
     if (cartItems.length === 0) { Alert.alert('تنبيه', 'يرجى إضافة منتج واحد على الأقل'); return; }
     setSubmitting(true);
     try {
-      const rows = cartItems.map((i) => ({
-        visit_id: activeVisit.visitId,
-        supervisor_id: supervisor.id,
-        customer_id: activeVisit.customerId,
-        product_id: i.product_id,
-        quantity: i.quantity,
-        status: 'pending',
-      }));
-      const { error } = await supabase.from('orders').insert(rows);
-      if (error) throw error;
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('✅ تم تسجيل الأوردر بنجاح', `${cartItems.length} أصناف · ${totalUnits} وحدة`, [
-        { text: 'حسناً', onPress: () => router.back() },
-      ]);
+      const mustQueue = !isOnline || activeVisit.isPending;
+
+      if (mustQueue) {
+        // ── Offline / pending-visit path ─────────────────────────────────────
+        for (const i of cartItems) {
+          await enqueue(
+            'orders',
+            {
+              supervisor_id: supervisor.id,
+              customer_id: activeVisit.customerId,
+              product_id: i.product_id,
+              quantity: i.quantity,
+              status: 'pending',
+              // visit_id will be resolved at sync time via pendingVisitLocalId
+            },
+            activeVisit.visitId  // the LOCAL_ id
+          );
+        }
+        await refreshCount();
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          '💾 محفوظ محلياً',
+          `${cartItems.length} أصناف · ${totalUnits} وحدة — سيُرسل عند عودة الاتصال`,
+          [{ text: 'حسناً', onPress: () => router.back() }]
+        );
+      } else {
+        // ── Online path ──────────────────────────────────────────────────────
+        const rows = cartItems.map((i) => ({
+          visit_id: activeVisit.visitId,
+          supervisor_id: supervisor.id,
+          customer_id: activeVisit.customerId,
+          product_id: i.product_id,
+          quantity: i.quantity,
+          status: 'pending',
+        }));
+        const { error } = await supabase.from('orders').insert(rows);
+        if (error) throw error;
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('✅ تم تسجيل الأوردر بنجاح', `${cartItems.length} أصناف · ${totalUnits} وحدة`, [
+          { text: 'حسناً', onPress: () => router.back() },
+        ]);
+      }
     } catch {
       Alert.alert('خطأ', 'تعذر إرسال الأوردر');
     } finally {
@@ -101,6 +132,16 @@ export default function OrderScreen() {
 
   return (
     <View style={s.container}>
+      {/* Offline indicator */}
+      {(!isOnline || activeVisit?.isPending) && (
+        <View style={s.offlineBanner}>
+          <Ionicons name="cloud-offline" size={16} color="#92400E" />
+          <Text style={s.offlineText}>
+            {!isOnline ? 'لا يوجد اتصال — سيُحفظ الأوردر محلياً' : 'الزيارة معلقة — سيُرسل الأوردر مع الزيارة'}
+          </Text>
+        </View>
+      )}
+
       {/* Search */}
       <View style={s.searchBar}>
         <Ionicons name="search" size={18} color={colors.mutedForeground} />
@@ -163,8 +204,10 @@ export default function OrderScreen() {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <>
-                    <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                    <Text style={s.submitBtnText}>إرسال الأوردر</Text>
+                    <Ionicons name={!isOnline || activeVisit?.isPending ? 'cloud-upload' : 'checkmark-circle'} size={20} color="#fff" />
+                    <Text style={s.submitBtnText}>
+                      {!isOnline || activeVisit?.isPending ? 'حفظ محلياً' : 'إرسال الأوردر'}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -180,6 +223,11 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    offlineBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: '#FEF3C7', paddingHorizontal: 16, paddingVertical: 10,
+    },
+    offlineText: { fontSize: 12, color: '#92400E', fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, flex: 1, textAlign: 'right' },
     searchBar: {
       flexDirection: 'row', alignItems: 'center', gap: 10,
       margin: 16, backgroundColor: colors.card, borderRadius: 12,
