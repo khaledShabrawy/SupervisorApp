@@ -22,33 +22,21 @@ import { enqueue } from '@/lib/offlineQueue';
 import { supabase } from '@/lib/supabase';
 import type { AIAnalysis, Product, ShelfAuditItem } from '@/lib/types';
 
+/**
+ * Calls the server-side proxy at /api/analyze-shelf.
+ * The Anthropic key stays on the server — never bundled into the app.
+ */
 async function analyzeShelfPhoto(base64: string): Promise<AIAnalysis | null> {
-  const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  if (!domain) return null;
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(`https://${domain}/api/analyze-shelf`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-5',
-        max_tokens: 300,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
-            { type: 'text', text: 'حلل صورة الرف. أجب بـ JSON فقط بدون أي نص آخر: {"is_present": true, "estimated_quantity": 5, "display_order": "مرتب", "confidence": 0.9}' },
-          ],
-        }],
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64: base64 }),
     });
-    const d = await res.json();
-    const text = d.content?.[0]?.text ?? '';
-    const match = text.match(/\{[\s\S]*\}/);
-    return match ? (JSON.parse(match[0]) as AIAnalysis) : null;
+    if (!res.ok) return null;
+    return (await res.json()) as AIAnalysis;
   } catch {
     return null;
   }
