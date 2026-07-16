@@ -122,14 +122,36 @@ export default function ShelfAuditScreen() {
     try {
       const mustQueue = !isOnline || activeVisit.isPending;
 
-      const rows = auditItems.map((item) => ({
-        product_id: item.product_id,
-        is_present: item.is_present,
-        quantity: item.quantity,
-        photo_url: null,
-        ai_analysis: item.ai_analysis ?? null,
-        display_order: item.ai_analysis?.display_order ?? null,
-      }));
+      const uploadPhoto = async (item: any): Promise<string | null> => {
+          if (!item.photo_base64) return null;
+          try {
+                const fileName = `shelf/${activeVisit.visitId}/${item.product_id}_${Date.now()}.jpg`;
+                const base64Data = item.photo_base64.replace(/^data:image\/\w+;base64,/, '');
+                const byteCharacters = atob(base64Data);
+                const byteArray = new Uint8Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                        byteArray[i] = byteCharacters.charCodeAt(i);
+                }
+                const blob = new Blob([byteArray], { type: 'image/jpeg' });
+                const { error } = await supabase.storage
+                  .from('shelf-photos')
+                  .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
+                if (error) return null;
+                const { data } = supabase.storage.from('shelf-photos').getPublicUrl(fileName);
+                return data?.publicUrl ?? null;
+          } catch (e) {
+                return null;
+          }
+      };
+
+      const rows = await Promise.all(auditItems.map(async (item) => ({
+          product_id: item.product_id,
+          is_present: item.is_present,
+          quantity: item.quantity,
+          photo_url: isOnline ? await uploadPhoto(item) : null,
+          ai_analysis: item.ai_analysis ?? null,
+          display_order: item.ai_analysis?.display_order ?? null,
+      })));
 
       if (mustQueue) {
         for (const row of rows) {
