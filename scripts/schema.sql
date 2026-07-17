@@ -192,3 +192,7 @@ values (
   4
 )
 on conflict (supervisor_id, target_date) do nothing;
+
+-- ── Add perfect_store_score to visits (safe to run even if column exists) ──
+ALTER TABLE public.visits
+  ADD COLUMN IF NOT EXISTS perfect_store_score int;

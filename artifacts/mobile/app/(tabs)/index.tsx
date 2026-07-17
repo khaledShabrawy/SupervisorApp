@@ -176,9 +176,28 @@ export default function HomeScreen() {
                   {item.customers?.type} · {new Date(item.visit_date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
                 </Text>
               </View>
-              <Text style={[s.visitStatus, { color: statusColor(item.status) }]}>
-                {item.status}
-              </Text>
+              <View style={s.visitRight}>
+                {item.perfect_store_score != null && (
+                  <View style={[s.scorePill, {
+                    backgroundColor: item.perfect_store_score >= 80 ? '#D1FAE5'
+                      : item.perfect_store_score >= 60 ? '#FEF3C7'
+                      : item.perfect_store_score >= 40 ? '#FFEDD5'
+                      : '#FEE2E2',
+                  }]}>
+                    <Text style={[s.scorePillText, {
+                      color: item.perfect_store_score >= 80 ? '#065F46'
+                        : item.perfect_store_score >= 60 ? '#92400E'
+                        : item.perfect_store_score >= 40 ? '#9A3412'
+                        : '#991B1B',
+                    }]}>
+                      {item.perfect_store_score}
+                    </Text>
+                  </View>
+                )}
+                <Text style={[s.visitStatus, { color: statusColor(item.status) }]}>
+                  {item.status}
+                </Text>
+              </View>
             </View>
           )}
         />
@@ -274,5 +293,10 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     visitInfo: { flex: 1, alignItems: 'flex-end' },
     visitCustomer: { fontSize: 14, fontWeight: '600' as const, color: colors.foreground, fontFamily: 'Cairo_600SemiBold', textAlign: 'right' },
     visitMeta: { fontSize: 12, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'right' },
-    visitStatus: { fontSize: 12, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, marginRight: 8 },
+    visitRight: { alignItems: 'flex-end', gap: 4, marginRight: 8 },
+    visitStatus: { fontSize: 12, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
+    scorePill: {
+      paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20,
+    },
+    scorePillText: { fontSize: 12, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
   });

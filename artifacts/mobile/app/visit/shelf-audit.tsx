@@ -15,10 +15,13 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ScoreModal from '@/components/ScoreModal';
 import { useOffline } from '@/contexts/OfflineContext';
 import { useVisit } from '@/contexts/VisitContext';
 import { useColors } from '@/hooks/useColors';
 import { enqueue } from '@/lib/offlineQueue';
+import { calcPerfectStoreScore } from '@/lib/perfectStoreScore';
+import type { PerfectStoreResult } from '@/lib/perfectStoreScore';
 import { supabase } from '@/lib/supabase';
 import type { AIAnalysis, Product, ShelfAuditItem } from '@/lib/types';
 
@@ -52,6 +55,8 @@ export default function ShelfAuditScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
+  const [scoreResult, setScoreResult] = useState<PerfectStoreResult | null>(null);
+  const [scoreOffline, setScoreOffline] = useState(false);
   const s = styles(colors, insets);
 
   useEffect(() => {
@@ -153,21 +158,31 @@ export default function ShelfAuditScreen() {
           display_order: item.ai_analysis?.display_order ?? null,
       })));
 
+      // ── Calculate Perfect Store Score ───────────────────────────────────────
+      const pss = calcPerfectStoreScore(auditItems);
+
       if (mustQueue) {
         for (const row of rows) {
           await enqueue('shelf_audit', row, activeVisit.visitId);
         }
+        // Also queue the score update on the visit row
+        await enqueue('visits_score', { perfect_store_score: pss.score }, activeVisit.visitId);
         await refreshCount();
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('💾 محفوظ محلياً', 'كشف الرف سيُرسل عند عودة الاتصال', [
-          { text: 'حسناً', onPress: () => router.back() },
-        ]);
+        setScoreOffline(true);
+        setScoreResult(pss);
       } else {
         const onlineRows = rows.map((r) => ({ ...r, visit_id: activeVisit.visitId }));
         const { error } = await supabase.from('shelf_audit').insert(onlineRows);
         if (error) throw error;
+        // Persist score on the parent visit row
+        await supabase
+          .from('visits')
+          .update({ perfect_store_score: pss.score })
+          .eq('id', activeVisit.visitId);
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('✅ تم', 'تم حفظ كشف الرف بنجاح', [{ text: 'حسناً', onPress: () => router.back() }]);
+        setScoreOffline(false);
+        setScoreResult(pss);
       }
     } catch {
       Alert.alert('خطأ', 'تعذر حفظ كشف الرف');
@@ -186,6 +201,12 @@ export default function ShelfAuditScreen() {
 
   return (
     <View style={s.container}>
+      <ScoreModal
+        visible={!!scoreResult}
+        result={scoreResult}
+        isOffline={scoreOffline}
+        onClose={() => { setScoreResult(null); router.back(); }}
+      />
       {(!isOnline || activeVisit?.isPending) && (
         <View style={s.offlineBanner}>
           <Ionicons name="cloud-offline" size={16} color="#92400E" />
