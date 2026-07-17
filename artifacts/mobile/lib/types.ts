@@ -33,6 +33,7 @@ export interface Visit {
   on_beat: boolean;
   visit_date: string;
   notes: string;
+  perfect_store_score?: number | null;
   customers?: { name: string; type: string; address: string };
 }
 
