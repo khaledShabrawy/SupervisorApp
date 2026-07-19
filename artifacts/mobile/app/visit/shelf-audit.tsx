@@ -216,6 +216,22 @@ export default function ShelfAuditScreen() {
         </View>
       )}
 
+      {/* OOS Detection Banner */}
+      {auditItems.length > 0 && (() => {
+        const oosCount = auditItems.filter(i => !i.is_present).length;
+        if (oosCount === 0) return null;
+        return (
+          <View style={s.oosBanner}>
+            <Ionicons name="alert-circle" size={18} color="#991B1B" />
+            <Text style={s.oosText}>
+              {oosCount === auditItems.length
+                ? 'لا توجد منتجات على الرف !'
+                : `${oosCount} منتج${oosCount > 1 ? 'ات' : ''} غير متوفرة على الرف`}
+            </Text>
+          </View>
+        );
+      })()}
+
       <FlatList
         data={auditItems}
         keyExtractor={(item) => item.product_id}
@@ -310,6 +326,11 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
       backgroundColor: '#FEF3C7', paddingHorizontal: 16, paddingVertical: 10,
     },
     offlineText: { fontSize: 12, color: '#92400E', fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, flex: 1, textAlign: 'right' },
+    oosBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: '#FEE2E2', paddingHorizontal: 16, paddingVertical: 10,
+    },
+    oosText: { fontSize: 12, color: '#991B1B', fontFamily: 'Cairo_700Bold', fontWeight: '700' as const, flex: 1, textAlign: 'right' },
     listContent: { padding: 16, paddingBottom: 40 },
     productCard: {
       backgroundColor: colors.card, borderRadius: 14, padding: 14,

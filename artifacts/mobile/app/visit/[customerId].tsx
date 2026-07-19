@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOffline } from '@/contexts/OfflineContext';
@@ -37,6 +38,23 @@ export default function CustomerVisitScreen() {
   const [visitSaved, setVisitSaved] = useState(false);
   const [distance, setDistance] = useState<number | null>(null);
   const s = styles(colors, insets);
+
+  // ── Customer visit history (last 3 visits) ──────────────────────────────
+  const { data: history = [] } = useQuery<Array<{
+    id: string; status: string; visit_date: string; perfect_store_score: number | null;
+  }>>({
+    queryKey: ['customer-history', customerId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('visits')
+        .select('id, status, visit_date, perfect_store_score')
+        .eq('customer_id', customerId)
+        .order('visit_date', { ascending: false })
+        .limit(3);
+      return data ?? [];
+    },
+    enabled: !!customerId && isOnline,
+  });
 
   useEffect(() => {
     (async () => {
@@ -183,6 +201,36 @@ export default function CustomerVisitScreen() {
         <View style={s.successBanner}>
           <Ionicons name="checkmark-circle" size={20} color={colors.success} />
           <Text style={s.successText}>أنت داخل النطاق — المسافة: {Math.round(distance)} م</Text>
+        </View>
+      )}
+
+      {/* Customer Visit History */}
+      {history.length > 0 && (
+        <View style={s.historyCard}>
+          <Text style={s.historyTitle}>آخر الزيارات</Text>
+          <View style={s.historyRow}>
+            {history.map((h) => {
+              const pssColor = h.perfect_store_score == null ? '#6B7280'
+                : h.perfect_store_score >= 80 ? '#10B981'
+                : h.perfect_store_score >= 60 ? '#F59E0B'
+                : h.perfect_store_score >= 40 ? '#F97316' : '#EF4444';
+              const statusIcon = h.status === 'متعامل' ? 'checkmark-circle'
+                : h.status === 'غير متعامل' ? 'close-circle' : 'remove-circle';
+              const statusColor = h.status === 'متعامل' ? colors.success
+                : h.status === 'غير متعامل' ? colors.destructive : colors.mutedForeground;
+              return (
+                <View key={h.id} style={s.historyItem}>
+                  <Ionicons name={statusIcon as 'checkmark-circle'} size={14} color={statusColor} />
+                  <Text style={s.historyDate}>
+                    {new Date(h.visit_date).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })}
+                  </Text>
+                  {h.perfect_store_score != null && (
+                    <Text style={[s.historyPss, { color: pssColor }]}>{h.perfect_store_score}</Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
         </View>
       )}
 
@@ -344,4 +392,17 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     },
     actionIcon: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
     actionLabel: { flex: 1, fontSize: 15, fontWeight: '600' as const, color: colors.foreground, fontFamily: 'Cairo_600SemiBold', textAlign: 'right' },
+    historyCard: {
+      backgroundColor: colors.card, borderRadius: 14, padding: 14, marginBottom: 12,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+    },
+    historyTitle: { fontSize: 13, fontWeight: '700' as const, color: colors.mutedForeground, fontFamily: 'Cairo_700Bold', textAlign: 'right', marginBottom: 10 },
+    historyRow: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
+    historyItem: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      backgroundColor: colors.muted, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 8,
+    },
+    historyDate: { fontSize: 11, color: colors.foreground, fontFamily: 'Cairo_400Regular' },
+    historyPss: { fontSize: 12, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
   });

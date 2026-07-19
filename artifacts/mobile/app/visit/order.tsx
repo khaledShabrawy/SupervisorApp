@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOffline } from '@/contexts/OfflineContext';
@@ -30,9 +31,43 @@ export default function OrderScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [suggestedIds, setSuggestedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const s = styles(colors, insets);
+
+  // ── Suggested order from last visit ────────────────────────────────────
+  const { data: lastOrderItems } = useQuery<Array<{ product_id: string; quantity: number }>>({
+    queryKey: ['last-order', activeVisit?.customerId],
+    queryFn: async () => {
+      if (!activeVisit?.customerId) return [];
+      const { data: lastVisit } = await supabase
+        .from('visits')
+        .select('id')
+        .eq('customer_id', activeVisit.customerId)
+        .neq('id', activeVisit.visitId)
+        .order('visit_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!lastVisit) return [];
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('product_id, quantity')
+        .eq('visit_id', lastVisit.id);
+      return orders ?? [];
+    },
+    enabled: !!activeVisit?.customerId && isOnline,
+  });
+
+  // Pre-fill cart with suggested quantities (only when cart is empty)
+  useEffect(() => {
+    if (lastOrderItems && lastOrderItems.length > 0 && Object.keys(cart).length === 0) {
+      const suggested: Record<string, number> = {};
+      lastOrderItems.forEach((o) => { suggested[o.product_id] = o.quantity; });
+      setCart(suggested);
+      setSuggestedIds(new Set(lastOrderItems.map((o) => o.product_id)));
+    }
+  }, [lastOrderItems]);
 
   useEffect(() => {
     (async () => {
@@ -174,7 +209,14 @@ export default function OrderScreen() {
                 </TouchableOpacity>
               </View>
               <View style={s.productInfo}>
-                <Text style={s.productName}>{item.name}</Text>
+                <View style={s.productNameRow}>
+                  <Text style={s.productName}>{item.name}</Text>
+                  {suggestedIds.has(item.id) && qty > 0 && (
+                    <View style={s.suggestedBadge}>
+                      <Text style={s.suggestedText}>مقترح</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={s.productCategory}>{item.category}</Text>
               </View>
             </View>
@@ -242,8 +284,11 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
     },
     productRowSelected: { borderWidth: 1.5, borderColor: colors.primary },
     productInfo: { flex: 1, alignItems: 'flex-end', marginLeft: 10 },
+    productNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'flex-end' },
     productName: { fontSize: 14, fontWeight: '600' as const, color: colors.foreground, fontFamily: 'Cairo_600SemiBold', textAlign: 'right' },
     productCategory: { fontSize: 12, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'right' },
+    suggestedBadge: { backgroundColor: '#EDE9FE', borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1 },
+    suggestedText: { fontSize: 10, color: '#5B21B6', fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
     qtyControl: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     qtyBtn: {
       width: 28, height: 28, borderRadius: 7,
