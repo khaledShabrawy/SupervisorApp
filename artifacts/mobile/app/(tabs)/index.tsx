@@ -57,9 +57,38 @@ export default function HomeScreen() {
     enabled: !!supervisor,
   });
 
+  const { data: weekVisits = [] } = useQuery<Visit[]>({
+    queryKey: ['visits-week', supervisor?.id],
+    queryFn: async () => {
+      if (!supervisor) return [];
+      const d = new Date(); d.setDate(d.getDate() - 6);
+      const { data } = await supabase
+        .from('visits')
+        .select('visit_date, perfect_store_score, status')
+        .eq('supervisor_id', supervisor.id)
+        .gte('visit_date', d.toISOString())
+        .order('visit_date', { ascending: true });
+      return (data ?? []) as Visit[];
+    },
+    enabled: !!supervisor,
+  });
+
   const visitsCount = todayVisits.length;
   const visitsTarget = target?.visits_target ?? 10;
   const progress = Math.min(visitsCount / visitsTarget, 1);
+
+  // ── Gamification calculations ──────────────────────────────
+  const pssVisits = weekVisits.filter(v => v.perfect_store_score != null);
+  const avgPss = pssVisits.length > 0
+    ? Math.round(pssVisits.reduce((s, v) => s + (v.perfect_store_score ?? 0), 0) / pssVisits.length) : 0;
+  const weekCount = weekVisits.length;
+  const dealingRate = weekVisits.length > 0
+    ? Math.round((weekVisits.filter(v => v.status === 'متعامل').length / weekVisits.length) * 100) : 0;
+
+  const level = avgPss >= 80 ? { label: 'بطل 🏆', color: '#D4A017' }
+    : avgPss >= 65 ? { label: 'خبير ⭐', color: colors.primary }
+    : avgPss >= 45 ? { label: 'محترف 💪', color: colors.success }
+    : { label: 'مبتدئ 🚀', color: colors.mutedForeground };
 
   const s = styles(colors, insets);
 
@@ -115,6 +144,29 @@ export default function HomeScreen() {
           <Text style={s.avatarText}>
             {(supervisor?.full_name ?? 'M').charAt(0).toUpperCase()}
           </Text>
+        </View>
+      </View>
+
+      {/* Gamification Card */}
+      <View style={s.gamCard}>
+        <View style={s.gamItem}>
+          <Text style={s.gamValue}>{weekCount}</Text>
+          <Text style={s.gamLabel}>زيارة هذا الأسبوع</Text>
+        </View>
+        <View style={s.gamDivider} />
+        <View style={s.gamItem}>
+          <Text style={[s.gamValue, { color: avgPss >= 65 ? colors.success : colors.warning }]}>{avgPss || '—'}</Text>
+          <Text style={s.gamLabel}>متوسط PSS</Text>
+        </View>
+        <View style={s.gamDivider} />
+        <View style={s.gamItem}>
+          <Text style={[s.gamValue, { color: dealingRate >= 70 ? colors.success : colors.primary }]}>{dealingRate}%</Text>
+          <Text style={s.gamLabel}>نسبة التعامل</Text>
+        </View>
+        <View style={s.gamDivider} />
+        <View style={s.gamItem}>
+          <Text style={[s.gamValue, { color: level.color, fontSize: 13 }]}>{level.label}</Text>
+          <Text style={s.gamLabel}>مستواك</Text>
         </View>
       </View>
 
@@ -299,4 +351,14 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20,
     },
     scorePillText: { fontSize: 12, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
+    gamCard: {
+      marginHorizontal: 16, marginBottom: 16, backgroundColor: colors.card,
+      borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center',
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+    },
+    gamItem: { flex: 1, alignItems: 'center', gap: 3 },
+    gamValue: { fontSize: 18, fontWeight: '700' as const, color: colors.primary, fontFamily: 'Cairo_700Bold' },
+    gamLabel: { fontSize: 9, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
+    gamDivider: { width: 1, height: 36, backgroundColor: colors.border, marginHorizontal: 4 },
   });

@@ -67,6 +67,49 @@ export default function NotificationsTab() {
         });
       }
 
+      // Check low PSS score alert
+      const { data: recentAudits } = await supabase
+        .from('visits')
+        .select('perfect_store_score, customers(name)')
+        .eq('supervisor_id', supervisor.id)
+        .not('perfect_store_score', 'is', null)
+        .order('visit_date', { ascending: false })
+        .limit(5);
+      const lowPss = (recentAudits ?? []).filter((v: any) => (v.perfect_store_score ?? 100) < 60);
+      if (lowPss.length > 0) {
+        result.push({
+          id: 'low-pss',
+          type: 'product',
+          title: '⚠️ درجة Perfect Store منخفضة',
+          body: `${lowPss.length} زيارة أخيرة بدرجة أقل من 60 — يرجى تحسين ترتيب الرف`,
+          time: 'من آخر الزيارات',
+          color: '#F97316',
+          icon: 'analytics',
+        });
+      }
+
+      // Weekly performance summary
+      const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+      const { data: weekVisits } = await supabase
+        .from('visits')
+        .select('status')
+        .eq('supervisor_id', supervisor.id)
+        .gte('visit_date', weekAgo.toISOString());
+      const total = weekVisits?.length ?? 0;
+      const dealing = weekVisits?.filter((v: any) => v.status === 'متعامل').length ?? 0;
+      if (total >= 3) {
+        const rate = Math.round((dealing / total) * 100);
+        result.push({
+          id: 'week-perf',
+          type: 'target',
+          title: `أداء الأسبوع: ${rate}% تعامل`,
+          body: `${dealing} متعامل من أصل ${total} زيارة هذا الأسبوع`,
+          time: 'ملخص الأسبوع',
+          color: rate >= 70 ? colors.success : rate >= 50 ? colors.warning : colors.destructive,
+          icon: rate >= 70 ? 'trending-up' : 'trending-down',
+        });
+      }
+
       // Check overdue customers (not visited in 7+ days)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
