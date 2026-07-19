@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,8 +72,15 @@ export default function ReportsTab() {
   return (
     <View style={s.container}>
       <View style={s.header}>
+        <TouchableOpacity
+          style={s.priceIndexBtn}
+          onPress={() => router.push('/price-index')}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="trending-up" size={16} color="#fff" />
+          <Text style={s.priceIndexBtnText}>Price Index</Text>
+        </TouchableOpacity>
         <Text style={s.headerTitle}>تقاريري</Text>
-        <Ionicons name="stats-chart" size={22} color="#fff" />
       </View>
 
       {/* Tabs */}
@@ -204,6 +212,12 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       paddingBottom: 16, paddingHorizontal: 20,
     },
     headerTitle: { fontSize: 20, fontWeight: '700' as const, color: '#fff', fontFamily: 'Cairo_700Bold' },
+    priceIndexBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20,
+      paddingHorizontal: 12, paddingVertical: 6,
+    },
+    priceIndexBtnText: { fontSize: 12, color: '#fff', fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
     tabRow: {
       flexDirection: 'row', backgroundColor: colors.card,
       paddingHorizontal: 16, paddingVertical: 10, gap: 10,
