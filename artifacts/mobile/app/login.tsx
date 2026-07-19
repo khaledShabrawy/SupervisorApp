@@ -140,9 +140,9 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     },
     logoArea: { alignItems: 'center', marginBottom: 32 },
     logoImage: {
-      width: 120,
-      height: 120,
-      borderRadius: 20,
+      width: 80,
+      height: 80,
+      borderRadius: 14,
       marginBottom: 12,
     },
     appName: {
