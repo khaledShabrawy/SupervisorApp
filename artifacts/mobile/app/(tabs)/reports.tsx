@@ -62,6 +62,11 @@ export default function ReportsTab() {
   const notDealing = visits.filter((v) => v.status === 'غير متعامل').length;
   const absent = visits.filter((v) => v.status === 'غير موجود').length;
   const compliance = visits.length > 0 ? Math.round((dealing / visits.length) * 100) : 0;
+  const pssVisits = visits.filter((v) => v.perfect_store_score != null);
+  const avgPss = pssVisits.length > 0
+    ? Math.round(pssVisits.reduce((s, v) => s + (v.perfect_store_score ?? 0), 0) / pssVisits.length)
+    : null;
+  const pssColor = avgPss == null ? '#6B7280' : avgPss >= 80 ? '#10B981' : avgPss >= 60 ? '#F59E0B' : avgPss >= 40 ? '#F97316' : '#EF4444';
 
   return (
     <View style={s.container}>
@@ -108,6 +113,10 @@ export default function ReportsTab() {
               <Text style={[s.statNum, { color: colors.primary }]}>{compliance}%</Text>
               <Text style={s.statLabel}>التزام</Text>
             </View>
+            <View style={[s.statCard, { borderTopColor: pssColor }]}>
+              <Text style={[s.statNum, { color: pssColor }]}>{avgPss ?? '—'}</Text>
+              <Text style={s.statLabel}>PSS</Text>
+            </View>
           </View>
 
           {/* Visits List */}
@@ -130,7 +139,15 @@ export default function ReportsTab() {
                     {item.customers?.type} · {new Date(item.visit_date).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
                   </Text>
                 </View>
-                <Text style={[s.visitStatus, { color: statusColor(item.status) }]}>{item.status}</Text>
+                <View style={s.visitRight}>
+                  {item.perfect_store_score != null && (
+                    <Text style={[s.pssChip, {
+                      color: item.perfect_store_score >= 80 ? '#065F46' : item.perfect_store_score >= 60 ? '#92400E' : '#991B1B',
+                      backgroundColor: item.perfect_store_score >= 80 ? '#D1FAE5' : item.perfect_store_score >= 60 ? '#FEF3C7' : '#FEE2E2',
+                    }]}>{item.perfect_store_score}</Text>
+                  )}
+                  <Text style={[s.visitStatus, { color: statusColor(item.status) }]}>{item.status}</Text>
+                </View>
               </View>
             )}
           />
@@ -183,5 +200,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     visitInfo: { flex: 1, alignItems: 'flex-end' },
     visitName: { fontSize: 14, fontWeight: '600' as const, color: colors.foreground, fontFamily: 'Cairo_600SemiBold', textAlign: 'right' },
     visitMeta: { fontSize: 12, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'right' },
+    visitRight: { alignItems: 'flex-end', gap: 3 },
     visitStatus: { fontSize: 12, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
+    pssChip: { fontSize: 11, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
   });
