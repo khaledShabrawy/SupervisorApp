@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -54,9 +55,11 @@ export default function LoginScreen() {
       >
         {/* Logo area */}
         <View style={s.logoArea}>
-          <View style={s.logoCircle}>
-            <Text style={s.logoIcon}>🛡️</Text>
-          </View>
+          <Image
+            source={require('../assets/logo.jpg')}
+            style={s.logoImage}
+            resizeMode="contain"
+          />
           <Text style={s.appName}>Mydan</Text>
           <Text style={s.appSubtitle}>نظام إدارة المشرفين الميدانيين</Text>
         </View>
@@ -136,16 +139,12 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 0),
     },
     logoArea: { alignItems: 'center', marginBottom: 32 },
-    logoCircle: {
-      width: 80,
-      height: 80,
+    logoImage: {
+      width: 120,
+      height: 120,
       borderRadius: 20,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
       marginBottom: 12,
     },
-    logoIcon: { fontSize: 36 },
     appName: {
       fontSize: 22,
       fontWeight: '700' as const,
