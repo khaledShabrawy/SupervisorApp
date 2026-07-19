@@ -34,7 +34,9 @@ export default function VisitTab() {
     },
   });
 
-  const nearest = useMemo<CustomerWithDistance[]>(() => {
+  const [typeFilter, setTypeFilter] = useState<string>('الكل');
+
+  const allWithDistance = useMemo<CustomerWithDistance[]>(() => {
     if (!location || customers.length === 0) return [];
     return customers
       .filter((c) => c.latitude && c.longitude)
@@ -42,9 +44,18 @@ export default function VisitTab() {
         ...c,
         distance: distanceKm(location.lat, location.lng, c.latitude, c.longitude) * 1000,
       }))
-      .sort((a, b) => a.distance - b.distance)
-      .slice(0, 5);
+      .sort((a, b) => a.distance - b.distance);
   }, [location, customers]);
+
+  const customerTypes = useMemo(() => {
+    const types = [...new Set(customers.map(c => c.type))];
+    return ['الكل', ...types];
+  }, [customers]);
+
+  const nearest = useMemo<CustomerWithDistance[]>(() => {
+    const filtered = typeFilter === 'الكل' ? allWithDistance : allWithDistance.filter(c => c.type === typeFilter);
+    return filtered.slice(0, 8);
+  }, [allWithDistance, typeFilter]);
 
   const getLocation = async () => {
     if (Platform.OS === 'web') {
@@ -106,6 +117,22 @@ export default function VisitTab() {
         )}
       </View>
 
+      {/* Type Filter Pills */}
+      {location && customers.length > 0 && (
+        <View style={s.filterRow}>
+          {customerTypes.map(type => (
+            <TouchableOpacity
+              key={type}
+              style={[s.filterPill, typeFilter === type && s.filterPillActive]}
+              onPress={() => setTypeFilter(type)}
+              activeOpacity={0.8}
+            >
+              <Text style={[s.filterPillText, typeFilter === type && s.filterPillTextActive]}>{type}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       {/* Customers List */}
       {!location ? (
         <View style={s.placeholder}>
@@ -122,7 +149,7 @@ export default function VisitTab() {
         </View>
       ) : (
         <>
-          <Text style={s.sectionTitle}>أقرب العملاء</Text>
+          <Text style={s.sectionTitle}>{typeFilter === 'الكل' ? 'أقرب العملاء' : typeFilter}</Text>
           <FlatList
             data={nearest}
             keyExtractor={(item) => item.id}
@@ -202,4 +229,15 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     typeBadge: { borderRadius: 6, paddingVertical: 2, paddingHorizontal: 8 },
     typeText: { fontSize: 11, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
     distanceText: { fontSize: 13, color: colors.primary, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
+    filterRow: {
+      flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+      paddingHorizontal: 16, paddingVertical: 10, backgroundColor: colors.card,
+    },
+    filterPill: {
+      paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
+      backgroundColor: colors.muted, borderWidth: 1, borderColor: colors.border,
+    },
+    filterPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    filterPillText: { fontSize: 12, color: colors.mutedForeground, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
+    filterPillTextActive: { color: '#fff' },
   });

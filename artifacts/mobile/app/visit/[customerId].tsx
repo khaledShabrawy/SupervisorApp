@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -37,6 +38,8 @@ export default function CustomerVisitScreen() {
   const [saving, setSaving] = useState(false);
   const [visitSaved, setVisitSaved] = useState(false);
   const [distance, setDistance] = useState<number | null>(null);
+  const [notes, setNotes] = useState('');
+  const [notesSaved, setNotesSaved] = useState(false);
   const s = styles(colors, insets);
 
   // ── Customer visit history (last 3 visits) ──────────────────────────────
@@ -326,6 +329,40 @@ export default function CustomerVisitScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Visit Notes */}
+      {visitSaved && activeVisit && (
+        <View style={s.notesCard}>
+          <Text style={s.notesSectionTitle}>ملاحظات الزيارة</Text>
+          <TextInput
+            style={s.notesInput}
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="أضف ملاحظاتك هنا..."
+            placeholderTextColor={colors.mutedForeground}
+            multiline
+            numberOfLines={3}
+            textAlign="right"
+            textAlignVertical="top"
+          />
+          <TouchableOpacity
+            style={[s.notesSaveBtn, notesSaved && { backgroundColor: colors.success }]}
+            onPress={async () => {
+              if (!activeVisit || !notes.trim()) return;
+              try {
+                await supabase.from('visits').update({ notes }).eq('id', activeVisit.visitId);
+                setNotesSaved(true);
+                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              } catch { /* offline — will sync */ }
+            }}
+            activeOpacity={0.85}
+            disabled={notesSaved || !notes.trim()}
+          >
+            <Ionicons name={notesSaved ? 'checkmark-circle' : 'save'} size={18} color="#fff" />
+            <Text style={s.notesSaveBtnText}>{notesSaved ? 'تم الحفظ' : 'حفظ الملاحظة'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       <View style={{ height: 40 }} />
     </ScrollView>
   );
@@ -392,6 +429,21 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     },
     actionIcon: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
     actionLabel: { flex: 1, fontSize: 15, fontWeight: '600' as const, color: colors.foreground, fontFamily: 'Cairo_600SemiBold', textAlign: 'right' },
+    notesCard: {
+      backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 12,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+    },
+    notesSectionTitle: { fontSize: 15, fontWeight: '700' as const, color: colors.foreground, fontFamily: 'Cairo_700Bold', textAlign: 'right', marginBottom: 10 },
+    notesInput: {
+      borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
+      padding: 12, fontSize: 14, color: colors.foreground,
+      fontFamily: 'Cairo_400Regular', minHeight: 80, backgroundColor: colors.muted, marginBottom: 10,
+    },
+    notesSaveBtn: {
+      backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 11,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    },
+    notesSaveBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
     historyCard: {
       backgroundColor: colors.card, borderRadius: 14, padding: 14, marginBottom: 12,
       shadowColor: '#000', shadowOffset: { width: 0, height: 1 },

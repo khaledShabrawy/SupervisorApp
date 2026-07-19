@@ -119,6 +119,43 @@ export default function ReportsTab() {
             </View>
           </View>
 
+          {/* Weekly Bar Chart */}
+          {activeTab === 'week' && (() => {
+            const days: Record<string, number> = {};
+            for (let i = 6; i >= 0; i--) {
+              const d = new Date(); d.setDate(d.getDate() - i);
+              days[d.toISOString().split('T')[0]] = 0;
+            }
+            visits.forEach(v => {
+              const d = new Date(v.visit_date).toISOString().split('T')[0];
+              if (d in days) days[d]++;
+            });
+            const maxVal = Math.max(...Object.values(days), 1);
+            const dayNames = ['أحد','إثن','ثلث','أرب','خمس','جمع','سبت'];
+            return (
+              <View style={s.chartCard}>
+                <Text style={s.chartTitle}>زيارات الأسبوع</Text>
+                <View style={s.chartBars}>
+                  {Object.entries(days).map(([date, count]) => {
+                    const dayName = dayNames[new Date(date).getDay()];
+                    const isToday = date === today();
+                    const barH = Math.max((count / maxVal) * 72, count > 0 ? 8 : 3);
+                    return (
+                      <View key={date} style={s.chartCol}>
+                        <Text style={s.chartCount}>{count > 0 ? count : ''}</Text>
+                        <View style={[s.chartBar, {
+                          height: barH,
+                          backgroundColor: isToday ? colors.accent : count > 0 ? colors.primary : colors.border,
+                        }]} />
+                        <Text style={[s.chartDay, isToday && { color: colors.primary, fontFamily: 'Cairo_700Bold' }]}>{dayName}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })()}
+
           {/* Visits List */}
           <FlatList
             data={visits}
@@ -203,4 +240,15 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     visitRight: { alignItems: 'flex-end', gap: 3 },
     visitStatus: { fontSize: 12, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
     pssChip: { fontSize: 11, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
+    chartCard: {
+      backgroundColor: colors.card, borderRadius: 16, padding: 16,
+      marginHorizontal: 0, marginBottom: 12,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+    },
+    chartTitle: { fontSize: 14, fontWeight: '700' as const, color: colors.foreground, fontFamily: 'Cairo_700Bold', textAlign: 'right', marginBottom: 12 },
+    chartBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 100 },
+    chartCol: { flex: 1, alignItems: 'center', gap: 4 },
+    chartBar: { width: '60%', borderRadius: 4 },
+    chartCount: { fontSize: 10, color: colors.primary, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
+    chartDay: { fontSize: 10, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular' },
   });
