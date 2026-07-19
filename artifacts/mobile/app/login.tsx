@@ -36,8 +36,8 @@ export default function LoginScreen() {
     try {
       await signIn(email.trim(), password);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'خطأ في تسجيل الدخول';
-      setError(msg.includes('Invalid') ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' : msg);
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
     } finally {
       setLoading(false);
     }
