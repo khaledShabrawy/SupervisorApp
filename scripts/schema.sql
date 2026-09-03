@@ -201,3 +201,23 @@ ALTER TABLE public.visits
 -- ── Async shelf-audit result from n8n / Supabase Realtime ─────
 ALTER TABLE public.shelf_audit
   ADD COLUMN IF NOT EXISTS audit_summary_ar text;
+
+-- ── Realtime: publish asynchronous shelf-audit results ─────────
+-- Safe to run repeatedly in the Supabase SQL Editor.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_publication
+    WHERE pubname = 'supabase_realtime'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'shelf_audit'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.shelf_audit;
+  END IF;
+END
+$$;
