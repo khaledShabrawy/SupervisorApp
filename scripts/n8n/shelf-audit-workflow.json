@@ -1,0 +1,234 @@
+{
+  "name": "Mydan - Shelf Audit Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mydan/shelf-audit",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "shelf-audit-webhook",
+      "name": "Receive shelf audit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "webhookId": "mydan-shelf-audit"
+    },
+    {
+      "parameters": {
+        "jsCode": "const request = $json.body ?? {};\\nconst required = ['visit_id', 'customer_id', 'supervisor_id', 'image_url', 'timestamp'];\\nconst missing = required.filter((key) => typeof request[key] !== 'string' || request[key].trim() === '');\\nif (missing.length > 0) {\\n  throw new Error(`Missing required fields: ${missing.join(', ')}`);\\n}\\n\\nreturn [{\\n  json: {\\n    request,\\n    anthropic_request: {\\n      model: 'claude-sonnet-4-6',\\n      max_tokens: 300,\\n      messages: [{\\n        role: 'user',\\n        content: [\\n          {\\n            type: 'image',\\n            source: { type: 'url', url: request.image_url }\\n          },\\n          {\\n            type: 'text',\\n            text: 'حلل صورة الرف بالعربية. أجب بـ JSON فقط دون أي نص إضافي، وبالشكل التالي: {\"audit_summary_ar\":\"ملخص عربي قصير للرف\"}. اجعل الملخص يذكر حالة الرف والمنتجات الظاهرة وأي نقص أو فوضى واضحة.'\\n          }\\n        ]\\n      }]\\n    }\\n  }\\n}];"
+      },
+      "id": "validate-and-prepare",
+      "name": "Validate request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$env.ANTHROPIC_API_KEY}}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json.anthropic_request)}}",
+        "options": {}
+      },
+      "id": "analyze-image",
+      "name": "Analyze shelf image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        740,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "merge-request-and-analysis",
+      "name": "Keep visit context",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        980,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $json.content ?? $json.body?.content ?? $json.data?.content ?? [];\\nconst text = Array.isArray(content)\\n  ? content.map((part) => part?.text ?? '').join('')\\n  : '';\\nconst match = text.match(/\\\\{[\\\\s\\\\S]*\\\\}/);\\nif (!match) {\\n  throw new Error('Claude did not return a JSON shelf summary');\\n}\\n\\nlet parsed;\\ntry {\\n  parsed = JSON.parse(match[0]);\\n} catch {\\n  throw new Error('Claude returned invalid JSON');\\n}\\n\\nconst summary = parsed.audit_summary_ar;\\nif (typeof summary !== 'string' || summary.trim() === '') {\\n  throw new Error('audit_summary_ar is missing from Claude response');\\n}\\n\\nreturn [{\\n  json: {\\n    request: $json.request,\\n    audit_summary_ar: summary.trim()\\n  }\\n}];"
+      },
+      "id": "parse-summary",
+      "name": "Parse Arabic summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{$env.SUPABASE_URL + '/rest/v1/shelf_audit?visit_id=eq.' + $json.request.visit_id}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_ROLE_KEY}}"
+            },
+            {
+              "name": "authorization",
+              "value": "={{'Bearer ' + $env.SUPABASE_SERVICE_ROLE_KEY}}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify({audit_summary_ar: $json.audit_summary_ar})}}",
+        "options": {}
+      },
+      "id": "update-supabase",
+      "name": "Update shelf audit result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{JSON.stringify({ok: true, message: 'Shelf audit result saved'})}}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1700,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Receive shelf audit": {
+      "main": [
+        [
+          {
+            "node": "Validate request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate request": {
+      "main": [
+        [
+          {
+            "node": "Analyze shelf image",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Keep visit context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze shelf image": {
+      "main": [
+        [
+          {
+            "node": "Keep visit context",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Keep visit context": {
+      "main": [
+        [
+          {
+            "node": "Parse Arabic summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Arabic summary": {
+      "main": [
+        [
+          {
+            "node": "Update shelf audit result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update shelf audit result": {
+      "main": [
+        [
+          {
+            "node": "Respond success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "mydan-shelf-audit-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

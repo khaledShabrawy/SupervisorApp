@@ -142,6 +142,8 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
     ...process.env,
     EXPO_PUBLIC_DOMAIN: expoPublicDomain,
     EXPO_PUBLIC_REPL_ID: expoPublicReplId,
+    EXPO_PUBLIC_N8N_SHELF_AUDIT_WEBHOOK:
+      process.env.VITE_N8N_SHELF_AUDIT_WEBHOOK,
   };
 
   if (expoPublicReplId) {

@@ -29,7 +29,12 @@ import type { Product, ShelfAuditItem } from '@/lib/types';
 
 type AiStatus = 'idle' | 'uploading' | 'analyzing' | 'success' | 'timeout' | 'error';
 
-const n8nWebhookUrl = process.env.VITE_N8N_SHELF_AUDIT_WEBHOOK;
+// Expo only inlines EXPO_PUBLIC_* variables into the client bundle. The
+// workflow still owns the VITE_* secret, so build.js/dev export it under the
+// Expo-safe name without changing the configured secret key.
+const n8nWebhookUrl =
+  process.env.EXPO_PUBLIC_N8N_SHELF_AUDIT_WEBHOOK ??
+  process.env.VITE_N8N_SHELF_AUDIT_WEBHOOK;
 
 export default function ShelfAuditScreen() {
   const colors = useColors();
@@ -181,6 +186,10 @@ export default function ShelfAuditScreen() {
         image_url: imageUrl,
         timestamp,
       }),
+    }).then((response) => {
+      if (!response.ok) {
+        throw new Error(`n8n webhook returned ${response.status}`);
+      }
     }).catch(() => {
       setAiStatus('error');
       setAiMessage('تعذر إرسال الصورة للتحليل — حاول مرة أخرى');
