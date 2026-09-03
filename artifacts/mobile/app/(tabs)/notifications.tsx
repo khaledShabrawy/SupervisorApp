@@ -114,7 +114,11 @@ export default function NotificationsTab() {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-      const { data: customers } = await supabase.from('customers').select('id, name').limit(20);
+      const { data: customers } = await supabase
+        .from('customers')
+        .select('id, name')
+        .eq('supervisor_id', supervisor.id)
+        .limit(20);
       if (customers) {
         for (const c of customers.slice(0, 3)) {
           const { data: lastVisit } = await supabase

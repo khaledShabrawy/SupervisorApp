@@ -77,6 +77,7 @@ create table if not exists public.shelf_audit (
   photo_url      text,
   ai_analysis    jsonb,
   display_order  text,
+  audit_summary_ar text,
   created_at     timestamptz not null default now()
 );
 
@@ -196,3 +197,7 @@ on conflict (supervisor_id, target_date) do nothing;
 -- ── Add perfect_store_score to visits (safe to run even if column exists) ──
 ALTER TABLE public.visits
   ADD COLUMN IF NOT EXISTS perfect_store_score int;
+
+-- ── Async shelf-audit result from n8n / Supabase Realtime ─────
+ALTER TABLE public.shelf_audit
+  ADD COLUMN IF NOT EXISTS audit_summary_ar text;

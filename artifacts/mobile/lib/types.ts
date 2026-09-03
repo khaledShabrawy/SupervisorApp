@@ -64,7 +64,9 @@ export interface ShelfAuditItem {
   quantity: number;
   photo_uri?: string;
   photo_base64?: string;
+  photo_url?: string;
   ai_analysis?: AIAnalysis | null;
+  audit_summary_ar?: string | null;
 }
 
 export interface CompetitorProduct {
