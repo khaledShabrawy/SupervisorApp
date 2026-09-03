@@ -14,6 +14,7 @@ import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '@/contexts/AuthContext';
 import { useColors } from '@/hooks/useColors';
 import { distanceKm, formatDistance } from '@/lib/haversine';
 import { supabase } from '@/lib/supabase';

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,7 +15,9 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import ScoreModal from '@/components/ScoreModal';
+import { useAuth } from '@/contexts/AuthContext';
 import { useOffline } from '@/contexts/OfflineContext';
 import { useVisit } from '@/contexts/VisitContext';
 import { useColors } from '@/hooks/useColors';
@@ -23,31 +25,16 @@ import { enqueue } from '@/lib/offlineQueue';
 import { calcPerfectStoreScore } from '@/lib/perfectStoreScore';
 import type { PerfectStoreResult } from '@/lib/perfectStoreScore';
 import { supabase } from '@/lib/supabase';
-import type { AIAnalysis, Product, ShelfAuditItem } from '@/lib/types';
+import type { Product, ShelfAuditItem } from '@/lib/types';
 
-/**
- * Calls the server-side proxy at /api/analyze-shelf.
- * The Anthropic key stays on the server — never bundled into the app.
- */
-async function analyzeShelfPhoto(base64: string): Promise<AIAnalysis | null> {
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (!domain) return null;
-  try {
-    const res = await fetch(`https://${domain}/api/analyze-shelf`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64: base64 }),
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as AIAnalysis;
-  } catch {
-    return null;
-  }
-}
+type AiStatus = 'idle' | 'uploading' | 'analyzing' | 'success' | 'timeout' | 'error';
+
+const n8nWebhookUrl = process.env.VITE_N8N_SHELF_AUDIT_WEBHOOK;
 
 export default function ShelfAuditScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { supervisor } = useAuth();
   const { activeVisit } = useVisit();
   const { isOnline, refreshCount } = useOffline();
   const [products, setProducts] = useState<Product[]>([]);
@@ -55,8 +42,14 @@ export default function ShelfAuditScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
+  const [aiStatus, setAiStatus] = useState<AiStatus>('idle');
+  const [aiMessage, setAiMessage] = useState('');
+  const [aiSummary, setAiSummary] = useState('');
   const [scoreResult, setScoreResult] = useState<PerfectStoreResult | null>(null);
   const [scoreOffline, setScoreOffline] = useState(false);
+  const aiChannelRef = useRef<RealtimeChannel | null>(null);
+  const aiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const supervisorId = supervisor?.id;
   const s = styles(colors, insets);
 
   useEffect(() => {
@@ -77,6 +70,51 @@ export default function ShelfAuditScreen() {
     })();
   }, [isOnline]);
 
+  const stopAiListener = () => {
+    if (aiTimeoutRef.current) {
+      clearTimeout(aiTimeoutRef.current);
+      aiTimeoutRef.current = null;
+    }
+    if (aiChannelRef.current) {
+      void supabase.removeChannel(aiChannelRef.current);
+      aiChannelRef.current = null;
+    }
+  };
+
+  useEffect(() => () => stopAiListener(), []);
+
+  const startAiListener = (visitId: string) => {
+    stopAiListener();
+    const channel = supabase
+      .channel(`shelf-audit-result-${visitId}-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'shelf_audit',
+          filter: `visit_id=eq.${visitId}`,
+        },
+        (payload) => {
+          const summary = (payload.new as { audit_summary_ar?: string | null }).audit_summary_ar;
+          if (!summary) return;
+          setAiSummary(summary);
+          setAiMessage('');
+          setAiStatus('success');
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          stopAiListener();
+        },
+      )
+      .subscribe();
+
+    aiChannelRef.current = channel;
+    aiTimeoutRef.current = setTimeout(() => {
+      stopAiListener();
+      setAiStatus('timeout');
+      setAiMessage('⏳ التحليل يستغرق وقتاً، سيظهر النتيجة قريباً');
+    }, 60_000);
+  };
+
   const toggle = (id: string) => {
     setAuditItems((prev) =>
       prev.map((i) => (i.product_id === id ? { ...i, is_present: !i.is_present, quantity: !i.is_present ? 1 : 0 } : i))
@@ -90,35 +128,153 @@ export default function ShelfAuditScreen() {
     );
   };
 
-  const takePhoto = async (id: string) => {
+  const persistPhotoAuditRow = async (
+    item: ShelfAuditItem,
+    photoUrl: string,
+  ): Promise<void> => {
+    if (!activeVisit || activeVisit.isPending) return;
+    const payload = {
+      visit_id: activeVisit.visitId,
+      product_id: item.product_id,
+      is_present: item.is_present,
+      quantity: item.quantity,
+      photo_url: photoUrl,
+      ai_analysis: item.ai_analysis ?? null,
+      display_order: item.ai_analysis?.display_order ?? null,
+    };
+
+    const { data: existing, error: findError } = await supabase
+      .from('shelf_audit')
+      .select('id')
+      .eq('visit_id', activeVisit.visitId)
+      .eq('product_id', item.product_id)
+      .maybeSingle();
+    if (findError) throw findError;
+
+    if (existing?.id) {
+      const { error } = await supabase
+        .from('shelf_audit')
+        .update(payload)
+        .eq('id', existing.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('shelf_audit').insert(payload);
+      if (error) throw error;
+    }
+  };
+
+  const dispatchShelfAuditWebhook = (timestamp: string, imageUrl: string) => {
+    if (!activeVisit || !supervisorId || !n8nWebhookUrl || n8nWebhookUrl.includes('yourdomain.com')) {
+      setAiStatus('error');
+      setAiMessage('تعذر بدء التحليل — يرجى إعداد رابط التحليل أولاً');
+      return;
+    }
+
+    // Intentionally fire-and-forget: the result arrives through Supabase Realtime.
+    void fetch(n8nWebhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        visit_id: activeVisit.visitId,
+        customer_id: activeVisit.customerId,
+        supervisor_id: supervisorId,
+        image_url: imageUrl,
+        timestamp,
+      }),
+    }).catch(() => {
+      setAiStatus('error');
+      setAiMessage('تعذر إرسال الصورة للتحليل — حاول مرة أخرى');
+      stopAiListener();
+    });
+  };
+
+  const processPhoto = async (
+    id: string,
+    asset: ImagePicker.ImagePickerAsset,
+  ) => {
+    setAuditItems((prev) =>
+      prev.map((i) =>
+        i.product_id === id
+          ? { ...i, photo_uri: asset.uri, photo_base64: undefined }
+          : i,
+      ),
+    );
+
+    if (!activeVisit || !isOnline || activeVisit.isPending) {
+      setAiStatus('error');
+      setAiMessage('الصورة محفوظة محلياً — سيبدأ التحليل بعد مزامنة الزيارة');
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    setAiLoading((prev) => ({ ...prev, [id]: true }));
+    setAiStatus('uploading');
+    setAiMessage('جارٍ رفع الصورة...');
+
+    try {
+      const imageResponse = await fetch(asset.uri);
+      const imageBlob = await imageResponse.blob();
+      const storagePath = `${supervisorId}/${activeVisit.visitId}/${Date.now()}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('shelf-photos')
+        .upload(storagePath, imageBlob, {
+          contentType: 'image/jpeg',
+          upsert: false,
+        });
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from('shelf-photos')
+        .getPublicUrl(storagePath);
+      const publicUrl = publicUrlData.publicUrl;
+      if (!publicUrl) throw new Error('لم يتم إنشاء رابط الصورة');
+
+      const selectedItem = auditItems.find((item) => item.product_id === id);
+      if (!selectedItem) throw new Error('لم يتم العثور على المنتج');
+      await persistPhotoAuditRow(selectedItem, publicUrl);
+
+      setAuditItems((prev) =>
+        prev.map((i) =>
+          i.product_id === id ? { ...i, photo_url: publicUrl } : i,
+        ),
+      );
+      setAiStatus('analyzing');
+      setAiMessage('🔍 جارٍ تحليل الرف بالذكاء الاصطناعي...');
+      startAiListener(activeVisit.visitId);
+      dispatchShelfAuditWebhook(timestamp, publicUrl);
+    } catch {
+      setAiStatus('error');
+      setAiMessage('تعذر رفع الصورة — تحقق من الاتصال وحاول مرة أخرى');
+      Alert.alert('خطأ', 'تعذر رفع الصورة إلى التخزين');
+    } finally {
+      setAiLoading((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const openCamera = async (id: string) => {
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
       quality: 0.7,
-      base64: true,
     });
     if (result.canceled) return;
-    const asset = result.assets[0];
+    await processPhoto(id, result.assets[0]);
+  };
 
-    setAuditItems((prev) =>
-      prev.map((i) => (i.product_id === id ? { ...i, photo_uri: asset.uri, photo_base64: asset.base64 ?? undefined } : i))
-    );
+  const openLibrary = async (id: string) => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+    });
+    if (result.canceled) return;
+    await processPhoto(id, result.assets[0]);
+  };
 
-    if (asset.base64) {
-      setAiLoading((prev) => ({ ...prev, [id]: true }));
-      const analysis = await analyzeShelfPhoto(asset.base64);
-      setAuditItems((prev) =>
-        prev.map((i) => {
-          if (i.product_id !== id) return i;
-          return {
-            ...i,
-            ai_analysis: analysis,
-            is_present: analysis?.is_present ?? i.is_present,
-            quantity: analysis?.estimated_quantity ?? i.quantity,
-          };
-        })
-      );
-      setAiLoading((prev) => ({ ...prev, [id]: false }));
-    }
+  const choosePhoto = (id: string) => {
+    Alert.alert('إضافة صورة الرف', 'اختر مصدر الصورة', [
+      { text: 'الكاميرا', onPress: () => void openCamera(id) },
+      { text: 'معرض الصور', onPress: () => void openLibrary(id) },
+      { text: 'إلغاء', style: 'cancel' },
+    ]);
   };
 
   const handleSubmit = async () => {
@@ -127,36 +283,14 @@ export default function ShelfAuditScreen() {
     try {
       const mustQueue = !isOnline || activeVisit.isPending;
 
-      const uploadPhoto = async (item: any): Promise<string | null> => {
-          if (!item.photo_base64) return null;
-          try {
-                const fileName = `shelf/${activeVisit.visitId}/${item.product_id}_${Date.now()}.jpg`;
-                const base64Data = item.photo_base64.replace(/^data:image\/\w+;base64,/, '');
-                const byteCharacters = atob(base64Data);
-                const byteArray = new Uint8Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                        byteArray[i] = byteCharacters.charCodeAt(i);
-                }
-                const blob = new Blob([byteArray], { type: 'image/jpeg' });
-                const { error } = await supabase.storage
-                  .from('shelf-photos')
-                  .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
-                if (error) return null;
-                const { data } = supabase.storage.from('shelf-photos').getPublicUrl(fileName);
-                return data?.publicUrl ?? null;
-          } catch (e) {
-                return null;
-          }
-      };
-
-      const rows = await Promise.all(auditItems.map(async (item) => ({
+      const rows = auditItems.map((item) => ({
           product_id: item.product_id,
           is_present: item.is_present,
           quantity: item.quantity,
-          photo_url: isOnline ? await uploadPhoto(item) : null,
+          photo_url: item.photo_url ?? null,
           ai_analysis: item.ai_analysis ?? null,
           display_order: item.ai_analysis?.display_order ?? null,
-      })));
+      }));
 
       // ── Calculate Perfect Store Score ───────────────────────────────────────
       const pss = calcPerfectStoreScore(auditItems);
@@ -172,9 +306,28 @@ export default function ShelfAuditScreen() {
         setScoreOffline(true);
         setScoreResult(pss);
       } else {
-        const onlineRows = rows.map((r) => ({ ...r, visit_id: activeVisit.visitId }));
-        const { error } = await supabase.from('shelf_audit').insert(onlineRows);
-        if (error) throw error;
+        for (const row of rows) {
+          const { data: existing, error: findError } = await supabase
+            .from('shelf_audit')
+            .select('id')
+            .eq('visit_id', activeVisit.visitId)
+            .eq('product_id', row.product_id)
+            .maybeSingle();
+          if (findError) throw findError;
+
+          if (existing?.id) {
+            const { error } = await supabase
+              .from('shelf_audit')
+              .update(row)
+              .eq('id', existing.id);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase
+              .from('shelf_audit')
+              .insert({ ...row, visit_id: activeVisit.visitId });
+            if (error) throw error;
+          }
+        }
         // Persist score on the parent visit row
         await supabase
           .from('visits')
@@ -213,6 +366,44 @@ export default function ShelfAuditScreen() {
           <Text style={s.offlineText}>
             {!isOnline ? 'لا يوجد اتصال — سيُحفظ الكشف محلياً' : 'الزيارة معلقة — سيُرسل مع الزيارة'}
           </Text>
+        </View>
+      )}
+
+      {/* AI analysis status: the result is delivered asynchronously by Realtime. */}
+      {aiStatus !== 'idle' && (
+        <View
+          style={[
+            s.aiStatusCard,
+            aiStatus === 'success' ? s.aiSuccessCard : undefined,
+            aiStatus === 'timeout' || aiStatus === 'error' ? s.aiWarningCard : undefined,
+          ]}
+        >
+          <View style={s.aiStatusIcon}>
+            {aiStatus === 'uploading' || aiStatus === 'analyzing' ? (
+              <ActivityIndicator color={colors.primary} size="small" />
+            ) : (
+              <Ionicons
+                name={aiStatus === 'success' ? 'checkmark-circle' : 'warning'}
+                size={24}
+                color={aiStatus === 'success' ? colors.success : colors.warning}
+              />
+            )}
+          </View>
+          <View style={s.aiStatusBody}>
+            <Text style={s.aiStatusTitle}>
+              {aiStatus === 'uploading'
+                ? 'جارٍ رفع الصورة...'
+                : aiStatus === 'analyzing'
+                ? '🔍 جارٍ تحليل الرف...'
+                : aiStatus === 'success'
+                ? 'تم تحليل الرف بنجاح'
+                : 'تنبيه'}
+            </Text>
+            {aiMessage ? <Text style={s.aiStatusMessage}>{aiMessage}</Text> : null}
+            {aiStatus === 'success' && aiSummary ? (
+              <Text style={s.aiSummary}>{aiSummary}</Text>
+            ) : null}
+          </View>
         </View>
       )}
 
@@ -270,7 +461,7 @@ export default function ShelfAuditScreen() {
                   placeholder="الكمية"
                   placeholderTextColor={colors.mutedForeground}
                 />
-                <TouchableOpacity style={s.photoBtn} onPress={() => takePhoto(item.product_id)} activeOpacity={0.8}>
+                <TouchableOpacity style={s.photoBtn} onPress={() => choosePhoto(item.product_id)} activeOpacity={0.8}>
                   {aiLoading[item.product_id] ? (
                     <ActivityIndicator color={colors.primary} size="small" />
                   ) : (
@@ -283,14 +474,6 @@ export default function ShelfAuditScreen() {
               </View>
             )}
 
-            {item.ai_analysis && (
-              <View style={s.aiBadge}>
-                <Ionicons name="sparkles" size={14} color="#8B5CF6" />
-                <Text style={s.aiText}>
-                  كمية: {item.ai_analysis.estimated_quantity} · {item.ai_analysis.display_order} · ثقة: {Math.round(item.ai_analysis.confidence * 100)}%
-                </Text>
-              </View>
-            )}
           </View>
         )}
         ListFooterComponent={
@@ -332,6 +515,35 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
     },
     oosText: { fontSize: 12, color: '#991B1B', fontFamily: 'Cairo_700Bold', fontWeight: '700' as const, flex: 1, textAlign: 'right' },
     listContent: { padding: 16, paddingBottom: 40 },
+    aiStatusCard: {
+      flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+      marginHorizontal: 16, marginTop: 12, marginBottom: 4,
+      padding: 14, borderRadius: 14,
+      backgroundColor: `${colors.primary}12`,
+      borderWidth: 1, borderColor: `${colors.primary}35`,
+    },
+    aiSuccessCard: {
+      backgroundColor: `${colors.success}16`,
+      borderColor: `${colors.success}55`,
+    },
+    aiWarningCard: {
+      backgroundColor: `${colors.warning}18`,
+      borderColor: `${colors.warning}55`,
+    },
+    aiStatusIcon: { paddingTop: 1, width: 26, alignItems: 'center' },
+    aiStatusBody: { flex: 1, alignItems: 'flex-end' },
+    aiStatusTitle: {
+      fontSize: 14, fontWeight: '700' as const, color: colors.foreground,
+      fontFamily: 'Cairo_700Bold', textAlign: 'right',
+    },
+    aiStatusMessage: {
+      fontSize: 12, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular',
+      textAlign: 'right', marginTop: 3,
+    },
+    aiSummary: {
+      fontSize: 13, color: colors.success, fontFamily: 'Cairo_600SemiBold',
+      textAlign: 'right', lineHeight: 22, marginTop: 8,
+    },
     productCard: {
       backgroundColor: colors.card, borderRadius: 14, padding: 14,
       marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
@@ -361,12 +573,6 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
       justifyContent: 'center', alignItems: 'center',
     },
     thumbnail: { width: 50, height: 50, borderRadius: 8 },
-    aiBadge: {
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      backgroundColor: '#F5F3FF', borderRadius: 8, padding: 8, marginTop: 8,
-      justifyContent: 'flex-end',
-    },
-    aiText: { fontSize: 12, color: '#5B21B6', fontFamily: 'Cairo_400Regular', textAlign: 'right' },
     submitBtn: {
       backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 16,
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,

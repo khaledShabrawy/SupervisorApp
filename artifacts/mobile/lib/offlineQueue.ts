@@ -13,7 +13,7 @@ import { supabase } from './supabase';
 const QUEUE_KEY = '@mydan/offline_queue';
 const ID_MAP_KEY = '@mydan/visit_id_map'; // localId → real Supabase id
 
-export type QueuedTable = 'visits' | 'orders' | 'shelf_audit' | 'competitor_products';
+export type QueuedTable = 'visits' | 'orders' | 'shelf_audit' | 'competitor_products' | 'visits_score';
 
 export interface QueueItem {
   localId: string;
@@ -121,6 +121,23 @@ export async function processQueue(): Promise<{ synced: number; failed: number }
           continue;
         }
         payload.visit_id = realId;
+      }
+
+      // Score updates are queued as an update, not an insert into a table.
+      if (item.table === 'visits_score') {
+        const visitId = item.pendingVisitLocalId
+          ? idMap[item.pendingVisitLocalId]
+          : (payload.visit_id as string | undefined);
+        if (!visitId) continue;
+        delete payload.visit_id;
+        const { error } = await supabase
+          .from('visits')
+          .update(payload)
+          .eq('id', visitId);
+        if (error) throw error;
+        item.status = 'done' as QueueItem['status'];
+        synced++;
+        continue;
       }
 
       const { data, error } = await supabase
