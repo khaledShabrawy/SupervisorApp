@@ -6,6 +6,7 @@
 -- ── supervisors ──────────────────────────────────────────────
 create table if not exists public.supervisors (
   id            uuid primary key references auth.users(id) on delete cascade,
+  auth_user_id  uuid        references auth.users(id),
   full_name     text        not null,
   email         text        not null unique,
   phone         text,
@@ -23,6 +24,13 @@ create table if not exists public.customers (
   address       text,
   latitude      float8      not null default 0,
   longitude     float8      not null default 0,
+  owner_name    text,
+  owner_phone   text,
+  gps_lat       float8,
+  gps_lng       float8,
+  competitor_brands jsonb not null default '[]'::jsonb,
+  outlet_photo_url text,
+  added_by_supervisor_id uuid references public.supervisors(id),
   phone         text,
   is_active     boolean     not null default true,
   created_at    timestamptz not null default now()
@@ -42,6 +50,27 @@ create table if not exists public.visits (
   notes          text,
   created_at     timestamptz not null default now()
 );
+
+-- Keep the auth lookup explicit while remaining compatible with existing rows.
+create index if not exists supervisors_auth_user_id_idx
+  on public.supervisors(auth_user_id);
+
+alter table public.supervisors
+  add column if not exists auth_user_id uuid references auth.users(id);
+alter table public.customers
+  add column if not exists owner_name text;
+alter table public.customers
+  add column if not exists owner_phone text;
+alter table public.customers
+  add column if not exists gps_lat float8;
+alter table public.customers
+  add column if not exists gps_lng float8;
+alter table public.customers
+  add column if not exists competitor_brands jsonb not null default '[]'::jsonb;
+alter table public.customers
+  add column if not exists outlet_photo_url text;
+alter table public.customers
+  add column if not exists added_by_supervisor_id uuid references public.supervisors(id);
 
 -- ── products ─────────────────────────────────────────────────
 create table if not exists public.products (

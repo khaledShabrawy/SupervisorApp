@@ -14,7 +14,14 @@ export interface Customer {
   type: string;
   latitude: number;
   longitude: number;
+  gps_lat?: number | null;
+  gps_lng?: number | null;
   address: string;
+  owner_name?: string | null;
+  owner_phone?: string | null;
+  competitor_brands?: string[] | null;
+  outlet_photo_url?: string | null;
+  added_by_supervisor_id?: string | null;
   created_at: string;
 }
 

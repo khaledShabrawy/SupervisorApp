@@ -118,6 +118,15 @@ export default function VisitTab() {
         )}
       </View>
 
+      <TouchableOpacity
+        style={s.addCustomerBtn}
+        onPress={() => router.push('/visit/add-customer')}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="person-add" size={19} color="#fff" />
+        <Text style={s.addCustomerBtnText}>+ عميل جديد غير مخدوم</Text>
+      </TouchableOpacity>
+
       {/* Type Filter Pills */}
       {location && customers.length > 0 && (
         <View style={s.filterRow}>
@@ -204,6 +213,18 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     },
     locBtnText: { color: '#fff', fontSize: 15, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
     locStatus: { fontSize: 12, color: colors.success, fontFamily: 'Cairo_400Regular', textAlign: 'center', marginTop: 8 },
+    addCustomerBtn: {
+      marginHorizontal: 16,
+      marginBottom: 8,
+      backgroundColor: colors.customerSuccess,
+      borderRadius: 11,
+      paddingVertical: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    addCustomerBtnText: { color: '#fff', fontSize: 14, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
     placeholder: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingBottom: 80 },
     placeholderText: { fontSize: 16, color: colors.mutedForeground, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, textAlign: 'center' },
     placeholderSub: { fontSize: 13, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'center' },

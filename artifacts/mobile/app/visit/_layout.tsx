@@ -17,6 +17,7 @@ export default function VisitLayout() {
       <Stack.Screen name="shelf-audit" options={{ title: 'كشف الرف' }} />
       <Stack.Screen name="competitor" options={{ title: 'منتجات المنافسين' }} />
       <Stack.Screen name="order" options={{ title: 'تسجيل أوردر' }} />
+      <Stack.Screen name="add-customer" options={{ title: 'إضافة عميل جديد' }} />
     </Stack>
   );
 }
