@@ -105,6 +105,38 @@ export default function HomeScreen() {
     return colors.mutedForeground;
   };
 
+  const remainingVisits = Math.max(visitsTarget - visitsCount, 0);
+  const storyline = [
+    {
+      number: '01',
+      label: 'ما أراه',
+      value: `${visitsCount} زيارة من أصل ${visitsTarget} اليوم`,
+      color: colors.primary,
+      icon: 'analytics-outline' as const,
+    },
+    {
+      number: '02',
+      label: 'ما يحتاج متابعة',
+      value: remainingVisits > 0 ? `${remainingVisits} زيارة متبقية على الهدف` : 'تم تحقيق هدف الزيارات',
+      color: remainingVisits > 0 ? colors.warning : colors.success,
+      icon: remainingVisits > 0 ? 'alert-circle-outline' as const : 'checkmark-circle-outline' as const,
+    },
+    {
+      number: '03',
+      label: 'أين أبدأ',
+      value: todayVisits[0]?.customers?.name ?? 'افتح مركز المسار لاختيار أقرب عميل',
+      color: colors.primary,
+      icon: 'navigate-outline' as const,
+    },
+    {
+      number: '04',
+      label: 'توصيتي',
+      value: remainingVisits > 0 ? 'ابدأ بالزيارة التالية وسجّل نتيجة الرف' : 'راجع التقارير وأرسل ملخص اليوم',
+      color: colors.success,
+      icon: 'bulb-outline' as const,
+    },
+  ];
+
   return (
     <ScrollView
       style={s.container}
@@ -136,6 +168,10 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={s.header}>
         <View>
+          <View style={s.headerEyebrowRow}>
+            <Text style={s.headerEyebrow}>MYDAN INTELLIGENCE</Text>
+            <View style={s.liveDot} />
+          </View>
           <Text style={s.headerGreeting}>مرحباً 👋</Text>
           <Text style={s.headerName}>{supervisor?.full_name ?? '...'}</Text>
           <Text style={s.headerBranch}>{supervisor?.branch}</Text>
@@ -147,26 +183,36 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Gamification Card */}
-      <View style={s.gamCard}>
-        <View style={s.gamItem}>
-          <Text style={s.gamValue}>{weekCount}</Text>
-          <Text style={s.gamLabel}>زيارة هذا الأسبوع</Text>
+      {/* KPI Cards */}
+      <Text style={s.sectionTitle}>مؤشرات اليوم</Text>
+      <View style={s.kpiGrid}>
+        <View style={[s.kpiCard, { borderTopColor: colors.primary }]}>
+          <View style={[s.kpiIcon, { backgroundColor: `${colors.primary}16` }]}>
+            <Ionicons name="location-outline" size={20} color={colors.primary} />
+          </View>
+          <Text style={[s.kpiValue, { color: colors.primary }]}>{visitsCount}</Text>
+          <Text style={s.kpiLabel}>زيارات اليوم</Text>
         </View>
-        <View style={s.gamDivider} />
-        <View style={s.gamItem}>
-          <Text style={[s.gamValue, { color: avgPss >= 65 ? colors.success : colors.warning }]}>{avgPss || '—'}</Text>
-          <Text style={s.gamLabel}>متوسط PSS</Text>
+        <View style={[s.kpiCard, { borderTopColor: colors.accent }]}>
+          <View style={[s.kpiIcon, { backgroundColor: `${colors.accent}18` }]}>
+            <Ionicons name="flag-outline" size={20} color={colors.accent} />
+          </View>
+          <Text style={[s.kpiValue, { color: colors.accent }]}>{visitsTarget}</Text>
+          <Text style={s.kpiLabel}>المستهدف</Text>
         </View>
-        <View style={s.gamDivider} />
-        <View style={s.gamItem}>
-          <Text style={[s.gamValue, { color: dealingRate >= 70 ? colors.success : colors.primary }]}>{dealingRate}%</Text>
-          <Text style={s.gamLabel}>نسبة التعامل</Text>
+        <View style={[s.kpiCard, { borderTopColor: colors.success }]}>
+          <View style={[s.kpiIcon, { backgroundColor: `${colors.success}18` }]}>
+            <Ionicons name="speedometer-outline" size={20} color={colors.success} />
+          </View>
+          <Text style={[s.kpiValue, { color: avgPss >= 65 ? colors.success : colors.warning }]}>{avgPss || '—'}</Text>
+          <Text style={s.kpiLabel}>متوسط PSS</Text>
         </View>
-        <View style={s.gamDivider} />
-        <View style={s.gamItem}>
-          <Text style={[s.gamValue, { color: level.color, fontSize: 13 }]}>{level.label}</Text>
-          <Text style={s.gamLabel}>مستواك</Text>
+        <View style={[s.kpiCard, { borderTopColor: dealingRate >= 70 ? colors.success : colors.primary }]}>
+          <View style={[s.kpiIcon, { backgroundColor: `${colors.primary}16` }]}>
+            <Ionicons name="people-outline" size={20} color={colors.primary} />
+          </View>
+          <Text style={[s.kpiValue, { color: dealingRate >= 70 ? colors.success : colors.primary }]}>{dealingRate}%</Text>
+          <Text style={s.kpiLabel}>نسبة التعامل</Text>
         </View>
       </View>
 
@@ -182,6 +228,42 @@ export default function HomeScreen() {
           <View style={[s.progressBar, { width: `${progress * 100}%` as `${number}%` }]} />
         </View>
         <Text style={s.progressPct}>{Math.round(progress * 100)}% مكتمل</Text>
+      </View>
+
+      {/* Field Storyline */}
+      <View style={s.storyCard}>
+        <View style={s.storyHeader}>
+          <View style={s.storyHeaderIcon}>
+            <Ionicons name="sparkles-outline" size={18} color={colors.accent} />
+          </View>
+          <View style={s.storyHeaderCopy}>
+            <Text style={s.storyTitle}>قصة يومك</Text>
+            <Text style={s.storySubtitle}>ملخص عملي يساعدك على ترتيب الزيارات</Text>
+          </View>
+        </View>
+        <View style={s.storyRail}>
+          {storyline.map((item) => (
+            <View key={item.number} style={s.storyRow}>
+              <View style={[s.storyNumber, { borderColor: item.color }]}>
+                <Text style={[s.storyNumberText, { color: item.color }]}>{item.number}</Text>
+              </View>
+              <View style={s.storyRowCopy}>
+                <Text style={[s.storyRowLabel, { color: item.color }]}>{item.label}</Text>
+                <Text style={s.storyRowValue}>{item.value}</Text>
+              </View>
+              <Ionicons name={item.icon} size={20} color={item.color} />
+            </View>
+          ))}
+        </View>
+        <View style={s.storyActions}>
+          <TouchableOpacity style={s.storyActionPrimary} onPress={() => router.push('/(tabs)/visit')} activeOpacity={0.85}>
+            <Ionicons name="map-outline" size={17} color="#fff" />
+            <Text style={s.storyActionPrimaryText}>فتح مركز المسار</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.storyActionSecondary} onPress={() => router.push('/(tabs)/reports')} activeOpacity={0.85}>
+            <Text style={s.storyActionSecondaryText}>التقارير</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Quick Actions */}
@@ -288,6 +370,9 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       borderBottomRightRadius: 24,
       marginBottom: 20,
     },
+    headerEyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+    headerEyebrow: { color: 'rgba(255,255,255,0.72)', fontSize: 10, letterSpacing: 1.1, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
+    liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#86EFAC' },
     headerGreeting: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontFamily: 'Cairo_400Regular', textAlign: 'right' },
     headerName: { fontSize: 22, fontWeight: '700' as const, color: '#fff', fontFamily: 'Cairo_700Bold', textAlign: 'right' },
     headerBranch: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontFamily: 'Cairo_400Regular', textAlign: 'right' },
@@ -312,6 +397,39 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     progressTrack: { height: 8, backgroundColor: colors.muted, borderRadius: 4, overflow: 'hidden' },
     progressBar: { height: 8, backgroundColor: colors.primary, borderRadius: 4 },
     progressPct: { fontSize: 12, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'right', marginTop: 6 },
+    kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 16, marginBottom: 16 },
+    kpiCard: {
+      width: '48%', backgroundColor: colors.card, borderRadius: 15, padding: 12,
+      borderTopWidth: 3, minHeight: 116,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+    },
+    kpiIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end', marginBottom: 7 },
+    kpiValue: { fontSize: 24, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold', textAlign: 'right' },
+    kpiLabel: { fontSize: 11, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'right', marginTop: 1 },
+    storyCard: {
+      backgroundColor: colors.card, borderRadius: 18, marginHorizontal: 16, marginBottom: 24,
+      padding: 15, borderWidth: 1, borderColor: colors.border,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+    },
+    storyHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
+    storyHeaderIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: `${colors.accent}18`, alignItems: 'center', justifyContent: 'center' },
+    storyHeaderCopy: { flex: 1, alignItems: 'flex-end' },
+    storyTitle: { color: colors.foreground, fontSize: 16, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const, textAlign: 'right' },
+    storySubtitle: { color: colors.mutedForeground, fontSize: 11, fontFamily: 'Cairo_400Regular', textAlign: 'right', marginTop: 1 },
+    storyRail: { borderRightWidth: 1, borderRightColor: colors.border, paddingRight: 10, marginRight: 6 },
+    storyRow: { flexDirection: 'row', alignItems: 'center', gap: 9, minHeight: 53, paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: colors.border },
+    storyNumber: { width: 29, height: 29, borderRadius: 15, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
+    storyNumberText: { fontSize: 9, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
+    storyRowCopy: { flex: 1, alignItems: 'flex-end' },
+    storyRowLabel: { fontSize: 10, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, textAlign: 'right' },
+    storyRowValue: { color: colors.foreground, fontSize: 12, fontFamily: 'Cairo_400Regular', textAlign: 'right', marginTop: 1 },
+    storyActions: { flexDirection: 'row', gap: 8, marginTop: 14 },
+    storyActionPrimary: { flex: 1, minHeight: 43, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
+    storyActionPrimaryText: { color: '#fff', fontSize: 12, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
+    storyActionSecondary: { minHeight: 43, borderRadius: 10, paddingHorizontal: 18, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+    storyActionSecondaryText: { color: colors.primary, fontSize: 12, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
     sectionTitle: {
       fontSize: 16, fontWeight: '700' as const, color: colors.foreground,
       fontFamily: 'Cairo_700Bold', textAlign: 'right',

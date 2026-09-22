@@ -6,6 +6,7 @@ import {
   Platform,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -25,6 +26,7 @@ export default function VisitTab() {
   const insets = useSafeAreaInsets();
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locLoading, setLocLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const s = styles(colors, insets);
 
   const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
@@ -41,12 +43,19 @@ export default function VisitTab() {
     if (!location || customers.length === 0) return [];
     return customers
       .filter((c) => c.latitude && c.longitude)
+      .filter((c) => {
+        const query = searchTerm.trim().toLowerCase();
+        if (!query) return true;
+        return [c.name, c.address, c.type].some((value) =>
+          value?.toLowerCase().includes(query),
+        );
+      })
       .map((c) => ({
         ...c,
         distance: distanceKm(location.lat, location.lng, c.latitude, c.longitude) * 1000,
       }))
       .sort((a, b) => a.distance - b.distance);
-  }, [location, customers]);
+  }, [location, customers, searchTerm]);
 
   const customerTypes = useMemo(() => {
     const types = [...new Set(customers.map(c => c.type))];
@@ -95,8 +104,62 @@ export default function VisitTab() {
     <View style={s.container}>
       {/* Header */}
       <View style={s.header}>
-        <Text style={s.headerTitle}>زيارة جديدة</Text>
-        <Ionicons name="location" size={22} color="#fff" />
+        <View>
+          <Text style={s.headerEyebrow}>MYDAN ROUTE COMMAND CENTER</Text>
+          <Text style={s.headerTitle}>مركز المسار</Text>
+        </View>
+        <View style={s.headerIcon}>
+          <Ionicons name="location" size={22} color="#fff" />
+        </View>
+      </View>
+
+      <View style={s.commandCard}>
+        <View style={s.commandCardTop}>
+          <View style={s.commandBadge}>
+            <Ionicons name="sparkles-outline" size={16} color={colors.accent} />
+            <Text style={s.commandBadgeText}>خطة اليوم</Text>
+          </View>
+          <View style={s.commandCopy}>
+            <Text style={s.commandTitle}>رتّب زياراتك بوضوح</Text>
+            <Text style={s.commandSubtitle}>
+              {location ? `${allWithDistance.length} عميل قريب من موقعك` : 'حدد موقعك لعرض أقرب العملاء'}
+            </Text>
+          </View>
+        </View>
+        <View style={s.commandStats}>
+          <View style={s.commandStat}>
+            <Text style={s.commandStatValue}>{customers.length}</Text>
+            <Text style={s.commandStatLabel}>كل العملاء</Text>
+          </View>
+          <View style={s.commandStatDivider} />
+          <View style={s.commandStat}>
+            <Text style={[s.commandStatValue, { color: colors.success }]}>{location ? allWithDistance.length : '—'}</Text>
+            <Text style={s.commandStatLabel}>جاهز للزيارة</Text>
+          </View>
+          <View style={s.commandStatDivider} />
+          <View style={s.commandStat}>
+            <Text style={[s.commandStatValue, { color: colors.accent }]}>8</Text>
+            <Text style={s.commandStatLabel}>أقصى قائمة</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={s.searchBox}>
+        <Ionicons name="search" size={19} color={colors.mutedForeground} />
+        <TextInput
+          style={s.searchInput}
+          value={searchTerm}
+          onChangeText={setSearchTerm}
+          placeholder="ابحث عن عميل أو نوع أو منطقة"
+          placeholderTextColor={colors.mutedForeground}
+          textAlign="right"
+          returnKeyType="search"
+        />
+        {searchTerm ? (
+          <TouchableOpacity onPress={() => setSearchTerm('')} hitSlop={8}>
+            <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {/* Send Location Button */}
@@ -204,7 +267,32 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 8),
       paddingBottom: 16, paddingHorizontal: 20,
     },
-    headerTitle: { fontSize: 20, fontWeight: '700' as const, color: '#fff', fontFamily: 'Cairo_700Bold' },
+    headerTitle: { fontSize: 21, fontWeight: '700' as const, color: '#fff', fontFamily: 'Cairo_700Bold', textAlign: 'right' },
+    headerEyebrow: { fontSize: 9, color: 'rgba(255,255,255,0.72)', fontFamily: 'Cairo_700Bold', letterSpacing: 0.8, textAlign: 'right', marginBottom: 3 },
+    headerIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+    commandCard: {
+      backgroundColor: colors.card, marginHorizontal: 16, marginTop: 14, marginBottom: 10,
+      borderRadius: 16, padding: 15, borderWidth: 1, borderColor: colors.border,
+      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05, shadowRadius: 7, elevation: 2,
+    },
+    commandCardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    commandCopy: { flex: 1, alignItems: 'flex-end' },
+    commandTitle: { color: colors.foreground, fontSize: 15, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const, textAlign: 'right' },
+    commandSubtitle: { color: colors.mutedForeground, fontSize: 11, fontFamily: 'Cairo_400Regular', textAlign: 'right', marginTop: 2 },
+    commandBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${colors.accent}16`, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 9 },
+    commandBadgeText: { color: colors.accent, fontSize: 10, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
+    commandStats: { flexDirection: 'row', alignItems: 'center', marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
+    commandStat: { flex: 1, alignItems: 'center', gap: 1 },
+    commandStatValue: { color: colors.primary, fontSize: 18, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
+    commandStatLabel: { color: colors.mutedForeground, fontSize: 10, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
+    commandStatDivider: { height: 28, width: 1, backgroundColor: colors.border },
+    searchBox: {
+      flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginBottom: 10,
+      minHeight: 46, paddingHorizontal: 12, borderRadius: 13,
+      backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+    },
+    searchInput: { flex: 1, color: colors.foreground, fontSize: 13, fontFamily: 'Cairo_400Regular', paddingVertical: 9 },
     locSection: { padding: 16, backgroundColor: colors.card, marginBottom: 8 },
     locBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 10,
