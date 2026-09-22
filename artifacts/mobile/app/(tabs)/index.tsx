@@ -176,10 +176,17 @@ export default function HomeScreen() {
           <Text style={s.headerName}>{supervisor?.full_name ?? '...'}</Text>
           <Text style={s.headerBranch}>{supervisor?.branch}</Text>
         </View>
-        <View style={s.avatarCircle}>
-          <Text style={s.avatarText}>
-            {(supervisor?.full_name ?? 'M').charAt(0).toUpperCase()}
-          </Text>
+        <View style={s.headerActions}>
+          {supervisor?.role === 'admin' ? (
+            <TouchableOpacity style={s.adminHeaderButton} onPress={() => router.push('/admin')} activeOpacity={0.8}>
+              <Ionicons name="shield-checkmark-outline" size={20} color="#fff" />
+            </TouchableOpacity>
+          ) : null}
+          <View style={s.avatarCircle}>
+            <Text style={s.avatarText}>
+              {(supervisor?.full_name ?? 'M').charAt(0).toUpperCase()}
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -379,6 +386,12 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     avatarCircle: {
       width: 48, height: 48, borderRadius: 24,
       backgroundColor: 'rgba(255,255,255,0.2)',
+      justifyContent: 'center', alignItems: 'center',
+    },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    adminHeaderButton: {
+      width: 38, height: 38, borderRadius: 19,
+      backgroundColor: 'rgba(255,255,255,0.18)',
       justifyContent: 'center', alignItems: 'center',
     },
     avatarText: { fontSize: 20, fontWeight: '700' as const, color: '#fff', fontFamily: 'Cairo_700Bold' },
