@@ -12,6 +12,7 @@ create table if not exists public.supervisors (
   phone         text,
   branch        text,
   region        text,
+  role          text        not null default 'supervisor',
   is_active     boolean     not null default true,
   created_at    timestamptz not null default now()
 );
@@ -57,6 +58,8 @@ create index if not exists supervisors_auth_user_id_idx
 
 alter table public.supervisors
   add column if not exists auth_user_id uuid references auth.users(id);
+alter table public.supervisors
+  add column if not exists role text not null default 'supervisor';
 alter table public.customers
   add column if not exists owner_name text;
 alter table public.customers

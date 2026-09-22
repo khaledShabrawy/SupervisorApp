@@ -32,7 +32,8 @@ function AuthGate() {
     if (loading) return;
     const inTabs = segments[0] === '(tabs)';
     const inVisit = segments[0] === 'visit';
-    const inProtected = inTabs || inVisit;
+    const inAdmin = segments[0] === 'admin';
+    const inProtected = inTabs || inVisit || inAdmin;
 
     if (!supervisor && inProtected) {
       router.replace('/login');
@@ -58,6 +59,7 @@ function AuthGate() {
       <Stack.Screen name="login" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="visit" />
+      <Stack.Screen name="admin" />
     </Stack>
   );
 }
