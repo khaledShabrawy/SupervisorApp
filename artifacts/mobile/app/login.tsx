@@ -14,10 +14,12 @@ import { Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColors } from '@/hooks/useColors';
+import { useCompanyBrand } from '@/contexts/CompanyBrandContext';
 import { isSupabaseConfigured, supabaseConfiguration } from '@/lib/supabase';
 
 export default function LoginScreen() {
   const colors = useColors();
+  const { brand, logo } = useCompanyBrand();
   const insets = useSafeAreaInsets();
   const { signIn, supervisor, loading: authLoading, issue, retryProfile } = useAuth();
   const [email, setEmail] = useState('');
@@ -57,12 +59,14 @@ export default function LoginScreen() {
       >
         {/* Logo area */}
         <View style={s.logoArea}>
-          <Image
-            source={require('../assets/zeina-logo.png')}
-            style={s.logoImage}
-            resizeMode="contain"
-            accessibilityLabel="شعار زينة للورقيات"
-          />
+          {logo ? (
+            <Image
+              source={logo}
+              style={s.logoImage}
+              resizeMode="contain"
+              accessibilityLabel={`شعار ${brand.name}`}
+            />
+          ) : null}
           <Text style={s.appName}>Mydan</Text>
           <Text style={s.appSubtitle}>نظام إدارة المشرفين الميدانيين</Text>
         </View>
@@ -145,7 +149,7 @@ export default function LoginScreen() {
             activeOpacity={0.85}
           >
             {loading || retrying || authLoading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.primaryForeground} />
             ) : (
               <Text style={s.btnText}>دخول</Text>
             )}
@@ -180,13 +184,14 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     appName: {
       fontSize: 22,
       fontWeight: '700' as const,
-      color: '#fff',
+      color: colors.primaryForeground,
       fontFamily: 'Cairo_700Bold',
       letterSpacing: 0.5,
     },
     appSubtitle: {
       fontSize: 13,
-      color: 'rgba(255,255,255,0.75)',
+      color: colors.primaryForeground,
+      opacity: 0.8,
       fontFamily: 'Cairo_400Regular',
       marginTop: 4,
       textAlign: 'center',
@@ -195,7 +200,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       backgroundColor: colors.card,
       borderRadius: 20,
       padding: 24,
-      shadowColor: '#000',
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.15,
       shadowRadius: 20,
@@ -210,13 +215,13 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       marginBottom: 20,
     },
     warnBanner: {
-      backgroundColor: '#FEF9C3',
+      backgroundColor: colors.warningBackground,
       borderRadius: 8,
       padding: 10,
       marginBottom: 16,
     },
     warnText: {
-      color: '#92400E',
+      color: colors.warning,
       fontSize: 12,
       fontFamily: 'Cairo_400Regular',
       textAlign: 'right',
@@ -259,7 +264,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     retryBtn: { paddingVertical: 10, alignItems: 'center' },
     retryText: { color: colors.primary, fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
     btnText: {
-      color: '#fff',
+      color: colors.primaryForeground,
       fontSize: 16,
       fontWeight: '700' as const,
       fontFamily: 'Cairo_700Bold',

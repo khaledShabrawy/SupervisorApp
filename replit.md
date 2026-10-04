@@ -7,6 +7,7 @@ Arabic field-supervisor app built on the existing Expo / React Native / Expo Rou
 - The user states: «أول شركة هنبيع لها الأبلكشن هى شركة زينة للورقيات».
 - Company website supplied by the user: https://www.zeinagroup.com/
 - This identifies the first intended customer, not a decision to limit the product permanently to one company.
+- The user requires company-matched colors now and buyer-specific branding configurable later; keep presentation branding separate from authentication and data isolation.
 
 ## Mydan execution boundaries
 

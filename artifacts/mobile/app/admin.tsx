@@ -224,14 +224,14 @@ export default function AdminScreen() {
     >
       <View style={s.header}>
         <TouchableOpacity style={s.headerBack} onPress={() => router.back()} hitSlop={8}>
-          <Ionicons name="arrow-forward" size={21} color="#fff" />
+          <Ionicons name="arrow-forward" size={21} color={colors.primaryForeground} />
         </TouchableOpacity>
         <View style={s.headerCopy}>
           <Text style={s.headerEyebrow}>MYDAN CONTROL CENTER</Text>
           <Text style={s.headerTitle}>لوحة الإدارة</Text>
         </View>
         <View style={s.headerIcon}>
-          <Ionicons name="shield-checkmark-outline" size={23} color="#fff" />
+          <Ionicons name="shield-checkmark-outline" size={23} color={colors.primaryForeground} />
         </View>
       </View>
 
@@ -255,7 +255,7 @@ export default function AdminScreen() {
         <MetricCard icon="people-outline" label="المشرفون" value={data?.metrics.supervisors ?? 0} color={colors.primary} styles={s} />
         <MetricCard icon="checkmark-circle-outline" label="مشرفون نشطون" value={data?.metrics.activeSupervisors ?? 0} color={colors.success} styles={s} />
         <MetricCard icon="storefront-outline" label="العملاء" value={data?.metrics.customers ?? 0} color={colors.accent} styles={s} />
-        <MetricCard icon="location-outline" label="زيارات اليوم" value={data?.metrics.visitsToday ?? 0} color="#8B5CF6" styles={s} />
+        <MetricCard icon="location-outline" label="زيارات اليوم" value={data?.metrics.visitsToday ?? 0} color={colors.info} styles={s} />
       </View>
 
       <View style={s.sectionTabs}>
@@ -287,7 +287,7 @@ export default function AdminScreen() {
               <Text style={s.actionPanelText}>أنشئ حساب دخول واربطه ببيانات المشرف تلقائياً.</Text>
             </View>
             <TouchableOpacity style={s.roundAction} onPress={() => { setSection('supervisors'); setShowCreate(true); }} hitSlop={8}>
-              <Ionicons name="add" size={22} color="#fff" />
+              <Ionicons name="add" size={22} color={colors.primaryForeground} />
             </TouchableOpacity>
           </View>
         </View>
@@ -296,7 +296,7 @@ export default function AdminScreen() {
       {section === 'supervisors' && (
         <View>
           <TouchableOpacity style={s.primaryButtonWide} onPress={() => setShowCreate((visible) => !visible)} activeOpacity={0.85}>
-            <Ionicons name={showCreate ? 'close' : 'person-add-outline'} size={19} color="#fff" />
+            <Ionicons name={showCreate ? 'close' : 'person-add-outline'} size={19} color={colors.primaryForeground} />
             <Text style={s.primaryButtonText}>{showCreate ? 'إلغاء الإضافة' : 'إضافة مشرف جديد'}</Text>
           </TouchableOpacity>
           {showCreate ? (
@@ -311,7 +311,7 @@ export default function AdminScreen() {
               </View>
               <AdminInput label="رقم الهاتف" value={newSupervisor.phone} onChangeText={(value) => setNewSupervisor({ ...newSupervisor, phone: value })} placeholder="01XXXXXXXXX" keyboardType="phone-pad" styles={s} />
               <TouchableOpacity style={[s.primaryButtonWide, savingSupervisor && s.disabled]} onPress={() => void createSupervisor()} disabled={savingSupervisor} activeOpacity={0.85}>
-                {savingSupervisor ? <ActivityIndicator color="#fff" /> : <><Ionicons name="checkmark" size={19} color="#fff" /><Text style={s.primaryButtonText}>إنشاء وتفعيل الحساب</Text></>}
+                {savingSupervisor ? <ActivityIndicator color={colors.primaryForeground} /> : <><Ionicons name="checkmark" size={19} color={colors.primaryForeground} /><Text style={s.primaryButtonText}>إنشاء وتفعيل الحساب</Text></>}
               </TouchableOpacity>
             </View>
           ) : null}
@@ -384,7 +384,7 @@ function MetricCard({ icon, label, value, color, styles: s }: { icon: keyof type
 function SectionTab({ label, icon, active, onPress, styles: s }: { label: string; icon: keyof typeof Ionicons.glyphMap; active: boolean; onPress: () => void; styles: ReturnType<typeof styles> }) {
   return (
     <TouchableOpacity style={[s.sectionTab, active && s.sectionTabActive]} onPress={onPress} activeOpacity={0.8}>
-      <Ionicons name={icon} size={17} color={active ? '#fff' : s.sectionTabIcon.color} />
+      <Ionicons name={icon} size={17} color={active ? s.sectionTabTextActive.color : s.sectionTabIcon.color} />
       <Text style={[s.sectionTabText, active && s.sectionTabTextActive]}>{label}</Text>
     </TouchableOpacity>
   );
@@ -442,16 +442,16 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
   center: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', padding: 24 },
   centerText: { color: colors.mutedForeground, fontSize: 13, fontFamily: 'Cairo_400Regular', textAlign: 'center', marginTop: 8 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.primary, paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 10), paddingBottom: 18, paddingHorizontal: 18 },
-  headerBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+  headerBack: { width: 36, height: 36, borderRadius: 18, backgroundColor: `${colors.primaryForeground}2E`, alignItems: 'center', justifyContent: 'center' },
   headerCopy: { flex: 1, alignItems: 'flex-end' },
-  headerEyebrow: { color: 'rgba(255,255,255,0.72)', fontSize: 9, letterSpacing: 0.8, fontFamily: 'Cairo_700Bold', textAlign: 'right' },
-  headerTitle: { color: '#fff', fontSize: 21, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const, textAlign: 'right', marginTop: 2 },
-  headerIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+  headerEyebrow: { color: `${colors.primaryForeground}B8`, fontSize: 9, letterSpacing: 0.8, fontFamily: 'Cairo_700Bold', textAlign: 'right' },
+  headerTitle: { color: colors.primaryForeground, fontSize: 21, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const, textAlign: 'right', marginTop: 2 },
+  headerIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: `${colors.primaryForeground}2E`, alignItems: 'center', justifyContent: 'center' },
   messageError: { flexDirection: 'row', alignItems: 'center', gap: 7, margin: 14, padding: 11, borderRadius: 10, backgroundColor: `${colors.destructive}14` },
   messageSuccess: { flexDirection: 'row', alignItems: 'center', gap: 7, margin: 14, marginBottom: 0, padding: 10, borderRadius: 10, backgroundColor: `${colors.success}14` },
   messageText: { flex: 1, color: colors.destructive, fontSize: 12, fontFamily: 'Cairo_400Regular', textAlign: 'right' },
   metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, padding: 14 },
-  metricCard: { width: '48%', minHeight: 108, backgroundColor: colors.card, borderRadius: 14, padding: 11, borderTopWidth: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  metricCard: { width: '48%', minHeight: 108, backgroundColor: colors.card, borderRadius: 14, padding: 11, borderTopWidth: 3, shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   metricIcon: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end' },
   metricValue: { fontSize: 24, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const, textAlign: 'right', marginTop: 4 },
   metricLabel: { color: colors.mutedForeground, fontSize: 10, fontFamily: 'Cairo_400Regular', textAlign: 'right' },
@@ -460,8 +460,8 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
   sectionTabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   sectionTabIcon: { color: colors.mutedForeground },
   sectionTabText: { color: colors.mutedForeground, fontSize: 11, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
-  sectionTabTextActive: { color: '#fff' },
-  panel: { backgroundColor: colors.card, borderRadius: 16, marginHorizontal: 14, marginBottom: 12, padding: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 5, elevation: 1 },
+  sectionTabTextActive: { color: colors.primaryForeground },
+  panel: { backgroundColor: colors.card, borderRadius: 16, marginHorizontal: 14, marginBottom: 12, padding: 14, shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 5, elevation: 1 },
   panelHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   panelTitle: { color: colors.foreground, fontSize: 15, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const, textAlign: 'right' },
   linkText: { color: colors.primary, fontSize: 11, fontFamily: 'Cairo_600SemiBold' },
@@ -492,7 +492,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
   roundAction: { width: 35, height: 35, borderRadius: 18, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   primaryButton: { marginTop: 20, backgroundColor: colors.primary, borderRadius: 11, paddingHorizontal: 28, paddingVertical: 12 },
   primaryButtonWide: { marginHorizontal: 14, marginBottom: 12, minHeight: 46, borderRadius: 11, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 7 },
-  primaryButtonText: { color: '#fff', fontSize: 13, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
+  primaryButtonText: { color: colors.primaryForeground, fontSize: 13, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
   formPanel: { marginHorizontal: 14, marginBottom: 12, padding: 14, backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border },
   formRow: { flexDirection: 'row', gap: 8 },
   formHalf: { flex: 1 },

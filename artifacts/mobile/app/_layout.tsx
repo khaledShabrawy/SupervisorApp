@@ -12,6 +12,8 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { CompanyBrandProvider } from '@/contexts/CompanyBrandContext';
+import { useColors } from '@/hooks/useColors';
 import { OfflineProvider } from '@/contexts/OfflineContext';
 import { VisitProvider } from '@/contexts/VisitContext';
 import { isSupabaseConfigured } from '@/lib/supabase';
@@ -26,6 +28,7 @@ const queryClient = new QueryClient({
 });
 
 function AuthGate() {
+  const colors = useColors();
   const { supervisor, loading, status } = useAuth();
   const router = useRouter();
   const segments = useSegments();
@@ -54,8 +57,8 @@ function AuthGate() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#1A56DB', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator color="#fff" size="large" />
+      <View style={{ flex: 1, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator color={colors.primaryForeground} size="large" />
       </View>
     );
   }
@@ -92,6 +95,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
+      <CompanyBrandProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
@@ -107,6 +111,7 @@ export default function RootLayout() {
           </AuthProvider>
         </QueryClientProvider>
       </ErrorBoundary>
+      </CompanyBrandProvider>
     </SafeAreaProvider>
   );
 }

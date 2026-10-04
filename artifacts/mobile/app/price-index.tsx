@@ -113,10 +113,10 @@ export default function PriceIndexScreen() {
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-forward" size={24} color="#fff" />
+          <Ionicons name="chevron-forward" size={24} color={colors.primaryForeground} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Price Index</Text>
-        <Ionicons name="trending-up" size={22} color="#fff" />
+        <Ionicons name="trending-up" size={22} color={colors.primaryForeground} />
       </View>
 
       {isLoading ? (
@@ -261,7 +261,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 8),
       paddingBottom: 16, paddingHorizontal: 20,
     },
-    headerTitle: { fontSize: 20, fontWeight: '700' as const, color: '#fff', fontFamily: 'Cairo_700Bold' },
+    headerTitle: { fontSize: 20, fontWeight: '700' as const, color: colors.primaryForeground, fontFamily: 'Cairo_700Bold' },
     emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, gap: 12, marginTop: 60 },
     emptyTitle: { fontSize: 18, fontWeight: '700' as const, color: colors.foreground, fontFamily: 'Cairo_700Bold', textAlign: 'center' },
     emptyBody: { fontSize: 14, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'center', lineHeight: 22 },
@@ -269,7 +269,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     summaryCard: {
       flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: 12,
       borderTopWidth: 3, alignItems: 'center', gap: 3,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
     },
     summaryBig: { fontSize: 24, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
     summaryLabel: { fontSize: 10, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
@@ -287,10 +287,10 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     },
     pillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
     pillText: { fontSize: 12, color: colors.mutedForeground, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
-    pillTextActive: { color: '#fff' },
+    pillTextActive: { color: colors.primaryForeground },
     brandCard: {
       backgroundColor: colors.card, borderRadius: 14, marginHorizontal: 16, marginBottom: 12, padding: 14,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
     },
     brandHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     brandBadge: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 4 },

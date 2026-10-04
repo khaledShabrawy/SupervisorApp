@@ -95,7 +95,7 @@ export default function VisitTab() {
   };
 
   const typeColor = (type: string) => {
-    if (type === 'صيدلية') return '#8B5CF6';
+    if (type === 'صيدلية') return colors.info;
     if (type === 'جملة') return colors.warning;
     return colors.primary;
   };
@@ -109,7 +109,7 @@ export default function VisitTab() {
           <Text style={s.headerTitle}>مركز المسار</Text>
         </View>
         <View style={s.headerIcon}>
-          <Ionicons name="location" size={22} color="#fff" />
+          <Ionicons name="location" size={22} color={colors.primaryForeground} />
         </View>
       </View>
 
@@ -166,10 +166,10 @@ export default function VisitTab() {
       <View style={s.locSection}>
         <TouchableOpacity style={s.locBtn} onPress={getLocation} disabled={locLoading} activeOpacity={0.85}>
           {locLoading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.primaryForeground} />
           ) : (
             <>
-              <Ionicons name="navigate" size={20} color="#fff" />
+              <Ionicons name="navigate" size={20} color={colors.primaryForeground} />
               <Text style={s.locBtnText}>أرسل موقعك الحالي</Text>
             </>
           )}
@@ -186,7 +186,7 @@ export default function VisitTab() {
         onPress={() => router.push('/visit/add-customer')}
         activeOpacity={0.85}
       >
-        <Ionicons name="person-add" size={19} color="#fff" />
+        <Ionicons name="person-add" size={19} color={colors.primaryForeground} />
         <Text style={s.addCustomerBtnText}>+ عميل جديد غير مخدوم</Text>
       </TouchableOpacity>
 
@@ -267,13 +267,13 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 8),
       paddingBottom: 16, paddingHorizontal: 20,
     },
-    headerTitle: { fontSize: 21, fontWeight: '700' as const, color: '#fff', fontFamily: 'Cairo_700Bold', textAlign: 'right' },
-    headerEyebrow: { fontSize: 9, color: 'rgba(255,255,255,0.72)', fontFamily: 'Cairo_700Bold', letterSpacing: 0.8, textAlign: 'right', marginBottom: 3 },
-    headerIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { fontSize: 21, fontWeight: '700' as const, color: colors.primaryForeground, fontFamily: 'Cairo_700Bold', textAlign: 'right' },
+    headerEyebrow: { fontSize: 9, color: `${colors.primaryForeground}B8`, fontFamily: 'Cairo_700Bold', letterSpacing: 0.8, textAlign: 'right', marginBottom: 3 },
+    headerIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: `${colors.primaryForeground}2E`, alignItems: 'center', justifyContent: 'center' },
     commandCard: {
       backgroundColor: colors.card, marginHorizontal: 16, marginTop: 14, marginBottom: 10,
       borderRadius: 16, padding: 15, borderWidth: 1, borderColor: colors.border,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.05, shadowRadius: 7, elevation: 2,
     },
     commandCardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -299,7 +299,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       backgroundColor: colors.primary, borderRadius: 12,
       paddingVertical: 14, paddingHorizontal: 20, justifyContent: 'center',
     },
-    locBtnText: { color: '#fff', fontSize: 15, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
+    locBtnText: { color: colors.primaryForeground, fontSize: 15, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
     locStatus: { fontSize: 12, color: colors.success, fontFamily: 'Cairo_400Regular', textAlign: 'center', marginTop: 8 },
     addCustomerBtn: {
       marginHorizontal: 16,
@@ -312,7 +312,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       justifyContent: 'center',
       gap: 8,
     },
-    addCustomerBtnText: { color: '#fff', fontSize: 14, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
+    addCustomerBtnText: { color: colors.primaryForeground, fontSize: 14, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
     placeholder: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingBottom: 80 },
     placeholderText: { fontSize: 16, color: colors.mutedForeground, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, textAlign: 'center' },
     placeholderSub: { fontSize: 13, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
@@ -324,7 +324,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     customerCard: {
       backgroundColor: colors.card, borderRadius: 14, padding: 14, marginBottom: 10,
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
     },
     cardRight: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
@@ -349,5 +349,5 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     },
     filterPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
     filterPillText: { fontSize: 12, color: colors.mutedForeground, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
-    filterPillTextActive: { color: '#fff' },
+    filterPillTextActive: { color: colors.primaryForeground },
   });

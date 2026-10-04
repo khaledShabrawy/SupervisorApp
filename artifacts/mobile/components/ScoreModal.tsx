@@ -3,9 +3,10 @@
  * Shown after shelf audit submission.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useColors } from '@/hooks/useColors';
 import type { PerfectStoreResult } from '@/lib/perfectStoreScore';
 
 interface Props {
@@ -16,6 +17,8 @@ interface Props {
 }
 
 export default function ScoreModal({ visible, result, isOffline, onClose }: Props) {
+  const colors = useColors();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   if (!result) return null;
 
   const rows = [
@@ -40,7 +43,7 @@ export default function ScoreModal({ visible, result, isOffline, onClose }: Prop
 
           {isOffline && (
             <View style={s.offlinePill}>
-              <Ionicons name="cloud-upload-outline" size={13} color="#92400E" />
+              <Ionicons name="cloud-upload-outline" size={13} color={colors.warning} />
               <Text style={s.offlineText}>محفوظ محلياً — سيُرسل عند الاتصال</Text>
             </View>
           )}
@@ -69,30 +72,30 @@ export default function ScoreModal({ visible, result, isOffline, onClose }: Prop
   );
 }
 
-const s = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  card: { backgroundColor: '#fff', borderRadius: 24, padding: 24, width: '100%', alignItems: 'center', gap: 8 },
+const makeStyles = (colors: ReturnType<typeof useColors>) => StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  card: { backgroundColor: colors.card, borderRadius: 24, padding: 24, width: '100%', alignItems: 'center', gap: 8 },
   scoreBubble: {
     width: 110, height: 110, borderRadius: 55,
     borderWidth: 5, justifyContent: 'center', alignItems: 'center',
     marginBottom: 4,
   },
   scoreNum: { fontSize: 38, fontWeight: '800', lineHeight: 42 },
-  scoreOf: { fontSize: 13, color: '#6B7280', lineHeight: 16 },
+  scoreOf: { fontSize: 13, color: colors.mutedForeground, lineHeight: 16 },
   label: { fontSize: 22, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
-  title: { fontSize: 13, color: '#6B7280', letterSpacing: 0.5, marginBottom: 4 },
+  title: { fontSize: 13, color: colors.mutedForeground, letterSpacing: 0.5, marginBottom: 4 },
   offlinePill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
+    backgroundColor: colors.warningBackground, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
   },
-  offlineText: { fontSize: 11, color: '#92400E', fontFamily: 'Cairo_400Regular' },
+  offlineText: { fontSize: 11, color: colors.warning, fontFamily: 'Cairo_400Regular' },
   breakdown: { width: '100%', gap: 10, marginTop: 8 },
   bRow: { gap: 4 },
   bMeta: { flexDirection: 'row', justifyContent: 'space-between' },
-  bLabel: { fontSize: 13, color: '#374151', fontFamily: 'Cairo_400Regular', textAlign: 'right' },
-  bPts: { fontSize: 13, color: '#6B7280', fontFamily: 'Cairo_700Bold', fontWeight: '700' },
-  bTrack: { height: 7, backgroundColor: '#F3F4F6', borderRadius: 4, overflow: 'hidden' },
+  bLabel: { fontSize: 13, color: colors.foreground, fontFamily: 'Cairo_400Regular', textAlign: 'right' },
+  bPts: { fontSize: 13, color: colors.mutedForeground, fontFamily: 'Cairo_700Bold', fontWeight: '700' },
+  bTrack: { height: 7, backgroundColor: colors.muted, borderRadius: 4, overflow: 'hidden' },
   bBar: { height: 7, borderRadius: 4 },
   btn: { borderRadius: 12, paddingVertical: 12, paddingHorizontal: 40, marginTop: 8 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
+  btnText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '700', fontFamily: 'Cairo_700Bold' },
 });

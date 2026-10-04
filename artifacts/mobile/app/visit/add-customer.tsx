@@ -328,7 +328,7 @@ export default function AddCustomerScreen() {
           }
           activeOpacity={0.85}
         >
-          <Ionicons name="navigate" size={20} color="#fff" />
+          <Ionicons name="navigate" size={20} color={colors.primaryForeground} />
           <Text style={s.primaryButtonText}>ابدأ الزيارة الأولى</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.secondaryButton} onPress={resetWizard} activeOpacity={0.85}>
@@ -379,10 +379,10 @@ export default function AddCustomerScreen() {
             ) : (
               <TouchableOpacity style={s.gpsButton} onPress={() => void captureGps()} disabled={gpsLoading}>
                 {gpsLoading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.primaryForeground} />
                 ) : (
                   <>
-                    <Ionicons name="navigate" size={19} color="#fff" />
+                    <Ionicons name="navigate" size={19} color={colors.primaryForeground} />
                     <Text style={s.gpsButtonText}>تحديد موقعي الحالي</Text>
                   </>
                 )}
@@ -485,7 +485,7 @@ export default function AddCustomerScreen() {
                   onPress={() => toggleCompetitor(brand)}
                   activeOpacity={0.8}
                 >
-                  {selected ? <Ionicons name="checkmark" size={15} color="#fff" /> : null}
+                  {selected ? <Ionicons name="checkmark" size={15} color={colors.primaryForeground} /> : null}
                   <Text style={[s.chipText, selected && s.chipTextActive]}>{brand}</Text>
                 </TouchableOpacity>
               );
@@ -547,7 +547,7 @@ export default function AddCustomerScreen() {
         {step < 3 ? (
           <TouchableOpacity style={s.primaryButtonSmall} onPress={goNext} activeOpacity={0.85}>
             <Text style={s.primaryButtonText}>التالي</Text>
-            <Ionicons name="arrow-back" size={19} color="#fff" />
+            <Ionicons name="arrow-back" size={19} color={colors.primaryForeground} />
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -556,7 +556,7 @@ export default function AddCustomerScreen() {
             disabled={saving}
             activeOpacity={0.85}
           >
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryButtonText}>💾 حفظ العميل الجديد مباشرة</Text>}
+            {saving ? <ActivityIndicator color={colors.primaryForeground} /> : <Text style={s.primaryButtonText}>💾 حفظ العميل الجديد مباشرة</Text>}
           </TouchableOpacity>
         )}
       </View>
@@ -607,7 +607,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     },
     stepCircleActive: { backgroundColor: colors.customerPrimary, borderColor: colors.customerPrimary },
     stepNumber: { fontSize: 13, color: colors.mutedForeground, fontFamily: 'Cairo_700Bold' },
-    stepNumberActive: { color: '#fff' },
+    stepNumberActive: { color: colors.primaryForeground },
     stepLine: { height: 2, flex: 1, backgroundColor: colors.border },
     stepLineActive: { backgroundColor: colors.customerPrimary },
     stepLabels: {
@@ -623,7 +623,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       borderRadius: 16,
       padding: 16,
       marginBottom: 14,
-      shadowColor: '#000',
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.05,
       shadowRadius: 5,
@@ -648,7 +648,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       alignItems: 'center',
       gap: 8,
     },
-    gpsButtonText: { color: '#fff', fontSize: 14, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
+    gpsButtonText: { color: colors.primaryForeground, fontSize: 14, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
     gpsSuccess: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -690,7 +690,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     },
     typeOptionActive: { backgroundColor: colors.primary, borderColor: colors.primary },
     typeOptionText: { color: colors.mutedForeground, fontSize: 12, fontFamily: 'Cairo_600SemiBold', textAlign: 'center' },
-    typeOptionTextActive: { color: '#fff' },
+    typeOptionTextActive: { color: colors.primaryForeground },
     photoButton: {
       borderWidth: 1,
       borderStyle: 'dashed',
@@ -718,12 +718,12 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     },
     chipActive: { backgroundColor: colors.customerPrimary, borderColor: colors.customerPrimary },
     chipText: { color: colors.mutedForeground, fontSize: 12, fontFamily: 'Cairo_600SemiBold' },
-    chipTextActive: { color: '#fff' },
+    chipTextActive: { color: colors.primaryForeground },
     reviewCard: {
       backgroundColor: colors.card,
       borderRadius: 16,
       padding: 16,
-      shadowColor: '#000',
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.05,
       shadowRadius: 5,
@@ -741,7 +741,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     backButtonText: { color: colors.foreground, fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
     primaryButtonSmall: { flex: 1, minHeight: 48, borderRadius: 11, paddingHorizontal: 13, backgroundColor: colors.customerPrimary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
     primaryButton: { width: '100%', minHeight: 50, borderRadius: 12, paddingHorizontal: 16, backgroundColor: colors.customerPrimary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 26 },
-    primaryButtonText: { color: '#fff', fontSize: 14, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const, textAlign: 'center' },
+    primaryButtonText: { color: colors.primaryForeground, fontSize: 14, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const, textAlign: 'center' },
     disabledButton: { opacity: 0.6 },
     secondaryButton: { width: '100%', minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
     secondaryButtonText: { color: colors.customerPrimary, fontSize: 14, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
