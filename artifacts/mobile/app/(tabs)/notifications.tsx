@@ -83,7 +83,7 @@ export default function NotificationsTab() {
           title: '⚠️ درجة Perfect Store منخفضة',
           body: `${lowPss.length} زيارة أخيرة بدرجة أقل من 60 — يرجى تحسين ترتيب الرف`,
           time: 'من آخر الزيارات',
-          color: '#F97316',
+          color: colors.warning,
           icon: 'analytics',
         });
       }
@@ -167,7 +167,7 @@ export default function NotificationsTab() {
     <View style={s.container}>
       <View style={s.header}>
         <Text style={s.headerTitle}>الإشعارات</Text>
-        <Ionicons name="notifications" size={22} color="#fff" />
+        <Ionicons name="notifications" size={22} color={colors.primaryForeground} />
       </View>
 
       <FlatList
@@ -209,13 +209,13 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 8),
       paddingBottom: 16, paddingHorizontal: 20,
     },
-    headerTitle: { fontSize: 20, fontWeight: '700' as const, color: '#fff', fontFamily: 'Cairo_700Bold' },
+    headerTitle: { fontSize: 20, fontWeight: '700' as const, color: colors.primaryForeground, fontFamily: 'Cairo_700Bold' },
     listContent: { padding: 16, paddingBottom: 100 },
     notifCard: {
       backgroundColor: colors.card, borderRadius: 14, padding: 14,
       marginBottom: 10, flexDirection: 'row', alignItems: 'flex-start',
       gap: 12, borderRightWidth: 4,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
     },
     notifIcon: {

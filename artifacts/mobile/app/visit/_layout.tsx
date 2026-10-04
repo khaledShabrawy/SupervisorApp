@@ -8,7 +8,7 @@ export default function VisitLayout() {
     <Stack
       screenOptions={{
         headerStyle: { backgroundColor: colors.primary },
-        headerTintColor: '#fff',
+        headerTintColor: colors.primaryForeground,
         headerTitleStyle: { fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
         headerBackTitle: 'رجوع',
       }}

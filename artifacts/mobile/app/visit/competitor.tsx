@@ -96,7 +96,7 @@ export default function CompetitorScreen() {
     <View style={s.container}>
       {(!isOnline || activeVisit?.isPending) && (
         <View style={s.offlineBanner}>
-          <Ionicons name="cloud-offline" size={16} color="#92400E" />
+          <Ionicons name="cloud-offline" size={16} color={colors.warning} />
           <Text style={s.offlineText}>
             {!isOnline ? 'لا يوجد اتصال — سيُحفظ محلياً' : 'الزيارة معلقة — سيُرسل مع الزيارة'}
           </Text>
@@ -144,7 +144,7 @@ export default function CompetitorScreen() {
             textAlign="center"
           />
           <TouchableOpacity style={s.addBtn} onPress={addItem} activeOpacity={0.85}>
-            <Ionicons name="add" size={20} color="#fff" />
+            <Ionicons name="add" size={20} color={colors.primaryForeground} />
             <Text style={s.addBtnText}>إضافة</Text>
           </TouchableOpacity>
         </View>
@@ -188,7 +188,7 @@ export default function CompetitorScreen() {
               disabled={saving}
               activeOpacity={0.85}
             >
-              <Ionicons name={!isOnline || activeVisit?.isPending ? 'cloud-upload' : 'save'} size={20} color="#fff" />
+              <Ionicons name={!isOnline || activeVisit?.isPending ? 'cloud-upload' : 'save'} size={20} color={colors.primaryForeground} />
               <Text style={s.saveBtnText}>
                 {!isOnline || activeVisit?.isPending ? `حفظ محلياً (${items.length})` : `حفظ المنتجات (${items.length})`}
               </Text>
@@ -205,12 +205,12 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
     container: { flex: 1, backgroundColor: colors.background },
     offlineBanner: {
       flexDirection: 'row', alignItems: 'center', gap: 8,
-      backgroundColor: '#FEF3C7', paddingHorizontal: 16, paddingVertical: 10,
+      backgroundColor: colors.warningBackground, paddingHorizontal: 16, paddingVertical: 10,
     },
-    offlineText: { fontSize: 12, color: '#92400E', fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, flex: 1, textAlign: 'right' },
+    offlineText: { fontSize: 12, color: colors.warning, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, flex: 1, textAlign: 'right' },
     formCard: {
       backgroundColor: colors.card, margin: 16, borderRadius: 16, padding: 16,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
     },
     formTitle: { fontSize: 15, fontWeight: '700' as const, color: colors.foreground, fontFamily: 'Cairo_700Bold', textAlign: 'right', marginBottom: 12 },
@@ -225,7 +225,7 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
       backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 16,
       flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center',
     },
-    addBtnText: { color: '#fff', fontSize: 14, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
+    addBtnText: { color: colors.primaryForeground, fontSize: 14, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
     listContent: { paddingHorizontal: 16, paddingBottom: 40 },
     empty: { alignItems: 'center', paddingVertical: 40, gap: 8 },
     emptyText: { fontSize: 14, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular' },
@@ -246,5 +246,5 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8,
     },
     saveBtnDisabled: { opacity: 0.6 },
-    saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
+    saveBtnText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
   });

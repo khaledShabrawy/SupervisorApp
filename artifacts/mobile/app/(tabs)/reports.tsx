@@ -67,7 +67,7 @@ export default function ReportsTab() {
   const avgPss = pssVisits.length > 0
     ? Math.round(pssVisits.reduce((s, v) => s + (v.perfect_store_score ?? 0), 0) / pssVisits.length)
     : null;
-  const pssColor = avgPss == null ? '#6B7280' : avgPss >= 80 ? '#10B981' : avgPss >= 60 ? '#F59E0B' : avgPss >= 40 ? '#F97316' : '#EF4444';
+  const pssColor = avgPss == null ? colors.mutedForeground : avgPss >= 80 ? colors.success : avgPss >= 60 ? colors.warning : avgPss >= 40 ? colors.warning : colors.destructive;
 
   return (
     <View style={s.container}>
@@ -77,7 +77,7 @@ export default function ReportsTab() {
           onPress={() => router.push('/price-index')}
           activeOpacity={0.85}
         >
-          <Ionicons name="trending-up" size={16} color="#fff" />
+          <Ionicons name="trending-up" size={16} color={colors.primaryForeground} />
           <Text style={s.priceIndexBtnText}>Price Index</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle}>تقاريري</Text>
@@ -187,8 +187,8 @@ export default function ReportsTab() {
                 <View style={s.visitRight}>
                   {item.perfect_store_score != null && (
                     <Text style={[s.pssChip, {
-                      color: item.perfect_store_score >= 80 ? '#065F46' : item.perfect_store_score >= 60 ? '#92400E' : '#991B1B',
-                      backgroundColor: item.perfect_store_score >= 80 ? '#D1FAE5' : item.perfect_store_score >= 60 ? '#FEF3C7' : '#FEE2E2',
+                      color: item.perfect_store_score >= 80 ? colors.success : item.perfect_store_score >= 60 ? colors.warning : colors.destructive,
+                      backgroundColor: item.perfect_store_score >= 80 ? colors.successBackground : item.perfect_store_score >= 60 ? colors.warningBackground : colors.dangerBackground,
                     }]}>{item.perfect_store_score}</Text>
                   )}
                   <Text style={[s.visitStatus, { color: statusColor(item.status) }]}>{item.status}</Text>
@@ -211,13 +211,13 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 8),
       paddingBottom: 16, paddingHorizontal: 20,
     },
-    headerTitle: { fontSize: 20, fontWeight: '700' as const, color: '#fff', fontFamily: 'Cairo_700Bold' },
+    headerTitle: { fontSize: 20, fontWeight: '700' as const, color: colors.primaryForeground, fontFamily: 'Cairo_700Bold' },
     priceIndexBtn: {
       flexDirection: 'row', alignItems: 'center', gap: 5,
-      backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20,
+      backgroundColor: `${colors.primaryForeground}33`, borderRadius: 20,
       paddingHorizontal: 12, paddingVertical: 6,
     },
-    priceIndexBtnText: { fontSize: 12, color: '#fff', fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
+    priceIndexBtnText: { fontSize: 12, color: colors.primaryForeground, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
     tabRow: {
       flexDirection: 'row', backgroundColor: colors.card,
       paddingHorizontal: 16, paddingVertical: 10, gap: 10,
@@ -228,14 +228,14 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     },
     tabBtnActive: { backgroundColor: colors.primary },
     tabBtnText: { fontSize: 14, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, color: colors.mutedForeground },
-    tabBtnTextActive: { color: '#fff' },
+    tabBtnTextActive: { color: colors.primaryForeground },
     statsRow: {
       flexDirection: 'row', paddingHorizontal: 12, gap: 8, paddingVertical: 12,
     },
     statCard: {
       flex: 1, backgroundColor: colors.card, borderRadius: 12, padding: 10,
       borderTopWidth: 3, alignItems: 'center',
-      shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
     },
     statNum: { fontSize: 22, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
@@ -257,7 +257,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     chartCard: {
       backgroundColor: colors.card, borderRadius: 16, padding: 16,
       marginHorizontal: 0, marginBottom: 12,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
     },
     chartTitle: { fontSize: 14, fontWeight: '700' as const, color: colors.foreground, fontFamily: 'Cairo_700Bold', textAlign: 'right', marginBottom: 12 },
     chartBars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 100 },

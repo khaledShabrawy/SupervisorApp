@@ -170,7 +170,7 @@ export default function OrderScreen() {
       {/* Offline indicator */}
       {(!isOnline || activeVisit?.isPending) && (
         <View style={s.offlineBanner}>
-          <Ionicons name="cloud-offline" size={16} color="#92400E" />
+          <Ionicons name="cloud-offline" size={16} color={colors.warning} />
           <Text style={s.offlineText}>
             {!isOnline ? 'لا يوجد اتصال — سيُحفظ الأوردر محلياً' : 'الزيارة معلقة — سيُرسل الأوردر مع الزيارة'}
           </Text>
@@ -200,12 +200,12 @@ export default function OrderScreen() {
             <View style={[s.productRow, qty > 0 && s.productRowSelected]}>
               <View style={s.qtyControl}>
                 <TouchableOpacity style={s.qtyBtn} onPress={() => setQty(item.id, qty + 1)} activeOpacity={0.8}>
-                  <Ionicons name="add" size={18} color="#fff" />
+                  <Ionicons name="add" size={18} color={colors.primaryForeground} />
                 </TouchableOpacity>
                 <Text style={s.qtyNum}>{qty}</Text>
                 <TouchableOpacity style={[s.qtyBtn, { backgroundColor: qty > 0 ? colors.destructive : colors.border }]}
                   onPress={() => setQty(item.id, qty - 1)} activeOpacity={0.8} disabled={qty === 0}>
-                  <Ionicons name="remove" size={18} color="#fff" />
+                  <Ionicons name="remove" size={18} color={colors.primaryForeground} />
                 </TouchableOpacity>
               </View>
               <View style={s.productInfo}>
@@ -243,10 +243,10 @@ export default function OrderScreen() {
                 activeOpacity={0.85}
               >
                 {submitting ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.primaryForeground} />
                 ) : (
                   <>
-                    <Ionicons name={!isOnline || activeVisit?.isPending ? 'cloud-upload' : 'checkmark-circle'} size={20} color="#fff" />
+                    <Ionicons name={!isOnline || activeVisit?.isPending ? 'cloud-upload' : 'checkmark-circle'} size={20} color={colors.primaryForeground} />
                     <Text style={s.submitBtnText}>
                       {!isOnline || activeVisit?.isPending ? 'حفظ محلياً' : 'إرسال الأوردر'}
                     </Text>
@@ -267,9 +267,9 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     offlineBanner: {
       flexDirection: 'row', alignItems: 'center', gap: 8,
-      backgroundColor: '#FEF3C7', paddingHorizontal: 16, paddingVertical: 10,
+      backgroundColor: colors.warningBackground, paddingHorizontal: 16, paddingVertical: 10,
     },
-    offlineText: { fontSize: 12, color: '#92400E', fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, flex: 1, textAlign: 'right' },
+    offlineText: { fontSize: 12, color: colors.warning, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, flex: 1, textAlign: 'right' },
     searchBar: {
       flexDirection: 'row', alignItems: 'center', gap: 10,
       margin: 16, backgroundColor: colors.card, borderRadius: 12,
@@ -287,8 +287,8 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
     productNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'flex-end' },
     productName: { fontSize: 14, fontWeight: '600' as const, color: colors.foreground, fontFamily: 'Cairo_600SemiBold', textAlign: 'right' },
     productCategory: { fontSize: 12, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'right' },
-    suggestedBadge: { backgroundColor: '#EDE9FE', borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1 },
-    suggestedText: { fontSize: 10, color: '#5B21B6', fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
+    suggestedBadge: { backgroundColor: colors.infoBackground, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1 },
+    suggestedText: { fontSize: 10, color: colors.info, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
     qtyControl: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     qtyBtn: {
       width: 28, height: 28, borderRadius: 7,
@@ -311,5 +311,5 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14,
     },
     submitBtnDisabled: { opacity: 0.6 },
-    submitBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
+    submitBtnText: { color: colors.primaryForeground, fontSize: 15, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
   });

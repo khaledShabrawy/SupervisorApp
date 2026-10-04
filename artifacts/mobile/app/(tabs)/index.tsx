@@ -85,7 +85,7 @@ export default function HomeScreen() {
   const dealingRate = weekVisits.length > 0
     ? Math.round((weekVisits.filter(v => v.status === 'متعامل').length / weekVisits.length) * 100) : 0;
 
-  const level = avgPss >= 80 ? { label: 'بطل 🏆', color: '#D4A017' }
+  const level = avgPss >= 80 ? { label: 'بطل 🏆', color: colors.accent }
     : avgPss >= 65 ? { label: 'خبير ⭐', color: colors.primary }
     : avgPss >= 45 ? { label: 'محترف 💪', color: colors.success }
     : { label: 'مبتدئ 🚀', color: colors.mutedForeground };
@@ -94,7 +94,7 @@ export default function HomeScreen() {
 
   const quickActions = [
     { icon: 'location', label: 'زيارة جديدة', color: colors.primary, route: '/(tabs)/visit' as const },
-    { icon: 'list', label: 'زياراتي اليوم', color: '#8B5CF6', route: '/(tabs)/reports' as const },
+    { icon: 'list', label: 'زياراتي اليوم', color: colors.info, route: '/(tabs)/reports' as const },
     { icon: 'bar-chart', label: 'إحصائياتي', color: colors.success, route: '/(tabs)/reports' as const },
     { icon: 'notifications', label: 'الإشعارات', color: colors.warning, route: '/(tabs)/notifications' as const },
   ] as const;
@@ -151,9 +151,9 @@ export default function HomeScreen() {
           activeOpacity={isOnline ? 0.8 : 1}
         >
           {isSyncing ? (
-            <ActivityIndicator size="small" color="#92400E" />
+            <ActivityIndicator size="small" color={colors.warning} />
           ) : (
-            <Ionicons name={isOnline ? 'cloud-upload' : 'cloud-offline'} size={16} color="#92400E" />
+            <Ionicons name={isOnline ? 'cloud-upload' : 'cloud-offline'} size={16} color={colors.warning} />
           )}
           <Text style={s.syncBannerText}>
             {!isOnline
@@ -179,7 +179,7 @@ export default function HomeScreen() {
         <View style={s.headerActions}>
           {supervisor?.role === 'admin' ? (
             <TouchableOpacity style={s.adminHeaderButton} onPress={() => router.push('/admin')} activeOpacity={0.8}>
-              <Ionicons name="shield-checkmark-outline" size={20} color="#fff" />
+              <Ionicons name="shield-checkmark-outline" size={20} color={colors.primaryForeground} />
             </TouchableOpacity>
           ) : null}
           <View style={s.avatarCircle}>
@@ -264,7 +264,7 @@ export default function HomeScreen() {
         </View>
         <View style={s.storyActions}>
           <TouchableOpacity style={s.storyActionPrimary} onPress={() => router.push('/(tabs)/visit')} activeOpacity={0.85}>
-            <Ionicons name="map-outline" size={17} color="#fff" />
+            <Ionicons name="map-outline" size={17} color={colors.primaryForeground} />
             <Text style={s.storyActionPrimaryText}>فتح مركز المسار</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.storyActionSecondary} onPress={() => router.push('/(tabs)/reports')} activeOpacity={0.85}>
@@ -320,16 +320,16 @@ export default function HomeScreen() {
               <View style={s.visitRight}>
                 {item.perfect_store_score != null && (
                   <View style={[s.scorePill, {
-                    backgroundColor: item.perfect_store_score >= 80 ? '#D1FAE5'
-                      : item.perfect_store_score >= 60 ? '#FEF3C7'
-                      : item.perfect_store_score >= 40 ? '#FFEDD5'
-                      : '#FEE2E2',
+                    backgroundColor: item.perfect_store_score >= 80 ? colors.successBackground
+                      : item.perfect_store_score >= 60 ? colors.warningBackground
+                      : item.perfect_store_score >= 40 ? colors.warningBackground
+                      : colors.dangerBackground,
                   }]}>
                     <Text style={[s.scorePillText, {
-                      color: item.perfect_store_score >= 80 ? '#065F46'
-                        : item.perfect_store_score >= 60 ? '#92400E'
-                        : item.perfect_store_score >= 40 ? '#9A3412'
-                        : '#991B1B',
+                      color: item.perfect_store_score >= 80 ? colors.success
+                        : item.perfect_store_score >= 60 ? colors.warning
+                        : item.perfect_store_score >= 40 ? colors.warning
+                        : colors.destructive,
                     }]}>
                       {item.perfect_store_score}
                     </Text>
@@ -360,10 +360,10 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       paddingHorizontal: 16, paddingVertical: 10, marginHorizontal: 16,
       marginBottom: 8, borderRadius: 10,
     },
-    syncBannerOffline: { backgroundColor: '#FEE2E2' },
-    syncBannerPending: { backgroundColor: '#FEF3C7' },
+    syncBannerOffline: { backgroundColor: colors.dangerBackground },
+    syncBannerPending: { backgroundColor: colors.warningBackground },
     syncBannerText: {
-      flex: 1, fontSize: 12, color: '#92400E',
+      flex: 1, fontSize: 12, color: colors.warning,
       fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, textAlign: 'right',
     },
     header: {
@@ -378,30 +378,30 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       marginBottom: 20,
     },
     headerEyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-    headerEyebrow: { color: 'rgba(255,255,255,0.72)', fontSize: 10, letterSpacing: 1.1, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
-    liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#86EFAC' },
-    headerGreeting: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontFamily: 'Cairo_400Regular', textAlign: 'right' },
-    headerName: { fontSize: 22, fontWeight: '700' as const, color: '#fff', fontFamily: 'Cairo_700Bold', textAlign: 'right' },
-    headerBranch: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontFamily: 'Cairo_400Regular', textAlign: 'right' },
+    headerEyebrow: { color: `${colors.primaryForeground}B8`, fontSize: 10, letterSpacing: 1.1, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
+    liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.success },
+    headerGreeting: { fontSize: 13, color: `${colors.primaryForeground}BF`, fontFamily: 'Cairo_400Regular', textAlign: 'right' },
+    headerName: { fontSize: 22, fontWeight: '700' as const, color: colors.primaryForeground, fontFamily: 'Cairo_700Bold', textAlign: 'right' },
+    headerBranch: { fontSize: 13, color: `${colors.primaryForeground}BF`, fontFamily: 'Cairo_400Regular', textAlign: 'right' },
     avatarCircle: {
       width: 48, height: 48, borderRadius: 24,
-      backgroundColor: 'rgba(255,255,255,0.2)',
+      backgroundColor: `${colors.primaryForeground}33`,
       justifyContent: 'center', alignItems: 'center',
     },
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     adminHeaderButton: {
       width: 38, height: 38, borderRadius: 19,
-      backgroundColor: 'rgba(255,255,255,0.18)',
+      backgroundColor: `${colors.primaryForeground}2E`,
       justifyContent: 'center', alignItems: 'center',
     },
-    avatarText: { fontSize: 20, fontWeight: '700' as const, color: '#fff', fontFamily: 'Cairo_700Bold' },
+    avatarText: { fontSize: 20, fontWeight: '700' as const, color: colors.primaryForeground, fontFamily: 'Cairo_700Bold' },
     targetCard: {
       backgroundColor: colors.card,
       marginHorizontal: 16,
       borderRadius: 16,
       padding: 16,
       marginBottom: 24,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
     },
     targetHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
@@ -414,7 +414,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     kpiCard: {
       width: '48%', backgroundColor: colors.card, borderRadius: 15, padding: 12,
       borderTopWidth: 3, minHeight: 116,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
     },
     kpiIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end', marginBottom: 7 },
@@ -423,7 +423,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     storyCard: {
       backgroundColor: colors.card, borderRadius: 18, marginHorizontal: 16, marginBottom: 24,
       padding: 15, borderWidth: 1, borderColor: colors.border,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
     },
     storyHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
@@ -440,7 +440,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     storyRowValue: { color: colors.foreground, fontSize: 12, fontFamily: 'Cairo_400Regular', textAlign: 'right', marginTop: 1 },
     storyActions: { flexDirection: 'row', gap: 8, marginTop: 14 },
     storyActionPrimary: { flex: 1, minHeight: 43, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
-    storyActionPrimaryText: { color: '#fff', fontSize: 12, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
+    storyActionPrimaryText: { color: colors.primaryForeground, fontSize: 12, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
     storyActionSecondary: { minHeight: 43, borderRadius: 10, paddingHorizontal: 18, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
     storyActionSecondaryText: { color: colors.primary, fontSize: 12, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const },
     sectionTitle: {
@@ -455,7 +455,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     quickCard: {
       width: '46%', backgroundColor: colors.card, borderRadius: 14,
       padding: 14, borderTopWidth: 3,
-      shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
     },
     quickIcon: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 8, alignSelf: 'flex-end' },
@@ -466,7 +466,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     },
     emptyText: { fontSize: 14, color: colors.mutedForeground, fontFamily: 'Cairo_400Regular', textAlign: 'center' },
     emptyBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 20, marginTop: 4 },
-    emptyBtnText: { color: '#fff', fontFamily: 'Cairo_600SemiBold', fontSize: 14, fontWeight: '600' as const },
+    emptyBtnText: { color: colors.primaryForeground, fontFamily: 'Cairo_600SemiBold', fontSize: 14, fontWeight: '600' as const },
     visitRow: {
       flexDirection: 'row', alignItems: 'center',
       marginHorizontal: 16, marginBottom: 8, backgroundColor: colors.card,
@@ -485,7 +485,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     gamCard: {
       marginHorizontal: 16, marginBottom: 16, backgroundColor: colors.card,
       borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center',
-      shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+      shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
     },
     gamItem: { flex: 1, alignItems: 'center', gap: 3 },
