@@ -1,0 +1,1 @@
+- [Supabase setup verification](supabase-setup-verification.md) — secret confirmation proves presence, not project pairing; verify the public URL and auth metadata without logging keys.

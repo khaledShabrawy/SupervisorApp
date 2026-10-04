@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-24", "python-base-3.13"]
 
 [deployment]
 router = "application"
@@ -23,3 +23,4 @@ timeoutMs = 20000
 
 [userenv.shared]
 VITE_N8N_SHELF_AUDIT_WEBHOOK = "https://n8n.yourdomain.com/webhook/shelf-audit"
+EXPO_PUBLIC_SUPABASE_URL = "https://ywdlrrdkjbtpfgacuuoy.supabase.co"

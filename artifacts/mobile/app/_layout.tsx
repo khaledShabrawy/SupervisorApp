@@ -14,6 +14,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { OfflineProvider } from '@/contexts/OfflineContext';
 import { VisitProvider } from '@/contexts/VisitContext';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -57,9 +58,11 @@ function AuthGate() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="login" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="visit" />
-      <Stack.Screen name="admin" />
+      <Stack.Protected guard={isSupabaseConfigured}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="visit" />
+        <Stack.Screen name="admin" />
+      </Stack.Protected>
     </Stack>
   );
 }
