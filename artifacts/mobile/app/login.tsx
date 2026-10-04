@@ -58,9 +58,10 @@ export default function LoginScreen() {
         {/* Logo area */}
         <View style={s.logoArea}>
           <Image
-            source={require('../assets/logo.jpg')}
+            source={require('../assets/zeina-logo.png')}
             style={s.logoImage}
             resizeMode="contain"
+            accessibilityLabel="شعار زينة للورقيات"
           />
           <Text style={s.appName}>Mydan</Text>
           <Text style={s.appSubtitle}>نظام إدارة المشرفين الميدانيين</Text>
@@ -171,7 +172,7 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
     },
     logoArea: { alignItems: 'center', marginBottom: 32 },
     logoImage: {
-      width: 80,
+      width: 164,
       height: 80,
       borderRadius: 14,
       marginBottom: 12,
