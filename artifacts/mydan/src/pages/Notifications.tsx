@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BellOff, CheckCheck } from 'lucide-react';
+import { BellOff, CheckCheck } from '@/components/Icons';
 import { useMarkRead, useNotifications } from '@/lib/data';
 import { PageTitle } from '@/components/Layout';
 import EmptyState from '@/components/EmptyState';

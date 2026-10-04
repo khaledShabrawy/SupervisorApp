@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from 'react';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { Search } from 'lucide-react';
+import { Search } from '@/components/Icons';
 import { useCustomerSearch } from '@/lib/data';
 import type { Customer } from '@/types/database';
 import { ErrorState } from '@/components/States';

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { quantityOrderRecord, countTargetRecord } from '../src/lib/execution-records.ts';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 const visit = { id: 'visit', customer_id: 'customer', supervisor_id: 'supervisor', company_id: 'company' };
@@ -29,7 +29,7 @@ test('target records whitelist only three count goals and their period/owner', (
     assert.throws(() => countTargetRecord({ ...target, audit_target }));
   }
 });
-test('both app source trees stay free of monetary fields and formatters', () => {
+test('web source stays free of monetary fields and native app is removed', () => {
   const forbidden = /\b(?:formatCurrency|total_amount|unit_price|total_price|target_revenue|actual_revenue|revenue|EGP)\b|ج\.م|جنيه/;
   function check(dir: string) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -39,7 +39,5 @@ test('both app source trees stay free of monetary fields and formatters', () => 
     }
   }
   check(new URL('../src', import.meta.url).pathname);
-  for (const folder of ['app', 'lib', 'contexts', 'components']) {
-    check(new URL(`../../mobile/${folder}`, import.meta.url).pathname);
-  }
+  assert.equal(existsSync(new URL('../../mobile/package.json', import.meta.url)), false);
 });

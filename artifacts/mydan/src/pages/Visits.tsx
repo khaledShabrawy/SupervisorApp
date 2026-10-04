@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCheck, ClipboardList, Play, Plus, XCircle } from 'lucide-react';
+import { CheckCheck, ClipboardList, Play, Plus, XCircle } from '@/components/Icons';
 import { useUpdateVisitStatus, useVisits, type VisitRow } from '@/lib/data';
 import { StatusBadge } from '@/components/StatusBadge';
 import EmptyState from '@/components/EmptyState';

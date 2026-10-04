@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Route } from 'lucide-react';
+import { MapPin, Route } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useBeatPlan, type BeatRow } from '@/lib/data';

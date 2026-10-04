@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { Target as TargetIcon } from 'lucide-react';
+import { Target as TargetIcon } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useMonthlyTargets, type MonthProgress } from '@/lib/screen-data';

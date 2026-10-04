@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useInput, useRefetch } from './shared';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, LocateFixed, ShieldCheck } from 'lucide-react';
+import { ArrowRight, LocateFixed, ShieldCheck } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useGeolocation } from '@/hooks/useGeolocation';

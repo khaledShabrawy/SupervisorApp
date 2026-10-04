@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
-import { AlertCircle, MapPinned } from 'lucide-react';
+import { AlertCircle, MapPinned } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
 

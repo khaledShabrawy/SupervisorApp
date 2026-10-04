@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Bell, BarChart3, ClipboardList, Home, Users } from 'lucide-react';
+import { Bell, BarChart3, ClipboardList, Home, Users } from '@/components/Icons';
 import { useUnreadCount } from '@/lib/data';
 import { num } from '@/lib/format';
 

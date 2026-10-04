@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCheck, ClipboardList, Play, Plus, RefreshCw, XCircle } from 'lucide-react';
+import { CheckCheck, ClipboardList, Play, Plus, RefreshCw, XCircle } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useUpdateVisitStatus, type VisitRow } from '@/lib/data';

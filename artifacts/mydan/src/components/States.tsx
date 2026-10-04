@@ -1,4 +1,4 @@
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle } from '@/components/Icons';
 
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   return <div className="card col" role="alert" style={{ borderColor: 'var(--color-danger)' }}>

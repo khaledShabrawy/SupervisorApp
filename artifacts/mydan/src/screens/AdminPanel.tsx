@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Package, ShieldCheck } from 'lucide-react';
+import { Package, ShieldCheck } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { canAdmin } from '@/lib/policy';
