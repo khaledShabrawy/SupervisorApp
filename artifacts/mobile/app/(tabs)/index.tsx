@@ -31,12 +31,13 @@ export default function HomeScreen() {
     queryKey: ['target', supervisor?.id, today()],
     queryFn: async () => {
       if (!supervisor) return null;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('targets')
-        .select('*')
+        .select('id,supervisor_id,target_date,visits_target,orders_target,created_at')
         .eq('supervisor_id', supervisor.id)
         .eq('target_date', today())
         .maybeSingle();
+      if (error) throw error;
       return data as Target | null;
     },
     enabled: !!supervisor,
@@ -73,9 +74,37 @@ export default function HomeScreen() {
     enabled: !!supervisor,
   });
 
+  const execution = useQuery({
+    queryKey: ['execution-counts', supervisor?.id, today()],
+    enabled: !!supervisor,
+    queryFn: async () => {
+      if (!supervisor) throw new Error('سجّل الدخول أولًا.');
+      const start = `${today()}T00:00:00.000Z`;
+      const end = new Date(new Date(start).getTime() + 86_400_000).toISOString();
+      const orderResult = await supabase.from('orders').select('id', { count: 'exact', head: true })
+        .eq('supervisor_id', supervisor.id).gte('created_at', start).lt('created_at', end);
+      if (orderResult.error) throw orderResult.error;
+      if (orderResult.count == null) throw new Error('تعذر حساب أوامر اليوم.');
+      const reviewedVisits = new Set<string>();
+      for (let offset = 0; ;) {
+        const result = await supabase.from('shelf_audit')
+          .select('visit_id,visits!inner(supervisor_id)', { count: 'exact' })
+          .eq('visits.supervisor_id', supervisor.id).gte('created_at', start).lt('created_at', end)
+          .order('id').range(offset, offset + 499);
+        if (result.error) throw result.error;
+        if (result.count == null) throw new Error('تعذر حساب مراجعات الرف.');
+        const rows = result.data ?? [];
+        rows.forEach(row => reviewedVisits.add(row.visit_id));
+        offset += rows.length;
+        if (offset >= result.count) break;
+        if (!rows.length) throw new Error('تعذر قراءة جميع مراجعات الرف.');
+      }
+      return { orders: orderResult.count, audits: reviewedVisits.size };
+    },
+  });
   const visitsCount = todayVisits.length;
-  const visitsTarget = target?.visits_target ?? 10;
-  const progress = Math.min(visitsCount / visitsTarget, 1);
+  const visitsTarget = target?.visits_target;
+  const progress = visitsTarget && visitsTarget > 0 ? Math.min(visitsCount / visitsTarget, 1) : 0;
 
   // ── Gamification calculations ──────────────────────────────
   const pssVisits = weekVisits.filter(v => v.perfect_store_score != null);
@@ -105,19 +134,19 @@ export default function HomeScreen() {
     return colors.mutedForeground;
   };
 
-  const remainingVisits = Math.max(visitsTarget - visitsCount, 0);
+  const remainingVisits = Math.max((visitsTarget ?? 0) - visitsCount, 0);
   const storyline = [
     {
       number: '01',
       label: 'ما أراه',
-      value: `${visitsCount} زيارة من أصل ${visitsTarget} اليوم`,
+      value: `${visitsCount} زيارة من أصل ${visitsTarget ?? '—'} اليوم`,
       color: colors.primary,
       icon: 'analytics-outline' as const,
     },
     {
       number: '02',
       label: 'ما يحتاج متابعة',
-      value: remainingVisits > 0 ? `${remainingVisits} زيارة متبقية على الهدف` : 'تم تحقيق هدف الزيارات',
+      value: visitsTarget == null ? 'لا يوجد هدف مسجل لهذا اليوم' : remainingVisits > 0 ? `${remainingVisits} زيارة متبقية على الهدف` : 'تم تحقيق هدف الزيارات',
       color: remainingVisits > 0 ? colors.warning : colors.success,
       icon: remainingVisits > 0 ? 'alert-circle-outline' as const : 'checkmark-circle-outline' as const,
     },
@@ -202,24 +231,24 @@ export default function HomeScreen() {
         </View>
         <View style={[s.kpiCard, { borderTopColor: colors.accent }]}>
           <View style={[s.kpiIcon, { backgroundColor: `${colors.accent}18` }]}>
-            <Ionicons name="flag-outline" size={20} color={colors.accent} />
+            <Ionicons name="cube-outline" size={20} color={colors.accent} />
           </View>
-          <Text style={[s.kpiValue, { color: colors.accent }]}>{visitsTarget}</Text>
-          <Text style={s.kpiLabel}>المستهدف</Text>
+          <Text style={[s.kpiValue, { color: colors.accent }]}>{execution.isPending ? '...' : execution.isError ? '—' : execution.data.orders}</Text>
+          <Text style={s.kpiLabel}>أوامر اليوم</Text>
         </View>
         <View style={[s.kpiCard, { borderTopColor: colors.success }]}>
           <View style={[s.kpiIcon, { backgroundColor: `${colors.success}18` }]}>
-            <Ionicons name="speedometer-outline" size={20} color={colors.success} />
+            <Ionicons name="camera-outline" size={20} color={colors.success} />
           </View>
-          <Text style={[s.kpiValue, { color: avgPss >= 65 ? colors.success : colors.warning }]}>{avgPss || '—'}</Text>
-          <Text style={s.kpiLabel}>متوسط PSS</Text>
+          <Text style={[s.kpiValue, { color: colors.success }]}>{execution.isPending ? '...' : execution.isError ? '—' : execution.data.audits}</Text>
+          <Text style={s.kpiLabel}>مراجعات الرف</Text>
         </View>
-        <View style={[s.kpiCard, { borderTopColor: dealingRate >= 70 ? colors.success : colors.primary }]}>
+        <View style={[s.kpiCard, { borderTopColor: colors.primary }]}>
           <View style={[s.kpiIcon, { backgroundColor: `${colors.primary}16` }]}>
-            <Ionicons name="people-outline" size={20} color={colors.primary} />
+            <Ionicons name="flag-outline" size={20} color={colors.primary} />
           </View>
-          <Text style={[s.kpiValue, { color: dealingRate >= 70 ? colors.success : colors.primary }]}>{dealingRate}%</Text>
-          <Text style={s.kpiLabel}>نسبة التعامل</Text>
+          <Text style={[s.kpiValue, { color: colors.primary }]}>{targetLoading ? '...' : target ? `${Math.round(progress * 100)}%` : '—'}</Text>
+          <Text style={s.kpiLabel}>نسبة الهدف%</Text>
         </View>
       </View>
 
@@ -228,7 +257,7 @@ export default function HomeScreen() {
         <View style={s.targetHeader}>
           <Text style={s.targetLabel}>هدف اليوم</Text>
           <Text style={s.targetCount}>
-            {targetLoading || visitsLoading ? '...' : `${visitsCount} / ${visitsTarget}`}
+            {targetLoading || visitsLoading ? '...' : `${visitsCount} / ${visitsTarget ?? '—'}`}
           </Text>
         </View>
         <View style={s.progressTrack}>

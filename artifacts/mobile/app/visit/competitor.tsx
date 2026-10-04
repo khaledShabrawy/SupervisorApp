@@ -28,7 +28,6 @@ export default function CompetitorScreen() {
   const [brand, setBrand] = useState('');
   const [product, setProduct] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [price, setPrice] = useState('');
   const [saving, setSaving] = useState(false);
   const s = styles(colors, insets);
 
@@ -43,13 +42,11 @@ export default function CompetitorScreen() {
       brand_name: brand.trim(),
       product_name: product.trim(),
       quantity: parseInt(quantity) || 0,
-      price: parseFloat(price) || null,
     };
     setItems((prev) => [...prev, newItem]);
     setBrand('');
     setProduct('');
     setQuantity('');
-    setPrice('');
   };
 
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
@@ -65,7 +62,6 @@ export default function CompetitorScreen() {
         brand_name: i.brand_name,
         product_name: i.product_name,
         quantity: i.quantity,
-        price: i.price ?? null,
         photo_url: null,
       }));
 
@@ -134,15 +130,6 @@ export default function CompetitorScreen() {
             keyboardType="number-pad"
             textAlign="center"
           />
-          <TextInput
-            style={[s.input, { flex: 1 }]}
-            value={price}
-            onChangeText={setPrice}
-            placeholder="السعر (ج.م)"
-            placeholderTextColor={colors.mutedForeground}
-            keyboardType="decimal-pad"
-            textAlign="center"
-          />
           <TouchableOpacity style={s.addBtn} onPress={addItem} activeOpacity={0.85}>
             <Ionicons name="add" size={20} color={colors.primaryForeground} />
             <Text style={s.addBtnText}>إضافة</Text>
@@ -157,7 +144,7 @@ export default function CompetitorScreen() {
         contentContainerStyle={s.listContent}
         ListEmptyComponent={
           <View style={s.empty}>
-            <Ionicons name="pricetag-outline" size={40} color={colors.mutedForeground} />
+            <Ionicons name="cube-outline" size={40} color={colors.mutedForeground} />
             <Text style={s.emptyText}>لم تتم إضافة أي منتجات بعد</Text>
           </View>
         }
@@ -173,11 +160,6 @@ export default function CompetitorScreen() {
             <View style={s.qtyBadge}>
               <Text style={s.qtyText}>{item.quantity}</Text>
             </View>
-            {item.price != null && (
-              <View style={[s.qtyBadge, { backgroundColor: `${colors.success}18` }]}>
-                <Text style={[s.qtyText, { color: colors.success }]}>{item.price} ج</Text>
-              </View>
-            )}
           </View>
         )}
         ListFooterComponent={
