@@ -1,1 +1,2 @@
 - [Supabase setup verification](supabase-setup-verification.md) — secret confirmation proves presence, not project pairing; verify the public URL and auth metadata without logging keys.
+- [Auth verification](auth-verification.md) — test the production sign-in orchestration and visible failure messages, not only isolated policy helpers.

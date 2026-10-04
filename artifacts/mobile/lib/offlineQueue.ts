@@ -91,7 +91,10 @@ export async function clearFailedItems(): Promise<void> {
 
 // ─── Sync ─────────────────────────────────────────────────────────────────────
 
-export async function processQueue(): Promise<{ synced: number; failed: number }> {
+export async function processQueue(
+  canContinue: () => boolean = () => false,
+): Promise<{ synced: number; failed: number }> {
+  if (!canContinue()) return { synced: 0, failed: 0 };
   const q = await getQueue();
   const pending = q.filter((i) => i.status === 'pending');
   if (!pending.length) return { synced: 0, failed: 0 };
@@ -110,6 +113,7 @@ export async function processQueue(): Promise<{ synced: number; failed: number }
   ];
 
   for (const item of sorted) {
+    if (!canContinue()) break;
     try {
       const payload = { ...item.payload };
 
@@ -140,6 +144,7 @@ export async function processQueue(): Promise<{ synced: number; failed: number }
         continue;
       }
 
+      if (!canContinue()) break;
       const { data, error } = await supabase
         .from(item.table)
         .insert(payload)

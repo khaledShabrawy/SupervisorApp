@@ -14,20 +14,22 @@ import { Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useColors } from '@/hooks/useColors';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured, supabaseConfiguration } from '@/lib/supabase';
 
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { signIn, supervisor, loading: authLoading } = useAuth();
+  const { signIn, supervisor, loading: authLoading, issue, retryProfile } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [retrying, setRetrying] = useState(false);
 
   if (!authLoading && supervisor) return <Redirect href="/(tabs)" />;
 
   const handleLogin = async () => {
+    if (loading || retrying || authLoading) return;
     if (!email.trim() || !password.trim()) {
       setError('يرجى إدخال البريد الإلكتروني وكلمة المرور');
       return;
@@ -38,7 +40,7 @@ export default function LoginScreen() {
       await signIn(email.trim(), password);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'خطأ في تسجيل الدخول';
-      setError(msg.includes('Invalid') ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' : msg);
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -71,8 +73,7 @@ export default function LoginScreen() {
           {!isSupabaseConfigured && (
             <View style={s.warnBanner}>
               <Text style={s.warnText}>
-                ⚠️ لم يتم إعداد Supabase بعد. يرجى إضافة EXPO_PUBLIC_SUPABASE_URL و
-                EXPO_PUBLIC_SUPABASE_ANON_KEY
+                {supabaseConfiguration.message}
               </Text>
             </View>
           )}
@@ -87,6 +88,9 @@ export default function LoginScreen() {
               placeholderTextColor={colors.mutedForeground}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
+              accessibilityLabel="البريد الإلكتروني"
+              testID="login-email"
               textAlign="right"
             />
           </View>
@@ -100,19 +104,46 @@ export default function LoginScreen() {
               placeholder="••••••••"
               placeholderTextColor={colors.mutedForeground}
               secureTextEntry
+              accessibilityLabel="كلمة المرور"
+              testID="login-password"
               textAlign="right"
             />
           </View>
 
-          {!!error && <Text style={s.errorText}>{error}</Text>}
+          {!!(error || issue?.message) && (
+            <Text style={s.errorText} accessibilityRole="alert" accessibilityLiveRegion="polite" testID="login-error">
+              {error || issue?.message}
+            </Text>
+          )}
+
+          {issue && issue.code !== 'configuration' && (
+            <TouchableOpacity
+              style={s.retryBtn}
+              accessibilityRole="button"
+              accessibilityLabel="إعادة التحقق من حساب المشرف"
+              testID="retry-profile"
+              disabled={loading || retrying || authLoading}
+              onPress={async () => {
+                setError('');
+                setRetrying(true);
+                try { await retryProfile(); } finally { setRetrying(false); }
+              }}
+            >
+              <Text style={s.retryText}>{retrying ? 'جارٍ التحقق…' : 'إعادة التحقق من الحساب'}</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
-            style={[s.btn, loading && s.btnDisabled]}
+            style={[s.btn, (loading || retrying || authLoading || !isSupabaseConfigured) && s.btnDisabled]}
             onPress={handleLogin}
-            disabled={loading || !isSupabaseConfigured}
+            disabled={loading || retrying || authLoading || !isSupabaseConfigured}
+            accessibilityRole="button"
+            accessibilityLabel="تسجيل الدخول"
+            accessibilityState={{ disabled: loading || retrying || authLoading || !isSupabaseConfigured }}
+            testID="login-submit"
             activeOpacity={0.85}
           >
-            {loading ? (
+            {loading || retrying || authLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={s.btnText}>دخول</Text>
@@ -224,6 +255,8 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       marginTop: 4,
     },
     btnDisabled: { opacity: 0.6 },
+    retryBtn: { paddingVertical: 10, alignItems: 'center' },
+    retryText: { color: colors.primary, fontSize: 13, fontFamily: 'Cairo_600SemiBold' },
     btnText: {
       color: '#fff',
       fontSize: 16,

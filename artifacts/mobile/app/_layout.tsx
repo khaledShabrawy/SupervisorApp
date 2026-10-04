@@ -15,6 +15,7 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { OfflineProvider } from '@/contexts/OfflineContext';
 import { VisitProvider } from '@/contexts/VisitContext';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { canAccessRoute } from '@/lib/auth-policy';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -25,27 +26,31 @@ const queryClient = new QueryClient({
 });
 
 function AuthGate() {
-  const { supervisor, loading } = useAuth();
+  const { supervisor, loading, status } = useAuth();
   const router = useRouter();
   const segments = useSegments();
+  const fieldAccess = isSupabaseConfigured && canAccessRoute(status, supervisor, 'field');
+  const adminAccess = isSupabaseConfigured && canAccessRoute(status, supervisor, 'admin');
 
   useEffect(() => {
     if (loading) return;
     const inTabs = segments[0] === '(tabs)';
     const inVisit = segments[0] === 'visit';
     const inAdmin = segments[0] === 'admin';
-    const inProtected = inTabs || inVisit || inAdmin;
+    const inProtected = inTabs || inVisit || inAdmin || segments[0] === 'price-index';
 
-    if (!supervisor && inProtected) {
+    if (!fieldAccess && inProtected) {
       router.replace('/login');
-    } else if (supervisor && !inProtected && segments[0] !== 'login') {
+    } else if (fieldAccess && inAdmin && !adminAccess) {
       router.replace('/(tabs)');
-    } else if (supervisor && segments[0] === 'login') {
+    } else if (fieldAccess && !inProtected && segments[0] !== 'login') {
       router.replace('/(tabs)');
-    } else if (!supervisor && !inProtected && segments[0] !== 'login') {
+    } else if (fieldAccess && segments[0] === 'login') {
+      router.replace('/(tabs)');
+    } else if (!fieldAccess && !inProtected && segments[0] !== 'login') {
       router.replace('/login');
     }
-  }, [supervisor, loading, segments]);
+  }, [fieldAccess, adminAccess, loading, segments, router]);
 
   if (loading) {
     return (
@@ -58,9 +63,12 @@ function AuthGate() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="login" />
-      <Stack.Protected guard={isSupabaseConfigured}>
+      <Stack.Protected guard={fieldAccess}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="visit" />
+        <Stack.Screen name="price-index" />
+      </Stack.Protected>
+      <Stack.Protected guard={adminAccess}>
         <Stack.Screen name="admin" />
       </Stack.Protected>
     </Stack>
