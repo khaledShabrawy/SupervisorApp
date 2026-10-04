@@ -590,7 +590,7 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
     submitBtnDisabled: { opacity: 0.6 },
     submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
   });
-/* Duplicate screen copy disabled below.
+/* Duplicated screen copy disabled below.
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
