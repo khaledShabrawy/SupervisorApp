@@ -60,7 +60,7 @@ export default function ShelfAuditScreen() {
   useEffect(() => {
     (async () => {
       if (isOnline) {
-        const { data } = await supabase.from('products').select('id,name,category,sku,unit,is_active,created_at').eq('is_active', true);
+        const { data } = await supabase.from('products').select('*').eq('is_active', true);
         const prods = (data ?? []) as Product[];
         setProducts(prods);
         setAuditItems(prods.map((p) => ({
