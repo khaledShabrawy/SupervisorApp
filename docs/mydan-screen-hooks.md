@@ -8,7 +8,7 @@ Create all eleven requested files in `artifacts/mydan/src/screens/`, and change 
 - `useVisitToStart(id|null)` query with `customers: Customer|null`.
 - `useSaveCustomer()` mutation: `{id?,input:{name,customer_type,address,latitude,longitude,is_active}}`.
 - `useVisitOptions()` query: `VisitRow[]`, selectable visits for orders/audits.
-- `useCreateOrder()` mutation `{visit:VisitRow,total:number}`.
+- `useCreateOrder()` mutation `{visit:VisitRow,product_id:string,quantity:number}`; quantity is a positive integer, with no monetary fields.
 - `useNotifications(unreadOnly:boolean)` paged query `items:Notification[]`.
 - `useUnreadCount()` query number; do not substitute zero for an error.
 - `useMarkRead()` mutation `id|'all'`.

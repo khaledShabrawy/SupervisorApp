@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Camera, CheckCircle2, Download, RefreshCw, Save, ScanSearch } from 'lucide-react';
+import { AlertTriangle, Camera, CheckCircle2, Download, RefreshCw, Save, ScanSearch } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useRealtime } from '@/hooks/useRealtime';

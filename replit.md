@@ -1,6 +1,13 @@
 # Mydan
 
-Arabic FMCG field-supervisor app with the existing Expo / React Native client and the user-requested React 18 / Vite mobile PWA alongside it, both using Supabase.
+Arabic FMCG field-supervisor app. React 18 + Vite Web PWA, using Supabase.
+
+## Required platform
+
+- The user explicitly corrected the scope: “This must be a React Web PWA, NOT Expo/React Native.”
+- Keep only the browser PWA. Never add a native app, Expo, React Native, QR-code launch flow, or app-store requirement.
+- **Why:** the user requires direct access from Chrome/Safari on mobile, as a website.
+- Preserve the existing Arabic RTL screens, active contexts, hooks, and components when changing tooling.
 
 ## First intended customer
 
@@ -15,9 +22,9 @@ Arabic FMCG field-supervisor app with the existing Expo / React Native client an
 - التطبيق لتنفيذ الزيارات ومراجعات الرف وتسجيل كميات أوامر البيع فقط. لا أسعار أو عملات أو مبالغ أو إيرادات أو مدفوعات أو تقارير مالية في أي نسخة.
 - أوامر البيع تعرض العميل والمنتج والكمية والحالة فقط؛ الأهداف هي الزيارات ومراجعات الرف وأوامر البيع، وليست أهدافًا مالية. وجود أعمدة قديمة في قاعدة البيانات لا يبرر إعادتها إلى التطبيق.
 
-- Preserve existing mobile data, identifiers, and working flows. The user explicitly requested a React 18 / Vite PWA rebuild; implement it alongside Expo without deleting the original.
+- Preserve Supabase data, identifiers, and the working web flows. The user explicitly authorized removal of the native app and its dependencies.
 - Do not execute SQL, migrations, schema pushes, external data writes, account creation, role elevation, publishing, or deployment as part of implementation/testing. External changes require separate explicit approval.
-- Never expose secret values. The client may use only the Supabase URL and publishable/anon key. Service credentials and AI-provider secrets must never reach Expo/browser bundles.
+- Never expose secret values. The client uses VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY only. Service credentials and AI-provider secrets must never reach browser bundles.
 - Do not invent tables, columns, RPCs, or permission grants. Checked-in SQL is evidence about the local contract, not proof of the live database.
 - Unknown/failed authorization must deny access. Do not weaken RLS to bypass loading failures.
 - Single-company versus multi-tenant launch is an unresolved product decision; do not activate tenants or apply the supplied multi-tenant migration automatically.
@@ -26,21 +33,22 @@ Arabic FMCG field-supervisor app with the existing Expo / React Native client an
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
+- `pnpm --filter @workspace/mydan run dev` — standard Vite web server, managed by the artifact workflow
+- `pnpm exec tsc --noEmit` — TypeScript check
+- `pnpm build` — Vite production build
+- `pnpm preview` — Vite preview of the production build
+- `node --test artifacts/mydan/tests/*.test.ts artifacts/mydan/tests/*.test.mjs` — regression checks
 - Database schema push/SQL/migration commands are not authorized by the implementation plan.
-- Required env: `DATABASE_URL` — Postgres connection string
+- Public client configuration: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- React 18, React DOM, React Router, TanStack Query, Supabase client
+- Vite, TypeScript, Tailwind CSS, vite-plugin-pwa
+- Application: artifacts/mydan, served at /
+- Entry: index.html → src/main.tsx → src/App.tsx
+- AI remains server-side in Supabase functions; no AI provider key in the frontend.
 
 ## Where things live
 

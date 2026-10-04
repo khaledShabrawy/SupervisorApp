@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LocateFixed, MapPin, Pencil, Plus, Search, Store } from 'lucide-react';
+import { LocateFixed, MapPin, Pencil, Plus, Search, Store } from '@/components/Icons';
 import { useCustomers, useSaveCustomer } from '@/lib/data';
 import { PageTitle } from '@/components/Layout';
 import { Sheet } from '@/components/Sheet';

@@ -1,4 +1,4 @@
-import { ShieldCheck, UserCheck, Users } from 'lucide-react';
+import { ShieldCheck, UserCheck, Users } from '@/components/Icons';
 import { useAdminSummary, useScope, useSupervisors, useUpdateSupervisor } from '@/lib/data';
 import { PageTitle } from '@/components/Layout';
 import { KPICard } from '@/components/KPICard';

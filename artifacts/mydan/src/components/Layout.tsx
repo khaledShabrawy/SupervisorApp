@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, type ReactNode } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, Bell, LogOut, Settings2 } from 'lucide-react';
+import { ArrowRight, Bell, LogOut, Settings2 } from '@/components/Icons';
 import { useUnreadCount } from '@/lib/data';
 import { num } from '@/lib/format';
 import { useQueryClient } from '@tanstack/react-query';

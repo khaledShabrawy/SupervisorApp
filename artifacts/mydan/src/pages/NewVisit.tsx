@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LocateFixed, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { LocateFixed, ShieldAlert, ShieldCheck } from '@/components/Icons';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { distanceMeters } from '@/lib/policy';

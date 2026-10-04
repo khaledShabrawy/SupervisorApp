@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react';
-import { BellOff, CheckCheck } from 'lucide-react';
+import { BellOff, CheckCheck } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useMarkRead, useNotifications } from '@/lib/data';

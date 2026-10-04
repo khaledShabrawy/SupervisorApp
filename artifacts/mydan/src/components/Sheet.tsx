@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { X } from '@/components/Icons';
 
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {

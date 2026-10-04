@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, ImageOff, ScanSearch } from 'lucide-react';
+import { Camera, ImageOff, ScanSearch } from '@/components/Icons';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useAnalyzeAudit, useShelfAudits, useSubmitAudit, useVisitOptions } from '@/lib/data';
 import { PageTitle } from '@/components/Layout';

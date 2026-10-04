@@ -1,14 +1,14 @@
 kind = "web"
-previewPath = "/mydan/"
-title = "ميدان — Mydan PWA"
-description = "تطبيق عربي قابل للتثبيت لمشرفي المبيعات الميدانية، مرتبط بـ Supabase وإعدادات الشركة."
+previewPath = "/"
+title = "ميدان — Mydan Web PWA"
+description = "تطبيق React وVite عربي قابل للتثبيت من Chrome وSafari، مرتبط بـ Supabase."
 version = "1.0.0"
 id = "artifacts/mydan"
 router = "path"
 
 [[services]]
 name = "web"
-paths = [ "/mydan/" ]
+paths = [ "/" ]
 localPort = 20017
 
 [services.development]
@@ -25,4 +25,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "20017"
-BASE_PATH = "/mydan/"
+BASE_PATH = "/"

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Compass } from 'lucide-react';
+import { Compass } from '@/components/Icons';
 
 export default function NotFound() {
   return <div className="page" style={{ minHeight: '70dvh', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>

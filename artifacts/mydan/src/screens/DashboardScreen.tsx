@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, ClipboardList, MapPin, Package, Plus, Route, Target as TargetIcon } from 'lucide-react';
+import { Camera, ClipboardList, MapPin, Package, Plus, Route, Target as TargetIcon } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useRealtime } from '@/hooks/useRealtime';

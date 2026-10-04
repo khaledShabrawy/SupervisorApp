@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LocateFixed, MapPin, Pencil, Plus, Search, Store } from 'lucide-react';
+import { LocateFixed, MapPin, Pencil, Plus, Search, Store } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useSaveCustomer, type VisitRow } from '@/lib/data';

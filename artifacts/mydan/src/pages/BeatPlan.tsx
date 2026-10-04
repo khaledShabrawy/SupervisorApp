@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Route } from 'lucide-react';
+import { MapPin, Route } from '@/components/Icons';
 import { useBeatPlan } from '@/lib/data';
 import { PageTitle } from '@/components/Layout';
 import EmptyState from '@/components/EmptyState';

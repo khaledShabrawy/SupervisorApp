@@ -1,18 +1,18 @@
 # ميدان — نسخة الويب القابلة للتثبيت
 
-النسخة في `artifacts/mydan` بجانب نسخة Expo الحالية، وليست حذفًا أو تحويلًا لبياناتها. المسار `/mydan/`، ومجلدات `src` المطلوبة داخل هذه الحزمة.
+التطبيق الوحيد هو React + Vite PWA في `artifacts/mydan`، ويُفتح مباشرة على المسار `/` في المتصفح. أزيلت نسخة Expo وكل مصادرها واعتمادياتها؛ لم تُعدّل بيانات Supabase.
 
 ## التشغيل والتحقق
 
 - سير العمل `artifacts/mydan: web`.
-- `pnpm --filter @workspace/mydan run typecheck`
-- `PORT=20017 BASE_PATH=/mydan/ pnpm --filter @workspace/mydan run build`
+- `pnpm exec tsc --noEmit`
+- `pnpm build`
 - `node --test artifacts/mydan/tests/*.test.ts artifacts/mydan/tests/*.test.mjs`
 - المتغيران `VITE_SUPABASE_URL` و`VITE_SUPABASE_ANON_KEY` من Secrets؛ لا تُستخدم مفاتيح الخدمة أو أسرار مزوّدي الذكاء الاصطناعي في المتصفح.
 
 ## عقد Supabase المطلوب
 
-هذه النسخة تنفذ العقد الذي طلبه المستخدم في `src/types/database.ts`، ولا تفترض أن جداول نسخة Expo القديمة لها العقد نفسه.
+هذه النسخة تنفذ العقد الذي طلبه المستخدم في `src/types/database.ts`، ولا تفترض أن SQL التاريخي المحلي مطابق لمخطط Supabase الحي.
 
 - `supervisors.user_id` يربط مستخدم المصادقة بحساب المشرف. لا يُستخدم `supervisors.id` كبديل صامت عنه.
 - حساب المشرف يجب أن يكون نشطًا، وله `company_id` ودور معروف.

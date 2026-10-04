@@ -1,6 +1,5 @@
 - [Supabase setup verification](supabase-setup-verification.md) — secret confirmation proves presence, not project pairing; verify the public URL and auth metadata without logging keys.
 - [Auth verification](auth-verification.md) — test the production sign-in orchestration and visible failure messages, not only isolated policy helpers.
-- [Mixed React versions](mixed-react-versions.md) — isolate PWA React 18 types without downgrading the native client or changing the shared catalog.
-- [Native Expo configuration](native-expo-config.md) — dynamic CLI validation does not prove managed native-build compatibility; keep launch configuration static.
 - [Package installer scope](package-installer-scope.md) — generic installation targets the workspace root; keep browser dependencies in their consuming artifact.
+- [Package-manager detection](package-manager-detection.md) — keep a pnpm lockfile present during regeneration; the generic installer may otherwise choose npm.
 - [Vite public asset paths](vite-public-asset-paths.md) — Vite prefixes HTML public assets automatically; runtime requests still need the artifact base exactly once.
