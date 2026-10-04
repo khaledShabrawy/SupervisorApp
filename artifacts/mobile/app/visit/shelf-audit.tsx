@@ -60,7 +60,7 @@ export default function ShelfAuditScreen() {
   useEffect(() => {
     (async () => {
       if (isOnline) {
-        const { data } = await supabase.from('products').select('*').eq('is_active', true);
+        const { data } = await supabase.from('products').select('id,name,category,sku,unit,is_active,created_at').eq('is_active', true);
         const prods = (data ?? []) as Product[];
         setProducts(prods);
         setAuditItems(prods.map((p) => ({
@@ -371,7 +371,7 @@ export default function ShelfAuditScreen() {
       />
       {(!isOnline || activeVisit?.isPending) && (
         <View style={s.offlineBanner}>
-          <Ionicons name="cloud-offline" size={16} color={colors.warning} />
+          <Ionicons name="cloud-offline" size={16} color="#92400E" />
           <Text style={s.offlineText}>
             {!isOnline ? 'لا يوجد اتصال — سيُحفظ الكشف محلياً' : 'الزيارة معلقة — سيُرسل مع الزيارة'}
           </Text>
@@ -422,7 +422,7 @@ export default function ShelfAuditScreen() {
         if (oosCount === 0) return null;
         return (
           <View style={s.oosBanner}>
-            <Ionicons name="alert-circle" size={18} color={colors.destructive} />
+            <Ionicons name="alert-circle" size={18} color="#991B1B" />
             <Text style={s.oosText}>
               {oosCount === auditItems.length
                 ? 'لا توجد منتجات على الرف !'
@@ -493,10 +493,10 @@ export default function ShelfAuditScreen() {
             activeOpacity={0.85}
           >
             {submitting ? (
-              <ActivityIndicator color={colors.primaryForeground} />
+              <ActivityIndicator color="#fff" />
             ) : (
               <>
-                <Ionicons name={!isOnline || activeVisit?.isPending ? 'cloud-upload' : 'checkmark-circle'} size={20} color={colors.primaryForeground} />
+                <Ionicons name={!isOnline || activeVisit?.isPending ? 'cloud-upload' : 'checkmark-circle'} size={20} color="#fff" />
                 <Text style={s.submitBtnText}>
                   {!isOnline || activeVisit?.isPending ? 'حفظ محلياً' : 'إرسال الكشف'}
                 </Text>
@@ -515,14 +515,14 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     offlineBanner: {
       flexDirection: 'row', alignItems: 'center', gap: 8,
-      backgroundColor: colors.warningBackground, paddingHorizontal: 16, paddingVertical: 10,
+      backgroundColor: '#FEF3C7', paddingHorizontal: 16, paddingVertical: 10,
     },
-    offlineText: { fontSize: 12, color: colors.warning, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, flex: 1, textAlign: 'right' },
+    offlineText: { fontSize: 12, color: '#92400E', fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const, flex: 1, textAlign: 'right' },
     oosBanner: {
       flexDirection: 'row', alignItems: 'center', gap: 8,
-      backgroundColor: colors.dangerBackground, paddingHorizontal: 16, paddingVertical: 10,
+      backgroundColor: '#FEE2E2', paddingHorizontal: 16, paddingVertical: 10,
     },
-    oosText: { fontSize: 12, color: colors.destructive, fontFamily: 'Cairo_700Bold', fontWeight: '700' as const, flex: 1, textAlign: 'right' },
+    oosText: { fontSize: 12, color: '#991B1B', fontFamily: 'Cairo_700Bold', fontWeight: '700' as const, flex: 1, textAlign: 'right' },
     listContent: { padding: 16, paddingBottom: 40 },
     aiStatusCard: {
       flexDirection: 'row', alignItems: 'flex-start', gap: 10,
@@ -555,7 +555,7 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
     },
     productCard: {
       backgroundColor: colors.card, borderRadius: 14, padding: 14,
-      marginBottom: 10, shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
+      marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
     },
     productHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -566,8 +566,8 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
       flexDirection: 'row', alignItems: 'center', gap: 4,
       paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8,
     },
-    toggleOn: { backgroundColor: colors.successBackground },
-    toggleOff: { backgroundColor: colors.dangerBackground },
+    toggleOn: { backgroundColor: '#D1FAE5' },
+    toggleOff: { backgroundColor: '#FEE2E2' },
     toggleText: { fontSize: 12, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
     productActions: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 10 },
     qtyInput: {
@@ -588,5 +588,5 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
       marginTop: 8,
     },
     submitBtnDisabled: { opacity: 0.6 },
-    submitBtnText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
+    submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
   });

@@ -72,14 +72,6 @@ export default function ReportsTab() {
   return (
     <View style={s.container}>
       <View style={s.header}>
-        <TouchableOpacity
-          style={s.priceIndexBtn}
-          onPress={() => router.push('/price-index')}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="trending-up" size={16} color={colors.primaryForeground} />
-          <Text style={s.priceIndexBtnText}>Price Index</Text>
-        </TouchableOpacity>
         <Text style={s.headerTitle}>تقاريري</Text>
       </View>
 
@@ -212,12 +204,6 @@ const styles = (colors: ReturnType<typeof useColors>, insets: ReturnType<typeof 
       paddingBottom: 16, paddingHorizontal: 20,
     },
     headerTitle: { fontSize: 20, fontWeight: '700' as const, color: colors.primaryForeground, fontFamily: 'Cairo_700Bold' },
-    priceIndexBtn: {
-      flexDirection: 'row', alignItems: 'center', gap: 5,
-      backgroundColor: `${colors.primaryForeground}33`, borderRadius: 20,
-      paddingHorizontal: 12, paddingVertical: 6,
-    },
-    priceIndexBtnText: { fontSize: 12, color: colors.primaryForeground, fontFamily: 'Cairo_600SemiBold', fontWeight: '600' as const },
     tabRow: {
       flexDirection: 'row', backgroundColor: colors.card,
       paddingHorizontal: 16, paddingVertical: 10, gap: 10,

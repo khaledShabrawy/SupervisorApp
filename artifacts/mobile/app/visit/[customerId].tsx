@@ -302,7 +302,7 @@ export default function CustomerVisitScreen() {
 
           <TouchableOpacity style={s.actionBtn} onPress={() => router.push('/visit/competitor')} activeOpacity={0.85}>
             <View style={[s.actionIcon, { backgroundColor: `${colors.warning}18` }]}>
-              <Ionicons name="pricetag" size={22} color={colors.warning} />
+              <Ionicons name="cube" size={22} color={colors.warning} />
             </View>
             <Text style={s.actionLabel}>منتجات المنافسين</Text>
             <Ionicons name="chevron-back" size={18} color={colors.mutedForeground} />

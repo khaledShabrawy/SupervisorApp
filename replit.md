@@ -1,6 +1,6 @@
 # Mydan
 
-Arabic field-supervisor app built on the existing Expo / React Native / Expo Router client and Supabase.
+Arabic FMCG field-supervisor app with the existing Expo / React Native client and the user-requested React 18 / Vite mobile PWA alongside it, both using Supabase.
 
 ## First intended customer
 
@@ -11,7 +11,11 @@ Arabic field-supervisor app built on the existing Expo / React Native / Expo Rou
 
 ## Mydan execution boundaries
 
-- Implement the supplied plan incrementally in this project; preserve the existing framework, data, identifiers, and working flows.
+- نطاق المنتج مؤكد من المستخدم: «الأبلكشن لايوجد به أى تعاملات مالية ولا فواتير ولا تحصيل».
+- التطبيق لتنفيذ الزيارات ومراجعات الرف وتسجيل كميات أوامر البيع فقط. لا أسعار أو عملات أو مبالغ أو إيرادات أو مدفوعات أو تقارير مالية في أي نسخة.
+- أوامر البيع تعرض العميل والمنتج والكمية والحالة فقط؛ الأهداف هي الزيارات ومراجعات الرف وأوامر البيع، وليست أهدافًا مالية. وجود أعمدة قديمة في قاعدة البيانات لا يبرر إعادتها إلى التطبيق.
+
+- Preserve existing mobile data, identifiers, and working flows. The user explicitly requested a React 18 / Vite PWA rebuild; implement it alongside Expo without deleting the original.
 - Do not execute SQL, migrations, schema pushes, external data writes, account creation, role elevation, publishing, or deployment as part of implementation/testing. External changes require separate explicit approval.
 - Never expose secret values. The client may use only the Supabase URL and publishable/anon key. Service credentials and AI-provider secrets must never reach Expo/browser bundles.
 - Do not invent tables, columns, RPCs, or permission grants. Checked-in SQL is evidence about the local contract, not proof of the live database.

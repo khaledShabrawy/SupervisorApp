@@ -50,7 +50,6 @@ export interface Product {
   category: string;
   sku?: string;
   unit?: string;
-  price?: number | null;
   image_url?: string;
   is_active: boolean;
   created_at: string;
@@ -81,7 +80,6 @@ export interface CompetitorProduct {
   brand_name: string;
   product_name: string;
   quantity: number;
-  price?: number | null;
   photo_uri?: string;
 }
 
@@ -91,7 +89,6 @@ export interface CompetitorPriceRecord {
   brand_name: string;
   product_name: string;
   quantity: number;
-  price: number | null;
   created_at: string;
   visits?: { visit_date: string; customer_id: string; customers?: { name: string; type: string } };
 }

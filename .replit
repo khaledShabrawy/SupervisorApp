@@ -24,3 +24,6 @@ timeoutMs = 20000
 [userenv.shared]
 VITE_N8N_SHELF_AUDIT_WEBHOOK = "https://n8n.yourdomain.com/webhook/shelf-audit"
 EXPO_PUBLIC_SUPABASE_URL = "https://ywdlrrdkjbtpfgacuuoy.supabase.co"
+
+[nix]
+channel = "stable-25_05"
