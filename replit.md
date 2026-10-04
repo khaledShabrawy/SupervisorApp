@@ -1,6 +1,23 @@
-# [Project name]
+# Mydan
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Arabic field-supervisor app built on the existing Expo / React Native / Expo Router client and Supabase.
+
+## First intended customer
+
+- The user states: «أول شركة هنبيع لها الأبلكشن هى شركة زينة للورقيات».
+- Company website supplied by the user: https://www.zeinagroup.com/
+- This identifies the first intended customer, not a decision to limit the product permanently to one company.
+
+## Mydan execution boundaries
+
+- Implement the supplied plan incrementally in this project; preserve the existing framework, data, identifiers, and working flows.
+- Do not execute SQL, migrations, schema pushes, external data writes, account creation, role elevation, publishing, or deployment as part of implementation/testing. External changes require separate explicit approval.
+- Never expose secret values. The client may use only the Supabase URL and publishable/anon key. Service credentials and AI-provider secrets must never reach Expo/browser bundles.
+- Do not invent tables, columns, RPCs, or permission grants. Checked-in SQL is evidence about the local contract, not proof of the live database.
+- Unknown/failed authorization must deny access. Do not weaken RLS to bypass loading failures.
+- Single-company versus multi-tenant launch is an unresolved product decision; do not activate tenants or apply the supplied multi-tenant migration automatically.
+- Use synthetic fixtures and intercepted requests for authentication tests; no live test accounts, production writes, or AI requests.
+- See `docs/mydan-data-contract.md` for the reviewed local contract and remaining verification gates.
 
 ## Run & Operate
 
@@ -8,7 +25,7 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- Database schema push/SQL/migration commands are not authorized by the implementation plan.
 - Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack

@@ -18,6 +18,7 @@ import React, {
 } from 'react';
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import { getPendingCount, processQueue } from '@/lib/offlineQueue';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface OfflineContextType {
   isOnline: boolean;
@@ -30,6 +31,9 @@ interface OfflineContextType {
 const OfflineContext = createContext<OfflineContextType | undefined>(undefined);
 
 export function OfflineProvider({ children }: { children: React.ReactNode }) {
+  const { supervisor, loading: authLoading } = useAuth();
+  const authorizedId = useRef<string | null>(null);
+  authorizedId.current = !authLoading ? supervisor?.id ?? null : null;
   const [isOnline, setIsOnline] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -41,11 +45,12 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const syncNow = useCallback(async () => {
-    if (syncLock.current) return;
+    const userId = authorizedId.current;
+    if (syncLock.current || !userId) return;
     syncLock.current = true;
     setIsSyncing(true);
     try {
-      await processQueue();
+      await processQueue(() => authorizedId.current === userId);
       await refreshCount();
     } finally {
       setIsSyncing(false);
@@ -69,6 +74,10 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
 
     return () => unsub();
   }, [syncNow, refreshCount]);
+
+  useEffect(() => {
+    if (supervisor && !authLoading && isOnline) void syncNow();
+  }, [supervisor?.id, authLoading, isOnline, syncNow]);
 
   return (
     <OfflineContext.Provider value={{ isOnline, pendingCount, isSyncing, syncNow, refreshCount }}>

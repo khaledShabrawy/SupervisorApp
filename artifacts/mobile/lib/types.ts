@@ -1,8 +1,8 @@
 export interface Supervisor {
   id: string;
   full_name: string;
-  phone: string;
-  branch: string;
+  phone: string | null;
+  branch: string | null;
   role: string;
   is_active: boolean;
   created_at: string;
@@ -108,6 +108,6 @@ export interface Target {
   supervisor_id: string;
   target_date: string;
   visits_target: number;
-  audit_target: number;
+  orders_target: number;
   created_at: string;
 }
