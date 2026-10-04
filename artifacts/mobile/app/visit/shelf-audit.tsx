@@ -590,6 +590,7 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
     submitBtnDisabled: { opacity: 0.6 },
     submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
   });
+/* Duplicate screen copy disabled below.
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -970,7 +971,7 @@ export default function ShelfAuditScreen() {
         </View>
       )}
 
-      {/* AI analysis status: the result is delivered asynchronously by Realtime. */}
+      {/* AI analysis status: the result is delivered asynchronously by Realtime. * /}
       {aiStatus !== 'idle' && (
         <View
           style={[
@@ -1008,7 +1009,7 @@ export default function ShelfAuditScreen() {
         </View>
       )}
 
-      {/* OOS Detection Banner */}
+      {/* OOS Detection Banner * /}
       {auditItems.length > 0 && (() => {
         const oosCount = auditItems.filter(i => !i.is_present).length;
         if (oosCount === 0) return null;
@@ -1182,3 +1183,4 @@ const styles = (colors: ReturnType<typeof useColors>, _insets: ReturnType<typeof
     submitBtnDisabled: { opacity: 0.6 },
     submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' as const, fontFamily: 'Cairo_700Bold' },
   });
+*/

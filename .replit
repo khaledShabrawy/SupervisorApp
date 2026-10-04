@@ -22,5 +22,4 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.shared]
-EXPO_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_Yq1mG0G4k9GwPN6vhtYEvQ_86luEe7i"
 VITE_N8N_SHELF_AUDIT_WEBHOOK = "https://n8n.yourdomain.com/webhook/shelf-audit"
