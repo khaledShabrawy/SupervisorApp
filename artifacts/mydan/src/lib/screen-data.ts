@@ -101,7 +101,7 @@ export function useOrderCount(status: string) {
 export function useCustomerCards(search: string, type: string) {
   const sc = useScope(), term = search.trim().replace(/[%,()]/g, ' ');
   return usePaged<CustomerCardRow>(sc, 'customers', ['cards', term, type], async (from, to, signal) => {
-    let q = sc.scope(supabase.from('customers').select(`${CUSTOMER_COLUMNS},visits(check_in_time)`))
+    let q: ReturnType<typeof sc.scope> = supabase.from('customers').select(`${CUSTOMER_COLUMNS},visits(check_in_time)`).eq('company_id', sc.companyId)
       .eq('visits.company_id', sc.companyId).not('visits.check_in_time', 'is', null);
     if (!sc.isAdmin) q = q.eq('visits.supervisor_id', sc.supervisorId);
     if (term) q = q.or(`name.ilike.%${term}%,address.ilike.%${term}%`);
