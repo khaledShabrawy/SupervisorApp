@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { supabase } from './supabase';
-import { usePaged, useScope, type OrderRow, type VisitRow } from './data';
-import { CUSTOMER_COLUMNS, ORDER_COLUMNS, SETTINGS_COLUMNS, VISIT_JOIN } from './columns';
+import { usePaged, useScope, type VisitRow } from './data';
+import { CUSTOMER_COLUMNS, SETTINGS_COLUMNS, VISIT_JOIN } from './columns';
 import { CUSTOMER_TYPES, dateKey, progressPercent, visitDateRange } from './screen-helpers';
 import { canAdmin, requireExactCount, validateSettings } from './policy';
 import { notify } from './toast';
@@ -12,10 +12,10 @@ export { useUploadAudit, useRequestAuditAnalysis, useAuditResult } from './scree
 
 export type CustomerCardRow = Customer & { last_visit: string | null };
 export type CatalogProduct = { id: string; name: string; category: string; sku?: string; is_active: boolean };
-export type MonthProgress = Pick<Target, 'month' | 'year' | 'visits_target' | 'orders_target' | 'audit_target'
-  | 'actual_visits' | 'actual_orders' | 'actual_audits'>;
+export type MonthProgress = Pick<Target, 'month' | 'year' | 'visits_target' | 'audit_target'
+  | 'actual_visits' | 'actual_audits'>;
 export type SettingsInput = Pick<AppSettings, 'app_name' | 'primary_color' | 'geofence_radius_m' | 'target_brand_name' | 'competitor_brands'>;
-export type MonthlyTargetInput = Pick<Target, 'supervisor_id' | 'month' | 'year' | 'visits_target' | 'orders_target' | 'audit_target'>;
+export type MonthlyTargetInput = Pick<Target, 'supervisor_id' | 'month' | 'year' | 'visits_target' | 'audit_target'>;
 type Scope = ReturnType<typeof useScope>;
 const errorMessage = (message: string, error: { message: string } | null) => {
   if (error) throw new Error(message);
@@ -43,11 +43,11 @@ function monthRange(year: number, month: number) {
   const start = new Date(year, month - 1, 1), end = new Date(year, month, 1);
   return { start: dateKey(start), end: dateKey(end), startIso: start.toISOString(), endIso: end.toISOString() };
 }
-type TargetValues = Pick<Target, 'visits_target' | 'orders_target' | 'audit_target'>;
+type TargetValues = Pick<Target, 'visits_target' | 'audit_target'>;
 const targetSum = (rows: TargetValues[], field: keyof TargetValues) =>
   rows.reduce((sum, row) => sum + Number(row[field]), 0);
 function targetsFor(sc: Scope, month: number, year: number, signal: AbortSignal) {
-  return collect<TargetValues>(() => sc.scope(supabase.from('targets').select('visits_target,orders_target,audit_target', { count: 'exact' }))
+  return collect<TargetValues>(() => sc.scope(supabase.from('targets').select('visits_target,audit_target', { count: 'exact' }))
     .eq('month', month).eq('year', year).order('id'), signal);
 }
 
@@ -55,11 +55,10 @@ export function useScreenDashboard() {
   const sc = useScope(), day = visitDateRange('today'), now = new Date();
   const month = now.getMonth() + 1, year = now.getFullYear(), mr = monthRange(year, month);
   return useQuery({
-    queryKey: [...sc.base, 'dashboard', 'execution', day.start], retry: 1, gcTime: 300_000,
+    queryKey: [...sc.base, 'dashboard', 'task-execution', day.start], retry: 1, gcTime: 300_000,
     queryFn: async ({ signal }) => {
-      const [visits, orders, audits, actualVisits, targets, recent] = await Promise.all([
+      const [visits, audits, actualVisits, targets, recent] = await Promise.all([
         countRows(sc, 'visits', signal, q => q.eq('visit_date', day.start)),
-        countRows(sc, 'orders', signal, q => q.gte('created_at', day.startIso).lt('created_at', day.endIso)),
         countRows(sc, 'shelf_audits', signal, q => q.gte('audited_at', day.startIso).lt('audited_at', day.endIso)),
         countRows(sc, 'visits', signal, q => q.eq('status', 'completed').gte('visit_date', mr.start).lt('visit_date', mr.end)),
         targetsFor(sc, month, year, signal),
@@ -67,7 +66,7 @@ export function useScreenDashboard() {
           .order('check_in_time', { ascending: false, nullsFirst: false }).order('id').limit(5).abortSignal(signal),
       ]);
       errorMessage('تعذر تحميل أحدث الزيارات.', recent.error);
-      return { visits, orders, audits, visitsProgress: progressPercent(actualVisits, targetSum(targets, 'visits_target')),
+      return { visits, audits, visitsProgress: progressPercent(actualVisits, targetSum(targets, 'visits_target')),
         recent: recent.data as VisitRow[] };
     },
   });
@@ -82,21 +81,6 @@ export function useVisitsRange(period: 'today' | 'week' | 'month') {
     errorMessage('تعذر تحميل الزيارات.', r.error);
     return r.data as VisitRow[];
   });
-}
-export function useOrdersFiltered(status: string) {
-  const sc = useScope();
-  return usePaged<OrderRow>(sc, 'orders', ['quantities', status], async (from, to, signal) => {
-    let q = sc.scope(supabase.from('orders').select(`${ORDER_COLUMNS},customers(name),products(name)`));
-    if (status !== 'all') q = q.eq('status', status);
-    const r = await q.order('created_at', { ascending: false }).order('id').range(from, to).abortSignal(signal);
-    errorMessage('تعذر تحميل أوامر البيع.', r.error);
-    return r.data as OrderRow[];
-  });
-}
-export function useOrderCount(status: string) {
-  const sc = useScope();
-  return useQuery({ queryKey: [...sc.base, 'orders', 'record-count', status], retry: 1,
-    queryFn: ({ signal }) => countRows(sc, 'orders', signal, q => status === 'all' ? q : q.eq('status', status)) });
 }
 export function useCustomerCards(search: string, type: string) {
   const sc = useScope(), term = search.trim().replace(/[%,()]/g, ' ');
@@ -136,35 +120,30 @@ export function useCustomerById(id: string | null) {
 export function useMonthlyTargets() {
   const sc = useScope(), now = new Date(), month = now.getMonth() + 1, year = now.getFullYear();
   return useQuery({
-    queryKey: [...sc.base, 'targets', 'execution-progress', month, year], retry: 1, staleTime: 60_000, gcTime: 300_000,
+    queryKey: [...sc.base, 'targets', 'task-progress', month, year], retry: 1, staleTime: 60_000, gcTime: 300_000,
     queryFn: async ({ signal }) => Promise.all(Array.from({ length: 4 }, async (_, index): Promise<MonthProgress> => {
       const d = new Date(year, month - 1 - index, 1), m = d.getMonth() + 1, y = d.getFullYear(), range = monthRange(y, m);
-      const orderRange = (q: any) => q.neq('status', 'cancelled').gte('created_at', range.startIso).lt('created_at', range.endIso);
-      const [targets, actual_visits, actual_orders, actual_audits] = await Promise.all([
+      const [targets, actual_visits, actual_audits] = await Promise.all([
         targetsFor(sc, m, y, signal),
         countRows(sc, 'visits', signal, q => q.eq('status', 'completed').gte('visit_date', range.start).lt('visit_date', range.end)),
-        countRows(sc, 'orders', signal, orderRange),
         countRows(sc, 'shelf_audits', signal, q => q.eq('status', 'completed').gte('audited_at', range.startIso).lt('audited_at', range.endIso)),
       ]);
       return { month: m, year: y, visits_target: targetSum(targets, 'visits_target'),
-        orders_target: targetSum(targets, 'orders_target'), audit_target: targetSum(targets, 'audit_target'),
-        actual_visits, actual_orders, actual_audits };
+        audit_target: targetSum(targets, 'audit_target'), actual_visits, actual_audits };
     })),
   });
 }
-export function useOrderProducts(activeOnly = true) {
+export function useAdminProducts() {
   const sc = useScope();
   // Existing native product contract is a global catalog without company_id.
   // Tenant/administrator access must be enforced by the existing server RLS.
-  return usePaged<CatalogProduct>(sc, 'products', [activeOnly], async (from, to, signal) => {
+  return usePaged<CatalogProduct>(sc, 'products', [false], async (from, to, signal) => {
     let q = supabase.from('products').select('id,name,category,sku,is_active');
-    if (activeOnly) q = q.eq('is_active', true);
     const r = await q.order('name').order('id').range(from, to).abortSignal(signal);
     errorMessage('تعذر تحميل المنتجات. تحقق من جدول المنتجات وصلاحياته.', r.error);
     return r.data as CatalogProduct[];
   });
 }
-export function useAdminProducts() { return useOrderProducts(false); }
 export function useSaveSettings() {
   const sc = useScope(), settings = useAppSettings(), qc = useQueryClient();
   return useMutation({
@@ -190,25 +169,22 @@ export function useSaveMonthlyTarget() {
       if (!sc.isAdmin) throw new Error('تحديد الأهداف للمدراء فقط.');
       if (!Number.isInteger(input.month) || input.month < 1 || input.month > 12
         || !Number.isInteger(input.year) || input.year < 2000 || input.year > 2100
-        || ![input.visits_target, input.orders_target, input.audit_target].every(n => Number.isSafeInteger(n) && n >= 0)) throw new Error('قيم الأهداف غير صالحة.');
+        || ![input.visits_target, input.audit_target].every(n => Number.isSafeInteger(n) && n >= 0)) throw new Error('قيم الأهداف غير صالحة.');
       const member = await supabase.from('supervisors').select('id').eq('id', input.supervisor_id).eq('company_id', sc.companyId).single();
       errorMessage('المشرف المحدد لا ينتمي لشركتك أو غير متاح.', member.error);
       const existing = await supabase.from('targets').select('id').eq('company_id', sc.companyId)
         .eq('supervisor_id', input.supervisor_id).eq('month', input.month).eq('year', input.year).maybeSingle();
       errorMessage('تعذر التحقق من الهدف الشهري الحالي.', existing.error);
-      let actuals: Pick<Target, 'actual_visits' | 'actual_orders' | 'actual_audits'> | undefined;
+      let actuals: Pick<Target, 'actual_visits' | 'actual_audits'> | undefined;
       if (!existing.data) {
         const signal = new AbortController().signal, range = monthRange(input.year, input.month);
-        const memberOrders = (q: any) => q.eq('supervisor_id', input.supervisor_id).neq('status', 'cancelled')
-          .gte('created_at', range.startIso).lt('created_at', range.endIso);
-        const [actual_visits, actual_orders, actual_audits] = await Promise.all([
+        const [actual_visits, actual_audits] = await Promise.all([
           countRows(sc, 'visits', signal, q => q.eq('supervisor_id', input.supervisor_id).eq('status', 'completed')
             .gte('visit_date', range.start).lt('visit_date', range.end)),
-          countRows(sc, 'orders', signal, memberOrders),
           countRows(sc, 'shelf_audits', signal, q => q.eq('supervisor_id', input.supervisor_id).eq('status', 'completed')
             .gte('audited_at', range.startIso).lt('audited_at', range.endIso)),
         ]);
-        actuals = { actual_visits, actual_orders, actual_audits };
+        actuals = { actual_visits, actual_audits };
       }
       const r = existing.data
         ? await supabase.from('targets').update(values).eq('id', existing.data.id).eq('company_id', sc.companyId).select('id').single()

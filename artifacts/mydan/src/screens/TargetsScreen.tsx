@@ -33,7 +33,6 @@ const Month = memo(function Month({ r }: { r: MonthProgress }) {
   const rows = useMemo<[string, number | null, string][]>(() => [
     ['الزيارات', pct(r.actual_visits, r.visits_target), `${num(r.actual_visits)}/${num(r.visits_target)}`],
     ['مراجعات الرف', pct(r.actual_audits, r.audit_target), `${num(r.actual_audits)}/${num(r.audit_target)}`],
-    ['أوامر البيع', pct(r.actual_orders, r.orders_target), `${num(r.actual_orders)}/${num(r.orders_target)}`],
   ], [r]);
   return <div className="s-hist-m"><div className="title">{MONTHS[r.month - 1]} {year(r.year)}</div>
     {rows.map(([label, percent, text]) => <HistoryMetric key={label} label={label} percent={percent} text={text} />)}
@@ -49,7 +48,6 @@ export default function TargetsScreen() {
       : !cur ? <div className="card"><EmptyState icon={<TargetIcon />} title="لا أهداف" text="لم يتم تحديد أهداف بعد." /></div> : <>
         <Card label="الزيارات" actual={cur.actual_visits} target={cur.visits_target} fmt={num} />
         <Card label="مراجعات الرف" actual={cur.actual_audits} target={cur.audit_target} fmt={num} />
-        <Card label="أوامر البيع" actual={cur.actual_orders} target={cur.orders_target} fmt={num} />
         <PageTitle>الأشهر السابقة</PageTitle>
         <div className="card s-hist">{hist.length === 0 ? <div className="muted">لا بيانات سابقة.</div> : hist.map((r) => <Month key={`${r.year}-${r.month}`} r={r} />)}</div>
         <p className="muted">الأشرطة تعرض الإنجاز حتى ١٠٠٪، وتظهر النسب الأعلى في الأرقام.</p>

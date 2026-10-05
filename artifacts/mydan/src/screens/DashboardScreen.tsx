@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, ClipboardList, MapPin, Package, Plus, Route, Target as TargetIcon } from '@/components/Icons';
+import { Camera, ClipboardList, MapPin, Plus, Route, Target as TargetIcon } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useRealtime } from '@/hooks/useRealtime';
@@ -37,14 +37,12 @@ export default function DashboardScreen() {
     {q.isError ? <ErrorState error={q.error} onRetry={retry} /> : <>
       <div className="s-kpis">
         <KPICard icon={<MapPin size={18} />} title="زيارات اليوم" value={d && num(d.visits)} loading={L} />
-        <KPICard icon={<Package size={18} />} title="أوامر اليوم" value={d && num(d.orders)} loading={L} color="#C2570C" />
         <KPICard icon={<Camera size={18} />} title="مراجعات الرف" value={d && num(d.audits)} loading={L} color="#6D3FC0" />
         <KPICard icon={<TargetIcon size={18} />} title="نسبة الهدف%" value={d && `${num(Math.round(d.visitsProgress))}%`} loading={L} color="var(--color-success)" />
       </div>
       <div className="s-acts">
         <Act id="/visits/new" onAct={go} className="s-act s-green" testId="button-new-visit"><Plus /> زيارة جديدة</Act>
         <Act id="/shelf-audit" onAct={go} className="s-act s-blue"><Camera /> مراجعة الرف</Act>
-        <Act id="/orders" onAct={go} className="s-act s-orange"><Package /> أوامر البيع</Act>
         <Act id="/beat-plan" onAct={go} className="s-act s-purple"><Route /> خطة البيت</Act>
       </div>
       <PageTitle>آخر الزيارات</PageTitle>

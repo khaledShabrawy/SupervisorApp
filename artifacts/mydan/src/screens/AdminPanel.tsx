@@ -141,14 +141,14 @@ function SettingsForm() {
 function TargetForm() {
   const q = useSupervisors(); const m = useSaveMonthlyTarget(); const now = new Date();
   const [sid, setSid] = useState(''); const [month, setMonth] = useState(now.getMonth() + 1); const [year, setYear] = useState(now.getFullYear());
-  const [v, setV] = useState(''); const [o, setO] = useState(''); const [a, setA] = useState('');
+  const [v, setV] = useState(''); const [a, setA] = useState('');
   const retry = useRefetch(q.refetch);
-  const onSid = useInput(setSid); const onV = useInput(setV); const onO = useInput(setO); const onA = useInput(setA);
+  const onSid = useInput(setSid); const onV = useInput(setV); const onA = useInput(setA);
   const onMonth = useCallback((e: ChangeEvent<HTMLSelectElement>) => setMonth(Number(e.target.value)), []);
   const onYear = useCallback((e: ChangeEvent<HTMLInputElement>) => setYear(Number(e.target.value)), []);
-  const nums = useMemo(() => [v, o, a].map(Number), [v, o, a]); const valid = sid && nums.every((n) => Number.isSafeInteger(n) && n >= 0) && v !== '' && o !== '' && a !== '';
+  const nums = useMemo(() => [v, a].map(Number), [v, a]); const valid = sid && nums.every((n) => Number.isSafeInteger(n) && n >= 0) && v !== '' && a !== '';
   const submit = useCallback((e: FormEvent) => { e.preventDefault(); if (!valid) return;
-    m.mutate({ supervisor_id: sid, month, year, visits_target: nums[0], orders_target: nums[1], audit_target: nums[2] }); }, [valid, m, sid, month, year, nums]);
+    m.mutate({ supervisor_id: sid, month, year, visits_target: nums[0], audit_target: nums[1] }); }, [valid, m, sid, month, year, nums]);
   if (q.isError) return <ErrorState error={q.error} onRetry={retry} />;
   return <form className="card col" onSubmit={submit}>
     <label className="f">المشرف<select className="input" value={sid} onChange={onSid} disabled={q.isPending} data-testid="select-target-supervisor">
@@ -157,7 +157,6 @@ function TargetForm() {
     <div className="row"><label className="f grow">الشهر<select className="input" value={month} onChange={onMonth}>{MONTHS.map((n, i) => <SelectOption key={n} value={i + 1} label={n} />)}</select></label>
       <label className="f grow">السنة<input className="input" type="number" value={year} onChange={onYear} /></label></div>
     <label className="f">هدف الزيارات<input className="input" type="number" min="0" inputMode="numeric" value={v} onChange={onV} /></label>
-    <label className="f">هدف أوامر البيع<input className="input" type="number" min="0" step="1" inputMode="numeric" value={o} onChange={onO} /></label>
     <label className="f">هدف مراجعات الرف<input className="input" type="number" min="0" step="1" inputMode="numeric" value={a} onChange={onA} /></label>
     <button className="btn" disabled={!valid || m.isPending} data-testid="button-save-target">{m.isPending ? 'جاري الحفظ...' : 'حفظ الهدف'}</button>
   </form>;

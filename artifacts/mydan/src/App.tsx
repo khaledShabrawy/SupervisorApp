@@ -13,7 +13,6 @@ const Dashboard = lazy(() => import('@/screens/DashboardScreen'));
 const Visits = lazy(() => import('@/screens/VisitsScreen'));
 const NewVisit = lazy(() => import('@/screens/NewVisitScreen'));
 const ShelfAudit = lazy(() => import('@/screens/ShelfAuditScreen'));
-const Orders = lazy(() => import('@/screens/OrdersScreen'));
 const Customers = lazy(() => import('@/screens/CustomersScreen'));
 const Targets = lazy(() => import('@/screens/TargetsScreen'));
 const BeatPlan = lazy(() => import('@/screens/BeatPlanScreen'));
@@ -40,7 +39,6 @@ function App() {
                     <Route path="visits" element={<Visits />} />
                     <Route path="visits/new" element={<NewVisit />} />
                     <Route path="shelf-audit" element={<ShelfAudit />} />
-                    <Route path="orders" element={<Orders />} />
                     <Route path="customers" element={<Customers />} />
                     <Route path="targets" element={<Targets />} />
                     <Route path="beat-plan" element={<BeatPlan />} />
