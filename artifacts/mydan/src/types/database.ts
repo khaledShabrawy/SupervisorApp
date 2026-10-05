@@ -1,7 +1,7 @@
 export type ID = string;
 export type VisitStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
 export interface Supervisor {
-  id: ID; user_id: ID; name: string; phone: string | null;
+  id: ID; user_id: ID; full_name: string; phone: string | null;
   role: 'admin' | 'supervisor' | 'super_admin'; branch_id: ID | null;
   company_id: ID; is_active: boolean;
 }

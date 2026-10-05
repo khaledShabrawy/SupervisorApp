@@ -20,11 +20,11 @@ type Tab = typeof TABS[number][0];
 const SupRow = memo(function SupRow({ s, self, onPatch }: { s: Supervisor; self: boolean; onPatch: (s: Supervisor, p: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => void }) {
   const locked = self || s.role === 'super_admin';
   const toggle = useCallback(() => {
-    if (!s.is_active || window.confirm(`تعطيل حساب ${s.name}؟`)) onPatch(s, { is_active: !s.is_active });
+    if (!s.is_active || window.confirm(`تعطيل حساب ${s.full_name}؟`)) onPatch(s, { is_active: !s.is_active });
   }, [s, onPatch]);
   const role = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => onPatch(s, { role: e.target.value as 'admin' | 'supervisor' }), [s, onPatch]);
   return <div className="card col" data-testid={`card-supervisor-${s.id}`}>
-    <div className="row between"><div className="grow"><div className="title">{s.name}{self && ' (أنت)'}</div><div className="muted" dir="ltr" style={{ textAlign: 'start' }}>{s.phone ?? '—'}</div></div>
+    <div className="row between"><div className="grow"><div className="title">{s.full_name}{self && ' (أنت)'}</div><div className="muted" dir="ltr" style={{ textAlign: 'start' }}>{s.phone ?? '—'}</div></div>
       <span className={`badge ${s.is_active ? 'b-green' : 'b-red'}`}>{s.is_active ? 'نشط' : 'معطل'}</span></div>
     <div className="row"><span className="badge b-gray row" style={{ gap: 4 }}><ShieldCheck size={14} />{ROLE[s.role]}</span>
       {!locked && <>
@@ -86,7 +86,7 @@ function TargetForm() {
   if (q.isError) return <ErrorState error={q.error} onRetry={retry} />;
   return <form className="card col" onSubmit={submit}>
     <label className="f">المشرف<select className="input" value={sid} onChange={onSid} disabled={q.isPending} data-testid="select-target-supervisor">
-      <option value="">{q.isPending ? 'جاري التحميل...' : 'اختر مشرفا'}</option>{q.items.map((s) => <SelectOption key={s.id} value={s.id} label={s.name} />)}</select></label>
+      <option value="">{q.isPending ? 'جاري التحميل...' : 'اختر مشرفا'}</option>{q.items.map((s) => <SelectOption key={s.id} value={s.id} label={s.full_name} />)}</select></label>
     <LoadMore q={q} />
     <div className="row"><label className="f grow">الشهر<select className="input" value={month} onChange={onMonth}>{MONTHS.map((n, i) => <SelectOption key={n} value={i + 1} label={n} />)}</select></label>
       <label className="f grow">السنة<input className="input" type="number" value={year} onChange={onYear} /></label></div>

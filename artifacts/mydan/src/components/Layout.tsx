@@ -59,7 +59,7 @@ function Shell() {
       {home || ['/visits', '/customers', '/targets', '/notifications'].includes(pathname)
         ? (s.logo_url ? <img className="logo" src={s.logo_url} alt={s.app_name} loading="lazy" /> : <span className="logo">{s.app_name.slice(0, 1)}</span>)
         : <button className="icon-btn" aria-label="رجوع" onClick={goBack}><ArrowRight /></button>}
-      <h1><span className="header-brand">{s.app_name}</span><small>{supervisor!.name}</small></h1>
+      <h1><span className="header-brand">{s.app_name}</span><small>{supervisor!.full_name}</small></h1>
       <button className="icon-btn" aria-label="الإشعارات" data-testid="button-notifications" onClick={goNotifications}>
         <Bell size={21} />
         {unread.isError ? <span className="dot" aria-label="تعذر قراءة عدد الإشعارات">!</span>

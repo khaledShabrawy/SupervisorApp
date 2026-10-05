@@ -92,11 +92,11 @@ export default function ShelfAuditScreen() {
   const color = score == null ? 'var(--muted)' : score > 75 ? 'var(--color-success)' : score >= 50 ? '#B45309' : 'var(--color-danger)';
   const save = useCallback(() => {
     if (!audit) return;
-    const html = `<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>تقرير الرف</title><body style="font-family:sans-serif;max-width:640px;margin:auto;padding:16px"><h1>تقرير مراجعة الرف</h1><p>${esc(settings.app_name)} - ${esc(supervisor?.name ?? '')}</p><p>${esc(fmtDateTime(audit.audited_at))}</p><h2>النتيجة: ${audit.audit_score ?? '-'}</h2><p>${esc(audit.audit_summary_ar ?? '')}</p><h3>الملاحظات</h3><ul>${issues.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><h3>التوصيات</h3><ul>${recs.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></body></html>`;
+    const html = `<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><title>تقرير الرف</title><body style="font-family:sans-serif;max-width:640px;margin:auto;padding:16px"><h1>تقرير مراجعة الرف</h1><p>${esc(settings.app_name)} - ${esc(supervisor?.full_name ?? '')}</p><p>${esc(fmtDateTime(audit.audited_at))}</p><h2>النتيجة: ${audit.audit_score ?? '-'}</h2><p>${esc(audit.audit_summary_ar ?? '')}</p><h3>الملاحظات</h3><ul>${issues.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><h3>التوصيات</h3><ul>${recs.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></body></html>`;
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = `shelf-report-${audit.id}.html`; a.click(); URL.revokeObjectURL(url);
     notify('التقرير محفوظ في النظام وتم تنزيل نسخة منه', 'success');
-  }, [audit, settings.app_name, supervisor?.name, issues, recs]);
+  }, [audit, settings.app_name, supervisor?.full_name, issues, recs]);
   const busy = upload.isPending || request.isPending;
   const photo = audit?.photo_url ? <img src={audit.photo_url} alt="صورة الرف" loading="lazy" style={{ width: '100%', borderRadius: 12, maxHeight: 220, objectFit: 'cover' }} /> : null;
   return <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>

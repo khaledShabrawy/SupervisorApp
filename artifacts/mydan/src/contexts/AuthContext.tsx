@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const { data, error: failure } = await supabase.from('supervisors')
-        .select('id,user_id,name,phone,role,branch_id,company_id,is_active')
+        .select('id,user_id,full_name,phone,role,branch_id,company_id,is_active')
         .eq('user_id', next.user.id).maybeSingle();
       if (failure) throw new Error('تعذر تحميل حساب المشرف. تحقق من بنية الجدول وسياسات الوصول ثم أعد المحاولة.');
       if (!isAuthorizedSupervisor(data, next.user.id)) {
