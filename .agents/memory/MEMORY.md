@@ -4,3 +4,4 @@
 - [Package-manager detection](package-manager-detection.md) — keep a pnpm lockfile present during regeneration; the generic installer may otherwise choose npm.
 - [Vite public asset paths](vite-public-asset-paths.md) — Vite prefixes HTML public assets automatically; runtime requests still need the artifact base exactly once.
 - [Customer ownership](customer-ownership.md) — customer visibility is company-wide; do not apply supervisor ownership to customer lists or searches.
+- [Multi-company launch](multi-company-launch.md) — first release must support several companies; confirm backend isolation before launch.
