@@ -43,7 +43,7 @@ export default function DashboardScreen() {
       <div className="s-acts">
         <Act id="/visits/new" onAct={go} className="s-act s-green" testId="button-new-visit"><Plus /> زيارة جديدة</Act>
         <Act id="/shelf-audit" onAct={go} className="s-act s-blue"><Camera /> مراجعة الرف</Act>
-        <Act id="/beat-plan" onAct={go} className="s-act s-purple"><Route /> خطة البيت</Act>
+        <Act id="/beat-plan" onAct={go} className="s-act s-purple"><Route /> خطة الزيارات</Act>
       </div>
       <PageTitle>آخر الزيارات</PageTitle>
       {L ? <div className="skel" style={{ height: 70 }} /> : d!.recent.length === 0
