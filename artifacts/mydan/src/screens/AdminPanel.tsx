@@ -1,9 +1,12 @@
 import { memo, useCallback, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Package, ShieldCheck } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { canAdmin } from '@/lib/policy';
-import { useSupervisors, useUpdateSupervisor } from '@/lib/data';
+import { useSupervisors, useUpdateSupervisor, useScope } from '@/lib/data';
+import { supabase } from '@/lib/supabase';
+import { notify } from '@/lib/toast';
 import { useAdminProducts, useSaveMonthlyTarget, useSaveSettings, type CatalogProduct } from '@/lib/screen-data';
 import { PageTitle } from '@/components/Layout';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
@@ -13,8 +16,44 @@ import type { Supervisor } from '@/types/database';
 import CustomersScreen from './CustomersScreen';
 import { Chip, SelectOption, useInput, useRefetch } from './shared';
 
+type AssetType = { id: string; name_ar: string; name_en: string | null; icon: string; color: string; requires_qr: boolean; is_active: boolean; custom_fields: any[] };
+
+function useAssetTypes() {
+  const sc = useScope();
+  return useQuery({
+    queryKey: [...sc.base, 'asset-types'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('asset_types')
+        .select('id,name_ar,name_en,icon,color,requires_qr,is_active,custom_fields')
+        .eq('company_id', sc.companyId)
+        .order('name_ar');
+      if (error) throw new Error('تعذر تحميل أنواع الأصول.');
+      return data as AssetType[];
+    },
+  });
+}
+
+function useSaveAssetType() {
+  const sc = useScope();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id?: string; name_ar: string; name_en: string; icon: string; color: string; requires_qr: boolean }) => {
+      if (input.id) {
+        const { error } = await supabase.from('asset_types').update({ name_ar: input.name_ar, name_en: input.name_en, icon: input.icon, color: input.color, requires_qr: input.requires_qr }).eq('id', input.id).eq('company_id', sc.companyId);
+        if (error) throw new Error('تعذر تحديث نوع الأصل.');
+      } else {
+        const { error } = await supabase.from('asset_types').insert({ name_ar: input.name_ar, name_en: input.name_en, icon: input.icon, color: input.color, requires_qr: input.requires_qr, company_id: sc.companyId });
+        if (error) throw new Error('تعذر إضافة نوع الأصل.');
+      }
+    },
+    onSuccess: () => { notify('تم حفظ نوع الأصل', 'success'); qc.invalidateQueries({ queryKey: [...sc.base, 'asset-types'] }); },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
 const ROLE: Record<string, string> = { admin: 'مدير', supervisor: 'مشرف', super_admin: 'مدير أعلى' };
-const TABS = [['sup', 'المشرفون'], ['cus', 'العملاء'], ['pro', 'المنتجات'], ['set', 'الإعدادات'], ['tar', 'الأهداف']] as const;
+const TABS = [['sup', 'المشرفون'], ['cus', 'العملاء'], ['pro', 'المنتجات'], ['ast', 'الأصول'], ['set', 'الإعدادات'], ['tar', 'الأهداف']] as const;
 type Tab = typeof TABS[number][0];
 
 const SupRow = memo(function SupRow({ s, self, onPatch }: { s: Supervisor; self: boolean; onPatch: (s: Supervisor, p: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => void }) {
@@ -96,6 +135,52 @@ function TargetForm() {
     <button className="btn" disabled={!valid || m.isPending} data-testid="button-save-target">{m.isPending ? 'جاري الحفظ...' : 'حفظ الهدف'}</button>
   </form>;
 }
+function AssetTypes() {
+  const q = useAssetTypes();
+  const m = useSaveAssetType();
+  const retry = useRefetch(q.refetch);
+  const [showForm, setShowForm] = useState(false);
+  const [editItem, setEditItem] = useState<AssetType | null>(null);
+  const [name_ar, setNameAr] = useState('');
+  const [name_en, setNameEn] = useState('');
+  const [icon, setIcon] = useState('📦');
+  const [color, setColor] = useState('#1A56DB');
+  const [requires_qr, setRequiresQr] = useState(true);
+  const openNew = useCallback(() => { setEditItem(null); setNameAr(''); setNameEn(''); setIcon('📦'); setColor('#1A56DB'); setRequiresQr(true); setShowForm(true); }, []);
+  const openEdit = useCallback((a: AssetType) => { setEditItem(a); setNameAr(a.name_ar); setNameEn(a.name_en ?? ''); setIcon(a.icon); setColor(a.color); setRequiresQr(a.requires_qr); setShowForm(true); }, []);
+  const close = useCallback(() => setShowForm(false), []);
+  const save = useCallback((e: FormEvent) => { e.preventDefault(); m.mutate({ id: editItem?.id, name_ar, name_en, icon, color, requires_qr }, { onSuccess: close }); }, [m, editItem, name_ar, name_en, icon, color, requires_qr, close]);
+  const onNameAr = useInput(setNameAr); const onNameEn = useInput(setNameEn); const onIcon = useInput(setIcon); const onColor = useInput(setColor);
+  const onQr = useCallback((e: ChangeEvent<HTMLInputElement>) => setRequiresQr(e.target.checked), []);
+  const valid = name_ar.trim() && icon.trim() && /^#[0-9a-f]{6}$/i.test(color);
+  return <>
+    <button className="btn sm" onClick={openNew}>+ إضافة نوع أصل</button>
+    {showForm && <div className="card col">
+      <div className="title">{editItem ? 'تعديل نوع الأصل' : 'نوع أصل جديد'}</div>
+      <form className="col" onSubmit={save}>
+        <label className="f">الاسم بالعربي *<input className="input" value={name_ar} onChange={onNameAr} placeholder="ثلاجة عرض" /></label>
+        <label className="f">الاسم بالإنجليزي<input className="input" value={name_en} onChange={onNameEn} placeholder="Display Cooler" /></label>
+        <label className="f">الأيقونة (Emoji)<input className="input" value={icon} onChange={onIcon} placeholder="🧊" /></label>
+        <label className="f">اللون<div className="row"><input type="color" value={/^#[0-9a-f]{6}$/i.test(color) ? color : '#1A56DB'} onChange={onColor} style={{ width: 52, height: 48 }} /><input className="input" value={color} onChange={onColor} dir="ltr" /></div></label>
+        <label className="row" style={{ minHeight: 44 }}><input type="checkbox" checked={requires_qr} onChange={onQr} style={{ width: 24, height: 24 }} /> يتطلب QR Code</label>
+        <div className="row">
+          <button className="btn" disabled={!valid || m.isPending}>{m.isPending ? 'جاري الحفظ...' : 'حفظ'}</button>
+          <button type="button" className="btn ghost" onClick={close}>إلغاء</button>
+        </div>
+      </form>
+    </div>}
+    {q.isPending ? <SkeletonList n={3} /> : q.isError ? <ErrorState error={q.error} onRetry={retry} /> : q.data?.length === 0 ? <EmptyState icon={<Package />} title="لا توجد أنواع أصول" action={{ label: 'إضافة نوع', onClick: openNew }} /> :
+      q.data?.map((a) => <div key={a.id} className="card col" style={{ borderRight: `4px solid ${a.color}` }}>
+        <div className="row between"><div className="row" style={{ gap: 12 }}><span style={{ fontSize: 28 }}>{a.icon}</span><div><div className="title">{a.name_ar}</div>{a.name_en && <div className="muted" dir="ltr">{a.name_en}</div>}</div></div>
+          <button className="btn sm ghost" onClick={() => openEdit(a)}>تعديل</button></div>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          {a.requires_qr && <span className="badge b-blue">يتطلب QR</span>}
+          <span className={`badge ${a.is_active ? 'b-green' : 'b-gray'}`}>{a.is_active ? 'نشط' : 'متوقف'}</span>
+        </div>
+      </div>)}
+  </>;
+}
+
 export default function AdminPanel() {
   const { supervisor } = useAuth(); const settings = useAppSettings(); const [tab, setTab] = useState<Tab>('sup');
   const onTab = useCallback((v: string) => setTab(v as Tab), []);
@@ -106,6 +191,7 @@ export default function AdminPanel() {
     {tab === 'sup' && <Supervisors />}
     {tab === 'cus' && <CustomersScreen embedded />}
     {tab === 'pro' && <Products />}
+    {tab === 'ast' && <AssetTypes />}
     {tab === 'set' && <SettingsForm />}
     {tab === 'tar' && <TargetForm />}
   </div>;
