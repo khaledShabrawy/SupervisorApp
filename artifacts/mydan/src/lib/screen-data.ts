@@ -4,7 +4,8 @@ import { supabase } from './supabase';
 import { usePaged, useScope, type VisitRow } from './data';
 import { CUSTOMER_COLUMNS, SETTINGS_COLUMNS, VISIT_JOIN } from './columns';
 import { CUSTOMER_TYPES, dateKey, progressPercent, visitDateRange } from './screen-helpers';
-import { canAdmin, requireExactCount, validateSettings } from './policy';
+import { canAdmin, validateSettings } from './policy';
+import { readAllRows, readExactCount } from './read-count';
 import { notify } from './toast';
 import { countTargetRecord } from './execution-records';
 import type { AppSettings, Customer, Target } from '@/types/database';
@@ -20,24 +21,9 @@ type Scope = ReturnType<typeof useScope>;
 const errorMessage = (message: string, error: { message: string } | null) => {
   if (error) throw new Error(message);
 };
-// All row queries are bounded; exact count prevents assuming a server's row cap.
-async function collect<T>(make: () => any, signal: AbortSignal): Promise<T[]> {
-  const rows: T[] = [];
-  for (;;) {
-    const result = await make().range(rows.length, rows.length + 199).abortSignal(signal);
-    errorMessage('تعذر تحميل البيانات. تحقق من الصلاحيات وأعد المحاولة.', result.error);
-    const count = requireExactCount(result.count);
-    const page = result.data as T[] | null;
-    if (!Array.isArray(page)) throw new Error('استجابة البيانات غير مكتملة.');
-    rows.push(...page);
-    if (rows.length >= count) return rows;
-    if (!page.length) throw new Error('لم تُحمّل جميع البيانات المطلوبة.');
-  }
-}
 async function countRows(sc: Scope, table: string, signal: AbortSignal, build: (q: any) => any) {
-  const r = await build(sc.scope(supabase.from(table).select('id', { count: 'exact', head: true }))).abortSignal(signal);
-  errorMessage('تعذر حساب الإحصائيات.', r.error);
-  return requireExactCount(r.count);
+  return readExactCount(head => build(sc.scope(supabase.from(table).select('id', { count: 'exact', head }))),
+    signal, 'تعذر حساب الإحصائيات. تحقق من الاتصال والصلاحيات.');
 }
 function monthRange(year: number, month: number) {
   const start = new Date(year, month - 1, 1), end = new Date(year, month, 1);
@@ -47,8 +33,8 @@ type TargetValues = Pick<Target, 'visits_target' | 'audit_target'>;
 const targetSum = (rows: TargetValues[], field: keyof TargetValues) =>
   rows.reduce((sum, row) => sum + Number(row[field]), 0);
 function targetsFor(sc: Scope, month: number, year: number, signal: AbortSignal) {
-  return collect<TargetValues>(() => sc.scope(supabase.from('targets').select('visits_target,audit_target', { count: 'exact' }))
-    .eq('month', month).eq('year', year).order('id'), signal);
+  return readAllRows<TargetValues & { id: string }>(() => sc.scope(supabase.from('targets').select('id,visits_target,audit_target'))
+    .eq('month', month).eq('year', year), signal, 'تعذر تحميل الأهداف. تحقق من الاتصال والصلاحيات.');
 }
 
 export function useScreenDashboard() {
