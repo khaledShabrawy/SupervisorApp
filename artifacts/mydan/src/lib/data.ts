@@ -5,7 +5,8 @@ export type { CustomerInput } from './customer-record';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
-import { canAdmin, requireExactCount } from '@/lib/policy';
+import { canAdmin } from '@/lib/policy';
+import { readExactCount } from './read-count';
 import { notify } from '@/lib/toast';
 import { todayStr } from '@/lib/format';
 import type { Attendance, BeatPlan, Customer, Notification, ShelfAudit, Supervisor, Target, Visit } from '@/types/database';
@@ -56,9 +57,8 @@ export function usePaged<T>(sc: Scope, name: string, params: unknown[],
 async function exact(sc: Scope, table: string, signal: AbortSignal,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   build: (q: any) => any = (q) => q, field = 'supervisor_id') {
-  const { count, error } = await build(sc.scope(supabase.from(table).select('id', { count: 'exact', head: true }), field)).abortSignal(signal);
-  if (error) fail('تعذر حساب الإحصائيات.', error);
-  return requireExactCount(count);
+  return readExactCount(head => build(sc.scope(supabase.from(table).select('id', { count: 'exact', head }), field)),
+    signal, 'تعذر حساب الإحصائيات. تحقق من الاتصال والصلاحيات.');
 }
 
 /* ---------- Dashboard ---------- */
@@ -328,10 +328,8 @@ export function useUnreadCount() {
   return useQuery({
     queryKey: [...sc.base, 'notifications', 'unread'], retry: 1, refetchInterval: 120_000,
     queryFn: async ({ signal }) => {
-      const { count, error } = await supabase.from('notifications').select('id', { count: 'exact', head: true })
-        .eq('supervisor_id', sc.supervisorId).eq('is_read', false).abortSignal(signal);
-      if (error) fail('تعذر عد الإشعارات.', error);
-      return requireExactCount(count);
+      return readExactCount(head => supabase.from('notifications').select('id', { count: 'exact', head })
+        .eq('supervisor_id', sc.supervisorId).eq('is_read', false), signal, 'تعذر عد الإشعارات.');
     },
   });
 }
@@ -365,11 +363,11 @@ export function useAdminSummary() {
     queryKey: [...sc.base, 'admin-summary'], enabled: sc.isAdmin, retry: 1,
     queryFn: async ({ signal }) => {
       const c = async (onlyActive: boolean) => {
-        let q = supabase.from('supervisors').select('id', { count: 'exact', head: true }).eq('company_id', sc.companyId);
-        if (onlyActive) q = q.eq('is_active', true);
-        const r = await q.abortSignal(signal);
-        if (r.error) fail('تعذر حساب المشرفين.', r.error);
-        return requireExactCount(r.count);
+        return readExactCount(head => {
+          let q = supabase.from('supervisors').select('id', { count: 'exact', head }).eq('company_id', sc.companyId);
+          if (onlyActive) q = q.eq('is_active', true);
+          return q;
+        }, signal, 'تعذر حساب المشرفين.');
       };
       const [total, active] = await Promise.all([c(false), c(true)]);
       return { total, active };

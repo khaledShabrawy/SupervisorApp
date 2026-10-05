@@ -1,5 +1,6 @@
 - [Supabase setup verification](supabase-setup-verification.md) — secret confirmation proves presence, not project pairing; verify the public URL and auth metadata without logging keys.
 - [Auth verification](auth-verification.md) — test the production sign-in orchestration and visible failure messages, not only isolated policy helpers.
+- [Count-response verification](count-verification.md) — valid count-header fixtures missed a user loading failure; cover absent totals, smaller server caps and later-page errors.
 - [Package installer scope](package-installer-scope.md) — generic installation targets the workspace root; keep browser dependencies in their consuming artifact.
 - [Package-manager detection](package-manager-detection.md) — keep a pnpm lockfile present during regeneration; the generic installer may otherwise choose npm.
 - [Vite public asset paths](vite-public-asset-paths.md) — Vite prefixes HTML public assets automatically; runtime requests still need the artifact base exactly once.
