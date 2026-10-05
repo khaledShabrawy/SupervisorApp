@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "81GbZ5M6xbN0xgkjbEcWL"
+uri = "file://reports/mydan-review-2026-10-05.html"
+type = "html"
+title = "تقرير اختبار ميدان مقابل الخطة"
+description = "نتائج الاختبارات الفعلية ومراجعة مراحل A–L، مع الفجوات والاختبارات التي منعها رفض تسجيل الدخول."
+logical_id = "9eb79cd8-66fa-4a01-a4f1-100801f32027"
+content_hash = "sha256:0de2d38b35311d38fcc899a41470910416f8cc2b9ba313687f10b4fccf2ce916"
+size = 19222
+mtime_ms = 1791202193242
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:860386b9-2e70-4cdf-b9ea-c2ed25eed442/9eb79cd8-66fa-4a01-a4f1-100801f32027/31102e9a-66a6-4c7c-85df-0658857778db"
+storage_version_token = "1791202212785630"
+content_type = "text/html"

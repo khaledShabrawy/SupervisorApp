@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>تقرير اختبار ومراجعة ميدان — ٥ أكتوبر ٢٠٢٦</title>
+  <style>
+    :root { color-scheme: light; font-family: Tahoma, Arial, sans-serif; color: #17243a; background: #f8fafc; }
+    * { box-sizing: border-box; }
+    body { margin: 0; line-height: 1.75; }
+    main { max-width: 1060px; margin: 0 auto; padding: 28px 20px 64px; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); line-height: 1.35; color: #143e94; margin-bottom: 10px; }
+    h2 { font-size: 1.3rem; border-bottom: 1px solid #dbe3ee; padding-bottom: 8px; margin: 32px 0 15px; }
+    h3 { font-size: 1rem; margin: 18px 0 5px; }
+    p, li { font-size: .98rem; }
+    .meta, .subtle { color: #56657b; }
+    .intro { max-width: 79ch; }
+    .callout { background: #fff; border: 1px solid #d7e3f5; border-right: 5px solid #1a56db; border-radius: 12px; padding: 18px 20px; margin: 22px 0; }
+    .warning { border-right-color: #b45309; background: #fffbeb; border-color: #f5e4ac; }
+    .section { background: #fff; border: 1px solid #e0e6ef; border-radius: 12px; padding: 18px 20px; margin: 17px 0; }
+    .table-wrap { overflow-x: auto; background: #fff; border: 1px solid #e0e6ef; border-radius: 12px; }
+    table { border-collapse: collapse; width: 100%; min-width: 710px; }
+    th, td { padding: 12px 14px; text-align: right; vertical-align: top; border-bottom: 1px solid #e4eaf3; }
+    th { background: #ecf3ff; color: #143e94; white-space: nowrap; }
+    tr:last-child td { border-bottom: 0; }
+    .status { display: inline-block; border-radius: 99px; padding: 1px 9px; font-weight: bold; font-size: .85rem; white-space: nowrap; }
+    .pass { color: #065f46; background: #d1fae5; }
+    .partial { color: #854d0e; background: #fef3c7; }
+    .blocked { color: #8b1d28; background: #ffe4e6; }
+    .missing { color: #334155; background: #e2e8f0; }
+    code { direction: ltr; unicode-bidi: isolate; font-size: .9em; background: #f2f5fa; border-radius: 3px; padding: 1px 4px; }
+    ol, ul { padding-right: 25px; margin-top: 8px; }
+    li { margin: 5px 0; }
+    a { color: #1a56db; }
+    a:focus-visible { outline: 3px solid #108981; }
+    nav { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 22px; }
+    nav a { background: #e8efff; padding: 4px 12px; border-radius: 8px; text-decoration: none; }
+    footer { border-top: 1px solid #dbe3ee; margin-top: 40px; padding-top: 15px; color: #56657b; }
+    @media print {
+      body { background: #fff; }
+      main { max-width: none; padding: 0; }
+      .section, .callout, tr { break-inside: avoid; }
+      nav { display: none; }
+      a { color: inherit; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="meta">ميدان / Mydan · ٥ أكتوبر ٢٠٢٦ · مراجعة للنسخة الحالية، وليست شهادة قبول تشغيل</p>
+    <h1>تقرير اختبار التطبيق مقابل الخطة</h1>
+    <p class="intro">المرجع: الصور المعمارية الخمس المرفقة ومستند «خطة Mydan من A إلى Z» (المراحل A–L)، مع فحص الكود واختبار متصفح قراءة فقط. تميّز النتائج بين اختبار فعلي في المتصفح، ومراجعة كود أو اختبارات محلية، وميزات لا يمكن إثباتها دون دخول أو فحص للخدمات الخلفية.</p>
+  </header>
+
+  <nav aria-label="أقسام التقرير">
+    <a href="#result">النتيجة</a><a href="#tests">الاختبارات</a><a href="#plan">مراحل الخطة</a><a href="#gaps">الفجوات</a><a href="#next">بوابة التحقق التالية</a>
+  </nav>
+
+  <section id="result" class="callout warning">
+    <h2 style="margin-top:0">الخلاصة: لا يمكن تأكيد جاهزية التشغيل الآن</h2>
+    <p>تمكنا من تشغيل واجهة الدخول وبناء التطبيق واجتياز الفحوصات المحلية. لكن حساب الاختبار الذي قُدّم رُفض عند تسجيل الدخول؛ لذلك <strong>لم تُختبر الشاشات المحمية ببيانات حية</strong>. وجود الشاشة أو الطلب في الكود ليس إثباتًا لعمل قاعدة البيانات أو الصلاحيات أو تحليل الصور. نسب 100% و80% في الصور المرجعية لا تعكس نتيجة هذه المراجعة.</p>
+    <p style="margin-bottom:0"><strong>ليس من الدقة وصف كل التطبيق بأنه معطّل</strong>: الحالة المثبتة هي رفض بيانات الدخول المقدمة، ولا تحدد وحدها هل السبب كلمة المرور، أو عدم وجود المستخدم في مشروع Supabase المتصل، أو إعداد الحساب.</p>
+  </section>
+
+  <section id="tests">
+    <h2>ما اختُبر فعليًا</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>الفحص</th><th>النتيجة</th><th>الدليل وحدود النتيجة</th></tr></thead>
+      <tbody>
+        <tr><td>واجهة الدخول على الهاتف</td><td><span class="status pass">ناجح</span></td><td>فتح متصفح الاختبار شاشة الدخول العربية باتجاه صحيح عند قياس 390 × 844؛ تبديل إظهار كلمة المرور عمل ثم أُعيد إخفاؤها.</td></tr>
+        <tr><td>تسجيل الدخول بالحساب المقدم</td><td><span class="status blocked">مرفوض</span></td><td>محاولة واحدة، استجابة HTTP 400 من نقطة مصادقة Supabase، ورسالة «البريد الإلكتروني أو كلمة المرور غير صحيحة». لا يعني ذلك إثبات سبب الرفض تحديدًا.</td></tr>
+        <tr><td>حماية صفحات الزائر غير المسجّل</td><td><span class="status pass">ناجح</span></td><td>زيارة <code>/admin</code> و<code>/customers</code> دون جلسة أعادت إلى <code>/login</code>. صلاحيات مدير سجّل الدخول لم تُختبر.</td></tr>
+        <tr><td>TypeScript</td><td><span class="status pass">ناجح</span></td><td>الأمر <code>pnpm exec tsc --noEmit</code> خرج دون أخطاء.</td></tr>
+        <tr><td>الاختبارات المحلية</td><td><span class="status pass">33 من 33</span></td><td>اختبارات الحسابات والمنطق والحماية الأساسية والـPWA نجحت. معظمها اختبارات منطق/عزل، لا تختبر الرحلة الحية داخل Supabase.</td></tr>
+        <tr><td>بناء الإنتاج المحلي</td><td><span class="status pass">ناجح</span></td><td>بناء Vite والـservice worker نجحا في مجلد مؤقت منفصل. ظهرت تحذيرات غير مانعة بشأن توجيهات <code>use client</code> في إحدى المكتبات؛ لم يحدث نشر.</td></tr>
+        <tr><td>الشاشات بعد الدخول</td><td><span class="status blocked">لم تُختبر</span></td><td>لم تنشأ جلسة؛ لا يمكن التحقق من لوحة المؤشرات والزيارات والعملاء والأصول وسائر الوحدات ببيانات حقيقية.</td></tr>
+        <tr><td>هاتف فعلي / وضع الطيران / GPS / AI</td><td><span class="status blocked">لم تُختبر</span></td><td>لا توجد تجربة على جهاز فعلي أو طلب تحليل أو رفع صورة أو كتابة بيانات تجريبية.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="plan">
+    <h2>حالة مراحل خطة A–L التفصيلية</h2>
+    <p class="subtle">التصنيف أدناه يصف <strong>ما أمكن إثباته</strong>؛ «جزئي» لا يعني بالضرورة أن الجزء الباقي غير موجود في قاعدة البيانات الحية، بل أنه غير مكتمل في الكود أو لم يُتحقق منه.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>المرحلة</th><th>الحالة</th><th>الموجود وما بقي</th></tr></thead>
+      <tbody>
+        <tr><td>A — خط الأساس</td><td><span class="status partial">جزئي</span></td><td>التطبيق الحالي React/Vite PWA عربي؛ المسارات والأوامر الأساسية محددة والبناء ينجح. لم يُجرد المخطط الحي لقاعدة البيانات؛ افتراض Expo في أجزاء من المستند لم يعد مطابقًا للمنتج الحالي.</td></tr>
+        <tr><td>B — عقد البيانات والهجرات</td><td><span class="status partial">جزئي</span></td><td>توجد مراجعة محلية لعقد البيانات وملف SQL تاريخي، لكن ذلك لا يثبت الـ21 جدولًا أو RLS أو الـViews أو الهجرات في Supabase الفعلي. قرار إطلاق شركة واحدة مقابل تعدد الشركات لم يُحسم.</td></tr>
+        <tr><td>C — إعداد Supabase</td><td><span class="status partial">جزئي</span></td><td>عميل Supabase واحد بالواجهة مع متغيرات إعداد عامة. استجاب عنوان المصادقة في اختبار الدخول؛ هذا لا يثبت صحة بقية الجداول أو الصلاحيات. لا توجد إشارات لمفاتيح خدمة/مزود ذكاء اصطناعي في مصدر الواجهة الذي فُحص.</td></tr>
+        <tr><td>D — المصادقة والصلاحيات</td><td><span class="status partial">جزئي</span></td><td>الدخول، استعادة الجلسة، ربط المشرف، والحماية بالمسار/الدور موجودة في الكود؛ إعادة توجيه الزائر مختبرة. رفض الحساب المقدم منع اختبار دخول ناجح. صلاحيات تفصيلية من جدول permissions غير مثبتة، ولا يمكن استنتاج أمان البيانات من الحارس المرئي وحده.</td></tr>
+        <tr><td>E — الهيكل وتجربة الموبايل</td><td><span class="status partial">جزئي</span></td><td>RTL وخط Cairo والمكونات المشتركة والتنقل وPWA موجودة؛ اختُبرت شاشة الدخول بمقاس هاتف فقط. التثبيت وإعادة الفتح دون اتصال على جهاز فعلي وحالات جميع الشاشات لم تُختبر.</td></tr>
+        <tr><td>F — العمليات الميدانية</td><td><span class="status partial">جزئي</span></td><td>مسارات لوحة المؤشرات والزيارات/بدء زيارة مع GPS والعملاء ومراجعة الرف وأوامر الكميات والأهداف والإشعارات وخطة المسار موجودة في الكود. ليست هناك صفحة زيارة تفصيلية/قائمة مهام كاملة أو شاشة مستقلة لمنتجات المنافسين وتقارير مشرف كاملة كما في الخطة؛ الحفظ الحي غير مختبر.</td></tr>
+        <tr><td>G — وظيفة AI والتخزين</td><td><span class="status blocked">غير مثبتة حيًا</span></td><td>الواجهة ترفع صورة وتسجل مراجعة وترسل الطلب لوظيفة <code>analyze-shelf</code> وتتابع النتيجة بالاستعلام الدوري/Realtime. كود الوظيفة المنشورة وسياسة تخزين الصور ونجاح تحليل فعلي غير متاحة للتحقق من المستودع وحده.</td></tr>
+        <tr><td>H — الإدارة</td><td><span class="status partial">جزئي</span></td><td>مسار المدير وتبويبات المشرفين والعملاء والمنتجات والأصول والإعدادات والأهداف موجودة. الأصول تشمل نموذج إضافة/تعديل، لكن حفظها وصلاحيات جدولها لم يُختبرا؛ المنتجات للعرض، وإدارة الفروع والصلاحيات الدقيقة والاستبيانات وسجل التدقيق ليست وحدات مثبتة مكتملة.</td></tr>
+        <tr><td>I — عزل الشركات</td><td><span class="status blocked">غير مثبت أمنيًا</span></td><td>فلتر <code>company_id</code> حاضر في استعلامات كثيرة. ذلك دفاع في الواجهة، وليس دليلًا على سياسات RLS والتخزين؛ لم يُجرَ اختبار شركتين أو مراجعة المخطط الحي.</td></tr>
+        <tr><td>J — Power BI</td><td><span class="status missing">غير مثبت</span></td><td>لم توجد ملفات Power BI أو تعريفات الـViews الخمس في المستودع المفحوص. احتمال وجودها في قاعدة حية غير مفحوصة لا يمكن نفيه؛ لا توجد شهادة بصحة التجميع أو عزل التقارير.</td></tr>
+        <tr><td>K — ضمان الجودة</td><td><span class="status partial">جزئي</span></td><td>TypeScript والبناء والاختبارات المحلية ناجحة، مع اختبار دخول زائر وحماية مسارين. لم تُستكمل تجربة وصول ناجح أو اختبارات GPS/جهاز فعلي/AI أو عزل شركات أو أداء أو قبول ميداني.</td></tr>
+        <tr><td>L — الجاهزية للإطلاق</td><td><span class="status blocked">لم تجتز البوابة</span></td><td>يلزم حساب اختبار صالح، تحديد نطاق المستأجرين، تحقق خلفي من الجداول والسياسات، وقبول الرحلات الأساسية على بيئة آمنة. لم يُنشر شيء في هذه المراجعة.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="gaps">
+    <h2>فجوات مثبتة في الكود أو تحتاج إثباتًا خلفيًا</h2>
+    <ol>
+      <li><strong>العملاء:</strong> قائمة بطاقات العملاء أصبحت على مستوى الشركة دون اشتراط زيارات سابقة، لكن تحميل العميل المحدد في <code>useCustomerById</code> ما زال يطبق نطاق المشرف، وقد يعيق اختيار عميل من الشركة عند بدء زيارة. وعند الحفظ تُرسل قيمة <code>customer_type</code>؛ بحسب التوضيح السابق بأنه عمود مولّد من <code>type</code>، يجب مطابقة عقد الإدخال مع المخطط الحي قبل اعتماد الحفظ. تحديث العميل يخضع أيضًا لنطاق المشرف؛ لا توسّع صلاحية التعديل تلقائيًا.</li>
+      <li><strong>صور الرف:</strong> الواجهة تنشئ رابطًا عامًا للصورة. إذا كانت الحاوية خاصة فقد لا تتمكن وظيفة التحليل من قراءة هذا الرابط؛ وإذا كانت عامة فلا يوفر RLS على الجداول وحده خصوصية الصورة. يلزم قرار خصوصية وفحص سياسة التخزين وعقد الوظيفة الفعلي.</li>
+      <li><strong>الأصول:</strong> التبويب الجديد موجود، لكن جلب <code>asset_types</code> وإضافة/تعديل صفوفه يعتمدان على جدول وصلاحيات لم تُختبر حيًا. نجاح اختبار TypeScript لا يثبت أن الجدول متاح أو يسمح بالكتابة.</li>
+      <li><strong>الإشعارات وخطة المسار:</strong> توجد واجهة للإشعارات واشتراكات Realtime، لكن Push غير مثبت. خطة المسار قائمة زيارات وليست خريطة لتحسين المسارات والتداخلات.</li>
+      <li><strong>PWA دون اتصال:</strong> عامل الخدمة يخزن غلاف التطبيق والأصول العامة؛ لا توجد أدلة على مخزن للزيارات/العملاء أو طابور كتابة ومزامنة أعمال بعد استعادة الاتصال. لا تصف ذلك بأنه «offline-first» للعمليات.</li>
+      <li><strong>نطاق المنتج:</strong> صور الخطة القديمة تذكر أسعارًا وإيرادات وتقارير Revenue/Price List، لكن النطاق المعتمد للتطبيق لا يتضمن أسعارًا أو فواتير أو تحصيلًا أو تقارير مالية. هذه العناصر مستبعدة، وليست فجوات مطلوب تنفيذها.</li>
+    </ol>
+  </section>
+
+  <section id="next" class="section">
+    <h2>بوابة التحقق التالية — بالترتيب</h2>
+    <ol>
+      <li>يتحقق مالك المشروع من أن حساب الاختبار موجود ومفعّل في مشروع Supabase المتصل. إن لزم، تُعاد كلمة المرور عبر إجراء المالك المعتاد خارج التقرير؛ لا تُرسل كلمة مرور جديدة في المحادثة. ثم يُعاد اختبار الدخول مرة واحدة.</li>
+      <li>بعد نجاح الدخول، تُختبر الشاشات للـ<strong>مشرف</strong> قراءةً وتنقلًا، ثم بحساب مدير منفصل لإثبات تبويبات الإدارة. حالات الحفظ تحتاج بيئة staging وبيانات اختبار مصرحًا بها؛ لم تُفترض من عدم ظهور خطأ في البناء.</li>
+      <li>يُراجع المخطط الحي وسياسات RLS والتخزين والوظيفة المنشورة بصلاحية مناسبة، مع اختبار منع القراءة/الكتابة بين شركتين قبل اعتماد تعدد المستأجرين. لا تُطبق هجرات تلقائيًا.</li>
+      <li>بعدها فقط: اختبار صورة رف ونتيجة AI، استخدام GPS وPWA على هاتف حقيقي، ثم تحقق التقارير الخمس إن كانت ضمن النطاق غير المالي.</li>
+    </ol>
+    <p><strong>حكم المراجعة:</strong> أساس الواجهة موجود والفحوصات المحلية ناجحة؛ قبول الرحلات الحية والجاهزية للإطلاق <strong>غير مثبتين</strong>، وأول مانع عملي هو عدم نجاح الدخول بالحساب المقدم.</p>
+  </section>
+
+  <footer>
+    <p>المصادر: الملفات المرفقة بهذا الطلب، كود التطبيق الحالي في <code>artifacts/mydan</code>، فحوصات TypeScript و33 اختبارًا، بناء Vite محلي، واختبار متصفح بزيارة مسارات قراءة فقط. لم تُعدّل ملفات التطبيق، ولم تُنفّذ عمليات SQL أو عمليات كتابة أعمال أو نشر. لم تُدرج كلمات مرور أو رموز أو صور خاصة أو بيانات عملاء في هذا التقرير.</p>
+  </footer>
+</main>
+</body>
+</html>
