@@ -11,7 +11,7 @@ import { DAYS } from '@/lib/format';
 export default function BeatPlan() {
   const nav = useNavigate(); const today = new Date().getDay(); const [day, setDay] = useState(today); const q = useBeatPlan(day);
   return <div className="page">
-    <PageTitle>خطة المسار</PageTitle>
+    <PageTitle>خطة الزيارات</PageTitle>
     <div className="tabs">{DAYS.map((d, i) => <button key={d} className={`chip ${day === i ? 'on' : ''}`} onClick={() => setDay(i)} data-testid={`day-${i}`}>{d}{i === today ? ' (اليوم)' : ''}</button>)}</div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={() => void q.refetch()} />
       : q.data.plan.length === 0 ? <EmptyState icon={<Route />} title="لا عملاء في مسار هذا اليوم" />

@@ -304,7 +304,7 @@ export function useBeatPlan(day: number) {
     queryFn: async ({ signal }) => {
       const { data, error } = await sc.scope(supabase.from('beat_plans').select(`id,supervisor_id,day_of_week,customer_id,company_id,customers(${CUSTOMER_COLUMNS})`))
         .eq('day_of_week', day).limit(300).abortSignal(signal);
-      if (error) fail('تعذر تحميل خطة المسار.', error);
+      if (error) fail('تعذر تحميل خطة الزيارات.', error);
       const visits = await sc.scope(supabase.from('visits').select('customer_id,status')).eq('visit_date', todayStr()).limit(1000).abortSignal(signal);
       if (visits.error) fail('تعذر تحميل زيارات اليوم.', visits.error);
       return { plan: data as BeatRow[], visited: new Map((visits.data as Visit[]).map((v) => [v.customer_id, v.status])) };

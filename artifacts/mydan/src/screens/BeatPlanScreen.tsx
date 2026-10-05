@@ -27,7 +27,7 @@ export default function BeatPlanScreen() {
   const nav = useNavigate(); const today = new Date().getDay(); const [day, setDay] = useState(today); const q = useBeatPlan(day); const retry = useRefetch(q.refetch); const onDay = useCallback((v: string) => setDay(Number(v)), []);
   const open = useCallback((id: string) => nav(`/visits/new?customer=${id}`), [nav]);
   return <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
-    <PageTitle>خطة المسار</PageTitle>
+    <PageTitle>خطة الزيارات</PageTitle>
     <div className="tabs">{ORDER.map((i) => <Chip key={i} value={String(i)} label={`${DAYS[i]}${i === today ? ' (اليوم)' : ''}`} active={day === i} onSelect={onDay} testId={`day-${i}`} />)}</div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
       : q.data.plan.length === 0 ? <EmptyState icon={<Route />} title="لا توجد زيارات مخططة" />

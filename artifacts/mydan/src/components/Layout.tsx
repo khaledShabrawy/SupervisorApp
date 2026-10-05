@@ -48,7 +48,7 @@ function Shell() {
   useEffect(() => {
     const names: Record<string, string> = { '/': 'الرئيسية', '/visits': 'الزيارات',
       '/visits/new': 'بدء زيارة', '/shelf-audit': 'مراجعة الرف',
-      '/customers': 'العملاء', '/targets': 'الأهداف والتقارير', '/beat-plan': 'خطة المسار',
+      '/customers': 'العملاء', '/targets': 'الأهداف والتقارير', '/beat-plan': 'خطة الزيارات',
       '/notifications': 'الإشعارات', '/admin': 'لوحة الإدارة' };
     document.title = `${names[pathname] ?? 'ميدان'} | ${s.app_name}`;
     return () => { document.title = 'ميدان | إدارة المبيعات الميدانية'; };
