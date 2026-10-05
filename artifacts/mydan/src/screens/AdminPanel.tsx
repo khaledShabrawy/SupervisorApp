@@ -36,11 +36,15 @@ function useSaveAssetType() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { id?: string; name_ar: string; name_en: string; icon: string; color: string; requires_qr: boolean }) => {
+      const values = { name_ar: input.name_ar.trim(), name_en: input.name_en.trim(), icon: input.icon.trim(),
+        color: input.color, requires_qr: input.requires_qr };
+      if (!values.name_ar || !values.icon || !/^#[0-9a-f]{6}$/i.test(values.color)) throw new Error('بيانات نوع الأصل غير صالحة.');
       if (input.id) {
-        const { error } = await supabase.from('asset_types').update({ name_ar: input.name_ar, name_en: input.name_en, icon: input.icon, color: input.color, requires_qr: input.requires_qr }).eq('id', input.id).eq('company_id', sc.companyId);
-        if (error) throw new Error('تعذر تحديث نوع الأصل.');
+        const { data, error } = await supabase.from('asset_types').update(values)
+          .eq('id', input.id).eq('company_id', sc.companyId).select('id').single();
+        if (error || !data) throw new Error('لم يتم تحديث نوع الأصل. تحقق من وجوده وصلاحية التعديل.');
       } else {
-        const { error } = await supabase.from('asset_types').insert({ name_ar: input.name_ar, name_en: input.name_en, icon: input.icon, color: input.color, requires_qr: input.requires_qr, company_id: sc.companyId });
+        const { error } = await supabase.from('asset_types').insert({ ...values, company_id: sc.companyId });
         if (error) throw new Error('تعذر إضافة نوع الأصل.');
       }
     },
