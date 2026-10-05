@@ -37,7 +37,7 @@ export default function NewVisitScreen() {
     m.mutate({ customer_id: customer.id, latitude: gps.latitude, longitude: gps.longitude, notes, ...(existingId ? { existingId } : {}) },
       { onSuccess: () => nav('/visits', { replace: true }) });
   }, [supervisor, customer, check, gps.latitude, gps.longitude, m, notes, existingId, nav]);
-  const onNotes = useInput(setNotes); const reload = useCallback(() => window.location.reload(), []);
+  const onNotes = useInput(setNotes);
   const retryExisting = useRefetch(existing.refetch); const retryPre = useRefetch(pre.refetch);
   const back = useCallback(() => nav('/visits'), [nav]);
   return <div className="page" aria-label={s.app_name} data-role={supervisor?.role}>
@@ -56,7 +56,7 @@ export default function NewVisitScreen() {
       {gps.loading ? <div className="alert warn">جاري تحديد موقعك...</div> : gps.latitude != null
         ? <div className="muted">دقة GPS: {num(Math.round(gps.accuracy ?? 0))} م</div> : <div className="alert err">{gps.error}</div>}
       {check && <div className={`alert row ${check.ok ? 'ok' : check.far ? 'warn' : 'err'}`} role="status">{check.ok && <ShieldCheck />}<span>{check.text}</span></div>}
-      {gps.latitude == null && !gps.loading && <button className="btn ghost" onClick={reload}><LocateFixed /> إعادة تحديد الموقع</button>}
+      {!gps.loading && <button className="btn ghost" onClick={gps.retry}><LocateFixed /> إعادة تحديد الموقع</button>}
     </div>
     <label className="f">ملاحظات (اختياري)<textarea className="input" rows={3} value={notes} onChange={onNotes} data-testid="input-notes" /></label>
     <button className="btn success block" disabled={!customer || !check?.ok || m.isPending} onClick={submit} data-testid="button-start-visit">{m.isPending ? 'جاري الحفظ...' : 'تسجيل الوصول'}</button>

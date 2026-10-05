@@ -35,7 +35,7 @@ function Form({ c, onClose }: { c: Customer | null; onClose: () => void }) {
     {badCoord && <div className="alert err">الإحداثيات غير صالحة. أدخل القيمتين معا أو اتركهما فارغتين.</div>}
     {c && <label className="row" style={{ minHeight: 44 }}><input type="checkbox" style={{ width: 24, height: 24 }} checked={active} onChange={(e) => setActive(e.target.checked)} /> عميل نشط</label>}
     <button className="btn" disabled={!valid || m.isPending} data-testid="button-save-customer"
-      onClick={() => m.mutate({ id: c?.id, input: { name: name.trim(), customer_type: type.trim(), address: address.trim(), latitude: la, longitude: lo, is_active: active } }, { onSuccess: onClose })}>
+      onClick={() => m.mutate({ id: c?.id, input: { name: name.trim(), type: type.trim(), address: address.trim(), latitude: la, longitude: lo, is_active: active } }, { onSuccess: onClose })}>
       {m.isPending ? 'جاري الحفظ...' : 'حفظ'}</button>
   </div></Sheet>;
 }

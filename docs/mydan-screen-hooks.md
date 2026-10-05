@@ -6,7 +6,7 @@ Maintain the existing screens in `artifacts/mydan/src/screens/` and shared `Shel
 
 - `useCreateVisit()` mutation: `{customer_id,latitude,longitude,notes,existingId?}`. Keep pending-visit starts as PATCH, never duplicate them.
 - `useVisitToStart(id|null)` query with `customers: Customer|null`.
-- `useSaveCustomer()` mutation: `{id?,input:{name,customer_type,address,latitude,longitude,is_active}}`.
+- `useSaveCustomer()` mutation: `{id?,input:{name,type,address,latitude,longitude,is_active}}`. Write only source `type`; `customer_type` is generated/read-only.
 - `useVisitOptions()` query: `VisitRow[]`, selectable visits for shelf audits.
 - `useNotifications(unreadOnly:boolean)` paged query `items:Notification[]`.
 - `useUnreadCount()` query number; do not substitute zero for an error.

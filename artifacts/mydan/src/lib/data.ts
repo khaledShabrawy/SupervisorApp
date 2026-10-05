@@ -1,5 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { customerRecord, type CustomerInput } from './customer-record';
+export type { CustomerInput } from './customer-record';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
@@ -201,17 +203,17 @@ export function useCustomerSearch(search: string) {
     },
   });
 }
-export type CustomerInput = Pick<Customer, 'name' | 'customer_type' | 'address' | 'latitude' | 'longitude' | 'is_active'>;
 export function useSaveCustomer() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, input }: { id?: string; input: CustomerInput }) => {
+      const values = customerRecord(input);
       if (id) {
-        const { data, error } = await sc.scope(supabase.from('customers').update(input).eq('id', id)).select('id');
+        const { data, error } = await sc.scope(supabase.from('customers').update(values).eq('id', id)).select('id');
         if (error) fail('تعذر حفظ العميل.', error);
         if (!data?.length) throw new Error('لم يتم حفظ التعديل. قد لا تملك الصلاحية.');
       } else {
-        const { error } = await supabase.from('customers').insert({ ...input, company_id: sc.companyId, supervisor_id: sc.supervisorId });
+        const { error } = await supabase.from('customers').insert({ ...values, company_id: sc.companyId, supervisor_id: sc.supervisorId });
         if (error) fail('تعذر إضافة العميل.', error);
       }
     },
