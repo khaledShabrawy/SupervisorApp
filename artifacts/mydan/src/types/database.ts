@@ -22,10 +22,6 @@ export interface ShelfAudit {
   ai_detailed_report: any; status: 'pending' | 'processing' | 'completed' | 'failed';
   audited_at: string | null; company_id: ID;
 }
-export interface Order {
-  id: ID; visit_id: ID; supervisor_id: ID; customer_id: ID;
-  product_id: ID; quantity: number; status: 'pending' | 'confirmed' | 'delivered' | 'cancelled'; company_id: ID; created_at: string;
-}
 export interface Notification {
   id: ID; supervisor_id: ID; type: string; title_ar: string; body_ar: string;
   is_read: boolean; created_at: string;
@@ -38,8 +34,8 @@ export interface AppSettings {
 }
 export interface Target {
   id: ID; supervisor_id: ID; month: number; year: number;
-  visits_target: number; audit_target: number; orders_target: number;
-  actual_visits: number; actual_audits: number; actual_orders: number; company_id: ID;
+  visits_target: number; audit_target: number;
+  actual_visits: number; actual_audits: number; company_id: ID;
 }
 export interface BeatPlan {
   id: ID; supervisor_id: ID; day_of_week: number; customer_id: ID; company_id: ID;
@@ -50,6 +46,6 @@ export interface Attendance {
 }
 export interface TableMap {
   supervisors: Supervisor; customers: Customer; visits: Visit; shelf_audits: ShelfAudit;
-  orders: Order; notifications: Notification; app_settings: AppSettings;
+  notifications: Notification; app_settings: AppSettings;
   targets: Target; beat_plans: BeatPlan; attendance: Attendance;
 }

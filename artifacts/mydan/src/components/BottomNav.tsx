@@ -13,7 +13,7 @@ const tabs = [
 export function BottomNav() {
   const { pathname } = useLocation();
   // Preserve five tabs: visit-related operations belong to field visits.
-  const selected = /^\/(visits|orders|shelf-audit|beat-plan)(\/|$)/.test(pathname) ? '/visits' : pathname;
+  const selected = /^\/(visits|shelf-audit|beat-plan)(\/|$)/.test(pathname) ? '/visits' : pathname;
   const unread = useUnreadCount();
   const n = unread.data ?? 0;
   return <nav className="bottomnav" aria-label="التنقل الرئيسي">

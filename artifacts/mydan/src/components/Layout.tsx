@@ -47,7 +47,7 @@ function Shell() {
   const home = pathname === '/';
   useEffect(() => {
     const names: Record<string, string> = { '/': 'الرئيسية', '/visits': 'الزيارات',
-      '/visits/new': 'بدء زيارة', '/shelf-audit': 'مراجعة الرف', '/orders': 'الطلبات',
+      '/visits/new': 'بدء زيارة', '/shelf-audit': 'مراجعة الرف',
       '/customers': 'العملاء', '/targets': 'الأهداف والتقارير', '/beat-plan': 'خطة المسار',
       '/notifications': 'الإشعارات', '/admin': 'لوحة الإدارة' };
     document.title = `${names[pathname] ?? 'ميدان'} | ${s.app_name}`;

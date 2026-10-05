@@ -1,21 +1,19 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { quantityOrderRecord, type QuantityOrderInput } from './execution-records';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { canAdmin, requireExactCount } from '@/lib/policy';
 import { notify } from '@/lib/toast';
 import { todayStr } from '@/lib/format';
-import type { Attendance, BeatPlan, Customer, Notification, Order, ShelfAudit, Supervisor, Target, Visit } from '@/types/database';
-import { AUDIT_COLUMNS, CUSTOMER_COLUMNS, NOTIFICATION_COLUMNS, ORDER_COLUMNS, TARGET_COLUMNS, VISIT_COLUMNS, VISIT_JOIN } from './columns';
+import type { Attendance, BeatPlan, Customer, Notification, ShelfAudit, Supervisor, Target, Visit } from '@/types/database';
+import { AUDIT_COLUMNS, CUSTOMER_COLUMNS, NOTIFICATION_COLUMNS, TARGET_COLUMNS, VISIT_COLUMNS, VISIT_JOIN } from './columns';
 
 export const PAGE = 20;
 export const PHOTO_BUCKET = 'shelf-photos';
 // No presumed external AI service: configure the deployed function explicitly.
 export const AUDIT_FUNCTION = import.meta.env.VITE_SHELF_AUDIT_FUNCTION as string | undefined;
 export type VisitRow = Visit & { customers: Pick<Customer, 'name' | 'address' | 'latitude' | 'longitude'> | null };
-export type OrderRow = Order & { customers: { name: string } | null; products: { name: string } | null };
 export type BeatRow = BeatPlan & { customers: Customer | null };
 
 function fail(message: string, e: { message?: string } | null): never {
@@ -68,13 +66,12 @@ export function useDashboard() {
     queryKey: [...sc.base, 'dashboard', today], retry: 1,
     queryFn: async ({ signal }) => {
       const byDate = (q: any) => q.eq('visit_date', today); // eslint-disable-line @typescript-eslint/no-explicit-any
-      const [visits, completed, inProgress, pending, customers, orders, att, live] = await Promise.all([
+      const [visits, completed, inProgress, pending, customers, att, live] = await Promise.all([
         exact(sc, 'visits', signal, byDate),
         exact(sc, 'visits', signal, (q) => byDate(q).eq('status', 'completed')),
         exact(sc, 'visits', signal, (q) => byDate(q).eq('status', 'in_progress')),
         exact(sc, 'visits', signal, (q) => byDate(q).eq('status', 'pending')),
         exact(sc, 'customers', signal, (q) => q.eq('is_active', true)),
-        exact(sc, 'orders', signal, (q) => q.gte('created_at', today + 'T00:00:00').lt('created_at', today + 'T23:59:59.999')),
         supabase.from('attendance').select('id,supervisor_id,date,check_in,check_out,company_id').eq('company_id', sc.companyId).eq('supervisor_id', sc.supervisorId)
           .eq('date', today).abortSignal(signal).maybeSingle(),
         sc.scope(supabase.from('visits').select(VISIT_JOIN)).eq('status', 'in_progress')
@@ -82,7 +79,7 @@ export function useDashboard() {
       ]);
       if (att.error) fail('تعذر تحميل الحضور.', att.error);
       if (live.error) fail('تعذر تحميل الزيارات الجارية.', live.error);
-      return { visits, completed, inProgress, pending, customers, orders,
+      return { visits, completed, inProgress, pending, customers,
         attendance: (att.data ?? null) as Attendance | null, live: (live.data ?? []) as VisitRow[] };
     },
   });
@@ -223,28 +220,6 @@ export function useSaveCustomer() {
   });
 }
 
-/* ---------- Orders ---------- */
-export function useOrders() {
-  const sc = useScope();
-  return usePaged<OrderRow>(sc, 'orders', [], async (from, to, signal) => {
-    const { data, error } = await sc.scope(supabase.from('orders').select(`${ORDER_COLUMNS},customers(name),products(name)`))
-      .order('created_at', { ascending: false }).order('id').range(from, to).abortSignal(signal);
-    if (error) fail('تعذر تحميل الطلبات.', error);
-    return data as OrderRow[];
-  });
-}
-export function useCreateOrder() {
-  const sc = useScope(); const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (o: QuantityOrderInput) => {
-      const { error } = await supabase.from('orders').insert(quantityOrderRecord(o, sc));
-      if (error) fail('تعذر إنشاء الطلب.', error);
-    },
-    onSuccess: () => { notify('تم إنشاء الطلب', 'success'); void inv(qc, sc, 'orders', 'dashboard', 'targets'); },
-    onError: (e: Error) => notify(e.message, 'error'),
-  });
-}
-
 /* ---------- Shelf audits ---------- */
 export function useShelfAudits() {
   const sc = useScope();
@@ -311,14 +286,10 @@ export function useTargets(month: number, year: number) {
   return useQuery({
     queryKey: [...sc.base, 'targets', month, year], retry: 1,
     queryFn: async ({ signal }) => {
-      const from = new Date(year, month - 1, 1), to = new Date(year, month, 1);
-      const range = (q: any) => q.gte('created_at', from.toISOString()).lt('created_at', to.toISOString()); // eslint-disable-line @typescript-eslint/no-explicit-any
-      const [t, orders] = await Promise.all([
-        sc.scope(supabase.from('targets').select(TARGET_COLUMNS)).eq('month', month).eq('year', year).limit(1000).abortSignal(signal),
-        exact(sc, 'orders', signal, range),
-      ]);
+      const t = await sc.scope(supabase.from('targets').select(TARGET_COLUMNS))
+        .eq('month', month).eq('year', year).limit(1000).abortSignal(signal);
       if (t.error) fail('تعذر تحميل الأهداف.', t.error);
-      return { targets: (t.data ?? []) as Target[], orders };
+      return { targets: (t.data ?? []) as Target[] };
     },
   });
 }

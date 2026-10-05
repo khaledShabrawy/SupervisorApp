@@ -19,8 +19,10 @@ Arabic FMCG field-supervisor app. React 18 + Vite Web PWA, using Supabase.
 ## Mydan execution boundaries
 
 - نطاق المنتج مؤكد من المستخدم: «الأبلكشن لايوجد به أى تعاملات مالية ولا فواتير ولا تحصيل».
-- التطبيق لتنفيذ الزيارات ومراجعات الرف وتسجيل كميات أوامر البيع فقط. لا أسعار أو عملات أو مبالغ أو إيرادات أو مدفوعات أو تقارير مالية في أي نسخة.
-- أوامر البيع تعرض العميل والمنتج والكمية والحالة فقط؛ الأهداف هي الزيارات ومراجعات الرف وأوامر البيع، وليست أهدافًا مالية. وجود أعمدة قديمة في قاعدة البيانات لا يبرر إعادتها إلى التطبيق.
+- الهدف الحقيقي الذي أكده المستخدم: متابعة مشرف المبيعات في تنفيذ مهام وأهداف يحددها مديره مسبقًا من Admin Control Web.
+- لا أوامر بيع، حتى بالكميات فقط، ولا فواتير أو تحصيل أو مرتجعات أو تعاملات مالية. لا أسعار أو عملات أو مبالغ أو إيرادات أو مدفوعات أو تقارير مالية في أي نسخة.
+- **Why:** المستخدم كرر أن متابعة مهام المشرف هي نطاق المنتج؛ اعتبار أوامر الكميات «غير مالية» لا يجعلها ضمن النطاق.
+- الزيارات ومراجعات الرف أنشطة متابعة ميدانية، وليست عمليات بيع. وجود جداول أو أعمدة تاريخية للبيع لا يبرر استعمالها أو إعادتها إلى التطبيق. لا يُعاد تسمية أمر البيع «مهمة» للتحايل على هذا الحد.
 
 - Preserve Supabase data, identifiers, and the working web flows. The user explicitly authorized removal of the native app and its dependencies.
 - Do not execute SQL, migrations, schema pushes, external data writes, account creation, role elevation, publishing, or deployment as part of implementation/testing. External changes require separate explicit approval.
