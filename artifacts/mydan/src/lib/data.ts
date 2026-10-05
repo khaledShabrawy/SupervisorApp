@@ -380,8 +380,8 @@ export function useMarkRead() {
 export function useSupervisors() {
   const sc = useScope();
   return usePaged<Supervisor>(sc, 'admin-supervisors', [], async (from, to, signal) => {
-    const { data, error } = await supabase.from('supervisors').select('id,user_id,name,phone,role,branch_id,company_id,is_active')
-      .eq('company_id', sc.companyId).order('name').order('id').range(from, to).abortSignal(signal);
+    const { data, error } = await supabase.from('supervisors').select('id,user_id,full_name,phone,role,branch_id,company_id,is_active')
+      .eq('company_id', sc.companyId).order('full_name').order('id').range(from, to).abortSignal(signal);
     if (error) fail('تعذر تحميل المشرفين.', error);
     return data as Supervisor[];
   }, sc.isAdmin);
