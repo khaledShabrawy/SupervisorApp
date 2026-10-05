@@ -1,4 +1,4 @@
-export const CUSTOMER_COLUMNS = 'id,name,customer_type,address,latitude,longitude,company_id,supervisor_id,is_active';
+export const CUSTOMER_COLUMNS = 'id,name,type,customer_type,address,latitude,longitude,company_id,supervisor_id,is_active';
 export const VISIT_COLUMNS = 'id,supervisor_id,customer_id,visit_date,check_in_time,check_out_time,status,latitude,longitude,notes,company_id';
 export const VISIT_JOIN = `${VISIT_COLUMNS},customers(name,address,latitude,longitude)`;
 export const ORDER_COLUMNS = 'id,visit_id,supervisor_id,customer_id,product_id,quantity,status,company_id,created_at';
