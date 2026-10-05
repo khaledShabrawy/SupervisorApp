@@ -127,7 +127,7 @@ export function useCustomerById(id: string | null) {
   const sc = useScope();
   return useQuery({ queryKey: [...sc.base, 'customers', 'selected', id], enabled: !!id, retry: 1,
     queryFn: async ({ signal }) => {
-      const r = await sc.scope(supabase.from('customers').select(CUSTOMER_COLUMNS)).eq('id', id!)
+      const r = await supabase.from('customers').select(CUSTOMER_COLUMNS).eq('company_id', sc.companyId).eq('id', id!)
         .eq('is_active', true).abortSignal(signal).single();
       errorMessage('تعذر تحميل العميل المحدد.', r.error);
       return r.data as Customer;
