@@ -184,7 +184,7 @@ export function useVisitToStart(id: string | null) {
 export function useCustomers(search: string) {
   const sc = useScope(); const term = search.trim().replace(/[%,()]/g, ' ');
   return usePaged<Customer>(sc, 'customers', [term], async (from, to, signal) => {
-    let q = sc.scope(supabase.from('customers').select(CUSTOMER_COLUMNS));
+    let q = supabase.from('customers').select(CUSTOMER_COLUMNS).eq('company_id', sc.companyId);
     if (term) q = q.or(`name.ilike.%${term}%,address.ilike.%${term}%`);
     const { data, error } = await q.order('name').order('id').range(from, to).abortSignal(signal);
     if (error) fail('تعذر تحميل العملاء.', error);
@@ -196,7 +196,7 @@ export function useCustomerSearch(search: string) {
   return useQuery({
     queryKey: [...sc.base, 'customer-search', term], retry: 1,
     queryFn: async ({ signal }) => {
-      let q = sc.scope(supabase.from('customers').select(CUSTOMER_COLUMNS)).eq('is_active', true);
+      let q = supabase.from('customers').select(CUSTOMER_COLUMNS).eq('company_id', sc.companyId).eq('is_active', true);
       if (term) q = q.ilike('name', `%${term}%`);
       const { data, error } = await q.order('name').limit(15).abortSignal(signal);
       if (error) fail('تعذر البحث عن العملاء.', error);
