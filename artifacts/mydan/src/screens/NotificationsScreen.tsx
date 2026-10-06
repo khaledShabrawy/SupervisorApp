@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react';
-import { BellOff, CheckCheck } from '@/components/Icons';
+import { Bell, BellOff, CheckCheck } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useMarkRead, useNotifications } from '@/lib/data';
@@ -10,6 +10,7 @@ import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
 import { Chip, useMinuteTick, useRefetch } from './shared';
 import type { Notification } from '@/types/database';
 import { t } from '@/i18n';
+import { usePushSubscription } from '@/lib/push';
 
 const Item = memo(function Item({ n, fresh, now, onRead }: { n: Notification; fresh: boolean; now: number; onRead: (id: string) => void }) {
   const click = useCallback(() => { if (!n.is_read) onRead(n.id); }, [n.is_read, n.id, onRead]);
@@ -18,6 +19,25 @@ const Item = memo(function Item({ n, fresh, now, onRead }: { n: Notification; fr
     <div>{n.body_ar}</div><div className="muted">{relativeArabicTime(n.created_at, now)}</div>
   </button>;
 });
+function PushBanner() {
+  const { state, subscribe, unsubscribe } = usePushSubscription();
+  if (!('Notification' in window) || !import.meta.env.VITE_VAPID_PUBLIC_KEY) return null;
+  if (state === 'subscribed') return (
+    <div className="card row" style={{ gap: 10, fontSize: 14, background: 'var(--color-success-light, #dcfce7)', color: 'var(--color-success, #16a34a)', border: 'none' }}>
+      <Bell size={18} />
+      <span style={{ flex: 1 }}>{t('الإشعارات الفورية مفعّلة')}</span>
+      <button className="btn sm ghost" style={{ fontSize: 12 }} onClick={() => void unsubscribe()}>{t('إلغاء')}</button>
+    </div>
+  );
+  if (state === 'denied') return null;
+  return (
+    <button className="card row" style={{ gap: 10, fontSize: 14, cursor: 'pointer', textAlign: 'start', font: 'inherit', border: '1.5px dashed var(--color-border)' }} onClick={() => void subscribe()} disabled={state === 'loading'}>
+      <Bell size={18} style={{ color: 'var(--color-primary)' }} />
+      <span style={{ flex: 1 }}>{state === 'loading' ? t('جاري التفعيل...') : t('فعّل إشعارات الجوال لتصلك الرسائل فوراً')}</span>
+    </button>
+  );
+}
+
 export default function NotificationsScreen() {
   const { supervisor } = useAuth(); const settings = useAppSettings(); const now = useMinuteTick();
   const [unread, setUnread] = useState(false); const onTab = useCallback((v: string) => setUnread(v === 'unread'), []); const q = useNotifications(unread); const m = useMarkRead(); const retry = useRefetch(q.refetch);
@@ -32,6 +52,7 @@ export default function NotificationsScreen() {
   const all = useCallback(() => mark('all'), [mark]);
   return <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
     <PageTitle action={<button className="btn sm ghost" disabled={m.isPending} data-testid="button-read-all" onClick={all}><CheckCheck size={18} /> {t('تحديد الكل كمقروء')}</button>}>{t('الإشعارات')}</PageTitle>
+    <PushBanner />
     <div className="tabs"><Chip value="all" label={t('الكل')} active={!unread} onSelect={onTab} /><Chip value="unread" label={t('غير المقروءة')} active={unread} onSelect={onTab} /></div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
       : q.items.length === 0 ? <EmptyState icon={<BellOff />} title={t('لا توجد إشعارات')} />

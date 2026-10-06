@@ -199,6 +199,10 @@ export function useBroadcast() {
         title_ar: title.trim(), body_ar: body.trim(), is_read: false }));
       const { error } = await supabase.from('notifications').insert(rows);
       if (error) fail('تعذر إرسال الإشعار.', error);
+      // also trigger Web Push (best-effort, non-blocking)
+      supabase.functions.invoke('push-notify', {
+        body: { supervisorIds, title: title.trim(), body: body.trim() },
+      }).catch(() => {/* silent — push is optional */});
       return rows.length;
     },
     onSuccess: (n) => { notify(t('✅ تم إرسال الإشعار إلى {n} مشرف', { n }), 'success'); void invalidate(qc, sc, 'notifications'); },
