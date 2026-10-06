@@ -8,8 +8,8 @@ import { useCustomerSearch, useSupervisors } from '@/lib/data';
 import { useAdminProducts, useSaveSettings, type CatalogProduct } from '@/lib/screen-data';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
-  ASSET_STATUS, useAssets, useBranches, useBroadcast, useSaveAsset, useSaveBranch, useSaveProduct, useUploadLogo,
-  type AssetRow, type Branch,
+  ASSET_STATUS, useAssets, useAuditLogs, useBranches, useBroadcast, useSaveAsset, useSaveBranch, useSaveProduct, useUploadLogo,
+  type AssetRow, type AuditRow, type Branch,
 } from '@/lib/admin-data';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
 import EmptyState from '@/components/EmptyState';
@@ -200,6 +200,67 @@ export function AdminNotifications() {
       <LoadMore q={sups} />
       <button className="btn" disabled={m.isPending} data-testid="button-broadcast"><Bell size={18} /> {m.isPending ? t('جاري الإرسال...') : t('إرسال')}</button>
     </form>
+  </>;
+}
+
+/* ---------- Audit Logs ---------- */
+const TABLE_OPTIONS = ['', 'visits', 'supervisors', 'customers', 'products', 'assets', 'branches', 'targets', 'beat_plans', 'shelf_audit', 'notifications'];
+const TABLE_LABELS: Record<string, string> = {
+  '': 'الكل', visits: 'الزيارات', supervisors: 'المشرفون', customers: 'العملاء', products: 'المنتجات',
+  assets: 'الأصول', branches: 'الفروع', targets: 'الأهداف', beat_plans: 'خطة الزيارات',
+  shelf_audit: 'مراجعة الرف', notifications: 'الإشعارات',
+};
+const ACTION_BADGE: Record<string, string> = { INSERT: 'b-green', UPDATE: 'b-blue', DELETE: 'b-red' };
+const ACTION_LABEL: Record<string, string> = { INSERT: 'إضافة', UPDATE: 'تعديل', DELETE: 'حذف' };
+function AuditDetail({ row }: { row: AuditRow }) {
+  const [open, setOpen] = useState(false);
+  const data = row.action === 'DELETE' ? row.old_data : row.new_data;
+  if (!data) return null;
+  return <>
+    <button className="btn sm ghost" onClick={() => setOpen(true)}>{t('التفاصيل')}</button>
+    {open && <div className="adm-modal-bg" onClick={() => setOpen(false)}>
+      <div className="adm-modal col" onClick={(e) => e.stopPropagation()}>
+        <div className="row between">
+          <span className="title" style={{ fontSize: 15 }}>{t(TABLE_LABELS[row.table_name] ?? row.table_name)} · {t(ACTION_LABEL[row.action] ?? row.action)}</span>
+          <button className="icon-btn" onClick={() => setOpen(false)}><X /></button>
+        </div>
+        <pre style={{ fontSize: 12, direction: 'ltr', background: 'var(--color-bg)', borderRadius: 8, padding: 10, overflowX: 'auto', maxHeight: 340 }}>
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      </div>
+    </div>}
+  </>;
+}
+export function AdminAuditLogs() {
+  const [tableFilter, setTableFilter] = useState('');
+  const q = useAuditLogs(tableFilter);
+  const retry = useRefetch(q.refetch);
+  return <>
+    <div className="row between" style={{ flexWrap: 'wrap', gap: 10 }}>
+      <h2>{t('سجل المراجعة')}</h2>
+      <select className="input" style={{ width: 'auto', minWidth: 160, minHeight: 40 }} value={tableFilter} onChange={(e) => setTableFilter(e.target.value)}>
+        {TABLE_OPTIONS.map((k) => <option key={k} value={k}>{t(TABLE_LABELS[k] ?? k)}</option>)}
+      </select>
+    </div>
+    {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
+      : !q.items.length ? <EmptyState icon={<Bell />} title={t('لا توجد سجلات')} />
+      : <div className="adm-table-wrap"><table className="adm-table">
+          <thead><tr>
+            <th>{t('التاريخ')}</th>
+            <th>{t('الجدول')}</th>
+            <th>{t('الإجراء')}</th>
+            <th>{t('المشرف')}</th>
+            <th />
+          </tr></thead>
+          <tbody>{q.items.map((r) => <tr key={r.id}>
+            <td style={{ fontSize: 12, whiteSpace: 'nowrap' }} dir="ltr">{new Date(r.created_at).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' })}</td>
+            <td style={{ fontSize: 13 }}>{t(TABLE_LABELS[r.table_name] ?? r.table_name)}</td>
+            <td><span className={`badge ${ACTION_BADGE[r.action] ?? 'b-gray'}`}>{t(ACTION_LABEL[r.action] ?? r.action)}</span></td>
+            <td style={{ fontSize: 13 }}>{r.supervisors?.full_name ?? '—'}</td>
+            <td><AuditDetail row={r} /></td>
+          </tr>)}</tbody>
+        </table></div>}
+    <LoadMore q={q} />
   </>;
 }
 

@@ -206,6 +206,30 @@ export function useBroadcast() {
   });
 }
 
+/* ---------- Audit Logs ---------- */
+export type AuditRow = {
+  id: string;
+  table_name: string;
+  action: 'INSERT' | 'UPDATE' | 'DELETE';
+  performed_by: string | null;
+  old_data: Record<string, unknown> | null;
+  new_data: Record<string, unknown> | null;
+  created_at: string;
+  supervisors: { full_name: string } | null;
+};
+export function useAuditLogs(tableFilter: string) {
+  const sc = useScope();
+  return usePaged<AuditRow>(sc, 'audit-logs', [tableFilter], async (from, to, signal) => {
+    let q = supabase.from('audit_logs')
+      .select('id,table_name,action,performed_by,old_data,new_data,created_at,supervisors(full_name)')
+      .eq('company_id', sc.companyId);
+    if (tableFilter) q = q.eq('table_name', tableFilter);
+    const { data, error } = await q.order('created_at', { ascending: false }).range(from, to).abortSignal(signal);
+    if (error) fail('تعذر تحميل سجل المراجعة.', error);
+    return data as unknown as AuditRow[];
+  }, sc.isAdmin);
+}
+
 /* ---------- Company logo ---------- */
 export const LOGO_BUCKET = 'company-logos';
 export function useUploadLogo() {
