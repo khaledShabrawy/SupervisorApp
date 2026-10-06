@@ -1,8 +1,8 @@
 export type ID = string;
-export type VisitStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+export type VisitStatus = 'pending' | 'in_progress' | 'completed' | 'skipped';
 export interface Supervisor {
   id: ID; user_id: ID; full_name: string; phone: string | null;
-  role: 'admin' | 'supervisor' | 'super_admin'; branch_id: ID | null;
+  role: 'admin' | 'supervisor' | 'senior_supervisor' | 'branch_manager' | 'super_admin'; branch_id: ID | null;
   company_id: ID; is_active: boolean;
 }
 export interface Customer {
@@ -45,7 +45,7 @@ export interface Attendance {
   check_out: string | null; company_id: ID;
 }
 export interface TableMap {
-  supervisors: Supervisor; customers: Customer; visits: Visit; shelf_audits: ShelfAudit;
+  supervisors: Supervisor; customers: Customer; visits: Visit; shelf_audit: ShelfAudit;
   notifications: Notification; app_settings: AppSettings;
   targets: Target; beat_plans: BeatPlan; attendance: Attendance;
 }

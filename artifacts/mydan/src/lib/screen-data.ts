@@ -15,7 +15,7 @@ export type CustomerCardRow = Customer & { last_visit: string | null };
 export type CatalogProduct = { id: string; name: string; category: string; sku?: string; is_active: boolean };
 export type MonthProgress = Pick<Target, 'month' | 'year' | 'visits_target' | 'audit_target'
   | 'actual_visits' | 'actual_audits'>;
-export type SettingsInput = Pick<AppSettings, 'app_name' | 'primary_color' | 'geofence_radius_m' | 'target_brand_name' | 'competitor_brands'>;
+export type SettingsInput = Pick<AppSettings, 'app_name' | 'primary_color' | 'geofence_radius_m' | 'target_brand_name' | 'competitor_brands'> & Partial<Pick<AppSettings, 'logo_url'>>;
 export type MonthlyTargetInput = Pick<Target, 'supervisor_id' | 'month' | 'year' | 'visits_target' | 'audit_target'>;
 type Scope = ReturnType<typeof useScope>;
 const errorMessage = (message: string, error: { message: string } | null) => {
@@ -45,7 +45,7 @@ export function useScreenDashboard() {
     queryFn: async ({ signal }) => {
       const [visits, audits, actualVisits, targets, recent] = await Promise.all([
         countRows(sc, 'visits', signal, q => q.eq('visit_date', day.start)),
-        countRows(sc, 'shelf_audits', signal, q => q.gte('audited_at', day.startIso).lt('audited_at', day.endIso)),
+        countRows(sc, 'shelf_audit', signal, q => q.gte('audited_at', day.startIso).lt('audited_at', day.endIso)),
         countRows(sc, 'visits', signal, q => q.eq('status', 'completed').gte('visit_date', mr.start).lt('visit_date', mr.end)),
         targetsFor(sc, month, year, signal),
         sc.scope(supabase.from('visits').select(VISIT_JOIN)).order('visit_date', { ascending: false })
@@ -112,7 +112,7 @@ export function useMonthlyTargets() {
       const [targets, actual_visits, actual_audits] = await Promise.all([
         targetsFor(sc, m, y, signal),
         countRows(sc, 'visits', signal, q => q.eq('status', 'completed').gte('visit_date', range.start).lt('visit_date', range.end)),
-        countRows(sc, 'shelf_audits', signal, q => q.eq('status', 'completed').gte('audited_at', range.startIso).lt('audited_at', range.endIso)),
+        countRows(sc, 'shelf_audit', signal, q => q.eq('status', 'completed').gte('audited_at', range.startIso).lt('audited_at', range.endIso)),
       ]);
       return { month: m, year: y, visits_target: targetSum(targets, 'visits_target'),
         audit_target: targetSum(targets, 'audit_target'), actual_visits, actual_audits };
@@ -121,11 +121,9 @@ export function useMonthlyTargets() {
 }
 export function useAdminProducts() {
   const sc = useScope();
-  // Existing native product contract is a global catalog without company_id.
-  // Tenant/administrator access must be enforced by the existing server RLS.
   return usePaged<CatalogProduct>(sc, 'products', [false], async (from, to, signal) => {
-    let q = supabase.from('products').select('id,name,category,sku,is_active');
-    const r = await q.order('name').order('id').range(from, to).abortSignal(signal);
+    const r = await supabase.from('products').select('id,name,category,sku:sku_code,is_active').eq('company_id', sc.companyId)
+      .order('name').order('id').range(from, to).abortSignal(signal);
     errorMessage('تعذر تحميل المنتجات. تحقق من جدول المنتجات وصلاحياته.', r.error);
     return r.data as CatalogProduct[];
   });
@@ -167,14 +165,16 @@ export function useSaveMonthlyTarget() {
         const [actual_visits, actual_audits] = await Promise.all([
           countRows(sc, 'visits', signal, q => q.eq('supervisor_id', input.supervisor_id).eq('status', 'completed')
             .gte('visit_date', range.start).lt('visit_date', range.end)),
-          countRows(sc, 'shelf_audits', signal, q => q.eq('supervisor_id', input.supervisor_id).eq('status', 'completed')
+          countRows(sc, 'shelf_audit', signal, q => q.eq('supervisor_id', input.supervisor_id).eq('status', 'completed')
             .gte('audited_at', range.startIso).lt('audited_at', range.endIso)),
         ]);
         actuals = { actual_visits, actual_audits };
       }
       const r = existing.data
         ? await supabase.from('targets').update(values).eq('id', existing.data.id).eq('company_id', sc.companyId).select('id').single()
-        : await supabase.from('targets').insert({ ...values, company_id: sc.companyId, ...actuals }).select('id').single();
+        : await supabase.from('targets').insert({ ...values, company_id: sc.companyId, ...actuals,
+          // target_date is NOT NULL in the table; monthly targets anchor to the 1st.
+          target_date: `${input.year}-${String(input.month).padStart(2, '0')}-01` }).select('id').single();
       errorMessage('تعذر حفظ الهدف الشهري.', r.error);
     },
     onSuccess: () => { notify('تم حفظ الأهداف الشهرية', 'success');

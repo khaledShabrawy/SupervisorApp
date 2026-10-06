@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { countTargetRecord } from '../src/lib/execution-records.ts';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const target = { supervisor_id: 'supervisor', month: 10, year: 2026, visits_target: 12, audit_target: 8 };
 
@@ -25,8 +26,9 @@ test('web source has no sales orders or financial features and native app is rem
       else if (/\.(?:tsx?|jsx?)$/.test(file)) assert.doesNotMatch(readFileSync(file, 'utf8'), forbidden, file);
     }
   }
-  check(new URL('../src', import.meta.url).pathname);
-  assert.equal(existsSync(new URL('../../mobile/package.json', import.meta.url)), false);
+  const srcDir = fileURLToPath(new URL('../src', import.meta.url));
+  check(srcDir);
+  assert.equal(existsSync(fileURLToPath(new URL('../../mobile/package.json', import.meta.url))), false);
 });
 test('the discontinued sales-order screen cannot be navigated to', () => {
   const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');

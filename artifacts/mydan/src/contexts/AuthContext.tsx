@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { isAuthorizedSupervisor } from '@/lib/policy';
 import { signInErrorMessage } from '@/lib/auth-errors';
 import type { Supervisor } from '@/types/database';
+import { t } from '@/i18n';
 
 interface AuthValue {
   session: Session | null; user: User | null; supervisor: Supervisor | null;
@@ -37,13 +38,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error: failure } = await supabase.from('supervisors')
         .select('id,user_id,full_name,phone,role,branch_id,company_id,is_active')
         .eq('user_id', next.user.id).maybeSingle();
-      if (failure) throw new Error('تعذر تحميل حساب المشرف. تحقق من بنية الجدول وسياسات الوصول ثم أعد المحاولة.');
+      if (failure) throw new Error(t('تعذر تحميل حساب المشرف. تحقق من بنية الجدول وسياسات الوصول ثم أعد المحاولة.'));
       if (!isAuthorizedSupervisor(data, next.user.id)) {
-        throw new Error('حساب المشرف غير موجود أو غير نشط أو صلاحياته غير مكتملة.');
+        throw new Error(t('حساب المشرف غير موجود أو غير نشط أو صلاحياته غير مكتملة.'));
       }
       if (epoch === generation.current) setSupervisor(data);
     } catch (failure) {
-      if (epoch === generation.current) setError(failure instanceof Error ? failure.message : 'تعذر تحميل الحساب.');
+      if (epoch === generation.current) setError(failure instanceof Error ? failure.message : t('تعذر تحميل الحساب.'));
     } finally {
       if (epoch === generation.current) setLoading(false);
     }
@@ -63,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     void supabase.auth.getSession().then(({ data, error: failure }) => {
       if (!alive || generation.current !== initialEpoch) return;
-      if (failure) { setLoading(false); setError('تعذر استعادة الجلسة. أعد تسجيل الدخول.'); }
+      if (failure) { setLoading(false); setError(t('تعذر استعادة الجلسة. أعد تسجيل الدخول.')); }
       else void synchronize(data.session);
     });
     return () => {
@@ -79,10 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error: failure } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (epoch !== generation.current) return;
       if (failure) throw new Error(signInErrorMessage(failure));
-      if (!data.session) throw new Error('لم تُنشأ جلسة دخول. تحقق من تفعيل حسابك.');
+      if (!data.session) throw new Error(t('لم تُنشأ جلسة دخول. تحقق من تفعيل حسابك.'));
       await synchronize(data.session);
     } catch (failure) {
-      if (epoch === generation.current) { setLoading(false); setError(failure instanceof Error ? failure.message : 'تعذر تسجيل الدخول.'); }
+      if (epoch === generation.current) { setLoading(false); setError(failure instanceof Error ? failure.message : t('تعذر تسجيل الدخول.')); }
       throw failure;
     } finally { signingIn.current = false; }
   }, [synchronize]);
@@ -91,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSupervisor(null); setSession(null); setError(null); setLoading(false);
     await cache.cancelQueries(); cache.clear();
     const { error: failure } = await supabase.auth.signOut({ scope: 'local' });
-    if (failure) throw new Error('تعذر إنهاء الجلسة. تحقق من الاتصال وأعد المحاولة.');
+    if (failure) throw new Error(t('تعذر إنهاء الجلسة. تحقق من الاتصال وأعد المحاولة.'));
   }, [cache]);
   return <Context.Provider value={{
     session, user: session?.user ?? null, supervisor, isLoading,

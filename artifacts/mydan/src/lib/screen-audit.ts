@@ -12,6 +12,12 @@ async function currentSession(userId: string) {
   if (error || !data.session || data.session.user.id !== userId) throw new Error('جلسة الدخول غير صالحة. أعد تسجيل الدخول.');
   return data.session;
 }
+/** Photos live in a private bucket; swap the stored path for a 10-minute signed URL. */
+async function withSignedPhoto(audit: ShelfAudit): Promise<ShelfAudit> {
+  if (!audit.photo_url || /^https:\/\//.test(audit.photo_url)) return audit;
+  const { data } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(audit.photo_url, 600);
+  return { ...audit, photo_url: data?.signedUrl ?? null };
+}
 export function useUploadAudit() {
   const sc = useScope(), qc = useQueryClient();
   return useMutation({
@@ -26,10 +32,10 @@ export function useUploadAudit() {
       const path = `${sc.companyId}/${sc.supervisorId}/${visit.id}-${crypto.randomUUID()}.${ext}`;
       const uploaded = await supabase.storage.from(PHOTO_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
       if (uploaded.error) throw new Error('تعذر رفع صورة الرف. تحقق من الحاوية والصلاحيات.');
-      const { data: publicPhoto } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
-      const inserted = await supabase.from('shelf_audits').insert({
+      const inserted = await supabase.from('shelf_audit').insert({
         visit_id: visit.id, supervisor_id: sc.supervisorId, company_id: sc.companyId,
-        photo_url: publicPhoto.publicUrl, status: 'pending', audited_at: new Date().toISOString(),
+        // Private bucket: store the object path; readers get short-lived signed URLs.
+        photo_url: path, status: 'pending', audited_at: new Date().toISOString(),
       }).select(AUDIT_COLUMNS).single();
       if (inserted.error || !inserted.data) {
         if (inserted.status >= 400 && inserted.status < 500 && inserted.status !== 408) {
@@ -39,7 +45,7 @@ export function useUploadAudit() {
         }
         throw new Error('لم يتأكد حفظ المراجعة. احتُفظ بالصورة لتجنب حذف ملف ربما حُفظ سجله.');
       }
-      return inserted.data as ShelfAudit;
+      return withSignedPhoto(inserted.data as ShelfAudit);
     },
     onSuccess: audit => { qc.setQueryData([...sc.base, 'audits', 'result', audit.id], audit);
       void qc.invalidateQueries({ queryKey: [...sc.base, 'audits'] });
@@ -63,8 +69,8 @@ export function useRequestAuditAnalysis() {
       try {
         const response = await fetch(ANALYZE_ENDPOINT, {
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ audit_id: audit.id, photo_url: audit.photo_url,
-            target_brand: settings.target_brand_name, competitor_brands: settings.competitor_brands }),
+          // The function loads the photo and brand settings itself after verifying ownership.
+          body: JSON.stringify({ audit_id: audit.id }),
           signal: controller.signal,
         });
         if (!response.ok) throw new Error('تعذر إرسال الصورة للتحليل. تحقق من نشر الوظيفة وصلاحيات الدخول.');
@@ -85,9 +91,9 @@ export function useAuditResult(id: string | null) {
   return useQuery({
     queryKey: [...sc.base, 'audits', 'result', id], enabled: !!id, retry: 1,
     queryFn: async ({ signal }) => {
-      const r = await sc.scope(supabase.from('shelf_audits').select(AUDIT_COLUMNS)).eq('id', id!).abortSignal(signal).single();
+      const r = await sc.scope(supabase.from('shelf_audit').select(AUDIT_COLUMNS)).eq('id', id!).abortSignal(signal).single();
       if (r.error || !r.data) throw new Error('تعذر تحميل تقرير مراجعة الرف.');
-      return r.data as ShelfAudit;
+      return withSignedPhoto(r.data as ShelfAudit);
     },
     refetchInterval: q => q.state.data && ['pending', 'processing'].includes(q.state.data.status) ? 5000 : false,
   });

@@ -9,11 +9,12 @@ import EmptyState from '@/components/EmptyState';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
 import { Chip, useMinuteTick, useRefetch } from './shared';
 import type { Notification } from '@/types/database';
+import { t } from '@/i18n';
 
 const Item = memo(function Item({ n, fresh, now, onRead }: { n: Notification; fresh: boolean; now: number; onRead: (id: string) => void }) {
   const click = useCallback(() => { if (!n.is_read) onRead(n.id); }, [n.is_read, n.id, onRead]);
   return <button className={`card col ${n.is_read ? '' : 's-unread'} ${fresh ? 's-slide' : ''}`} style={{ textAlign: 'start', font: 'inherit', cursor: 'pointer', minHeight: 44 }} onClick={click} data-testid={`card-notification-${n.id}`}>
-    <div className="row between"><span className="title">{n.title_ar}</span>{!n.is_read && <span className="badge b-blue">جديد</span>}</div>
+    <div className="row between"><span className="title">{n.title_ar}</span>{!n.is_read && <span className="badge b-blue">{t('جديد')}</span>}</div>
     <div>{n.body_ar}</div><div className="muted">{relativeArabicTime(n.created_at, now)}</div>
   </button>;
 });
@@ -30,10 +31,10 @@ export default function NotificationsScreen() {
   const onRead = useCallback((id: string) => mark(id), [mark]);
   const all = useCallback(() => mark('all'), [mark]);
   return <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
-    <PageTitle action={<button className="btn sm ghost" disabled={m.isPending} data-testid="button-read-all" onClick={all}><CheckCheck size={18} /> تحديد الكل كمقروء</button>}>الإشعارات</PageTitle>
-    <div className="tabs"><Chip value="all" label="الكل" active={!unread} onSelect={onTab} /><Chip value="unread" label="غير المقروءة" active={unread} onSelect={onTab} /></div>
+    <PageTitle action={<button className="btn sm ghost" disabled={m.isPending} data-testid="button-read-all" onClick={all}><CheckCheck size={18} /> {t('تحديد الكل كمقروء')}</button>}>{t('الإشعارات')}</PageTitle>
+    <div className="tabs"><Chip value="all" label={t('الكل')} active={!unread} onSelect={onTab} /><Chip value="unread" label={t('غير المقروءة')} active={unread} onSelect={onTab} /></div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
-      : q.items.length === 0 ? <EmptyState icon={<BellOff />} title="لا توجد إشعارات" />
+      : q.items.length === 0 ? <EmptyState icon={<BellOff />} title={t('لا توجد إشعارات')} />
       : <>{q.items.map((n) => <Item key={n.id} n={n} fresh={fresh.has(n.id)} now={now} onRead={onRead} />)}<LoadMore q={q} /></>}
   </div>;
 }

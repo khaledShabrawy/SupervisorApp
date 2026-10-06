@@ -1,5 +1,6 @@
 import { forwardRef, type ComponentProps, type HTMLAttributes, type ReactElement, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { t } from '@/i18n';
 
 export type ToastProps = HTMLAttributes<HTMLDivElement> & {
   open?: boolean;
@@ -25,4 +26,4 @@ export const ToastViewport = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEl
 );
 export function ToastTitle(props: HTMLAttributes<HTMLHeadingElement>) { return <h3 {...props} />; }
 export function ToastDescription(props: HTMLAttributes<HTMLParagraphElement>) { return <p {...props} />; }
-export function ToastClose(props: ComponentProps<'button'>) { return <button aria-label="إغلاق" {...props}>×</button>; }
+export function ToastClose(props: ComponentProps<'button'>) { return <button aria-label={t('إغلاق')} {...props}>×</button>; }

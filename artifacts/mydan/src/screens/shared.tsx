@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
+import { t } from '@/i18n';
 
 /** Calls onVisible when the sentinel enters the viewport (infinite scroll). */
 export function useSentinel(enabled: boolean, onVisible: () => void) {
@@ -29,7 +30,7 @@ export function useStable<T extends (...a: never[]) => unknown>(fn: T): T {
 }
 export function distanceLabel(m: number | null) {
   if (m == null) return null;
-  return m >= 1000 ? `${(m / 1000).toFixed(1)} كم` : `${Math.round(m)} م`;
+  return m >= 1000 ? t('{d} كم', { d: (m / 1000).toFixed(1) }) : t('{d} م', { d: Math.round(m) });
 }
 
 /** onChange for input/select/textarea that writes the string value. */
