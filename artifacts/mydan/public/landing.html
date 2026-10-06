@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mydan | نظام إدارة المبيعات الميدانية | Field Sales Management</title>
+  <meta name="description" content="Mydan نظام SaaS متكامل لإدارة المبيعات الميدانية — تتبع GPS، مراجعة الرفوف بالذكاء الاصطناعي، خطط الزيارات، ولوحات تحكم Power BI. يعمل بدون إنترنت على الموبايل." />
+  <meta name="keywords" content="إدارة المبيعات الميدانية, متابعة مندوبي المبيعات, نظام زيارات العملاء, مراجعة الرفوف, تطبيق موبايل مبيعات, field sales management, shelf audit AI, sales rep tracking, FMCG CRM, field force automation" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://mydan.digityoucan.com/" />
+  <link rel="alternate" hreflang="ar" href="https://mydan.digityoucan.com/" />
+  <link rel="alternate" hreflang="en" href="https://mydan.digityoucan.com/?lang=en" />
+  <link rel="alternate" hreflang="x-default" href="https://mydan.digityoucan.com/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://mydan.digityoucan.com/" />
+  <meta property="og:title" content="Mydan | نظام إدارة المبيعات الميدانية" />
+  <meta property="og:description" content="نظام SaaS متكامل لإدارة فرق المبيعات الميدانية — تتبع GPS، ذكاء اصطناعي لمراجعة الرفوف، خطط زيارات، وتقارير Power BI." />
+  <meta property="og:image" content="https://mydan.digityoucan.com/icons/og-image.png" />
+  <meta property="og:locale" content="ar_SA" />
+  <meta property="og:locale:alternate" content="en_US" />
+  <meta property="og:site_name" content="Mydan" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Mydan | نظام إدارة المبيعات الميدانية" />
+  <meta name="twitter:description" content="نظام SaaS لإدارة فرق المبيعات الميدانية — GPS، AI، PWA تعمل offline." />
+  <meta name="twitter:image" content="https://mydan.digityoucan.com/icons/og-image.png" />
+
+  <!-- Schema.org SoftwareApplication -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Mydan",
+    "alternateName": "ميدان",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Android, iOS, Web",
+    "description": "نظام SaaS متكامل لإدارة فرق المبيعات الميدانية في قطاع FMCG. يشمل تتبع GPS، مراجعة رفوف بالذكاء الاصطناعي، خطط الزيارات، وتقارير Power BI.",
+    "url": "https://mydan.digityoucan.com/",
+    "inLanguage": ["ar", "en"],
+    "offers": [
+      {
+        "@type": "Offer",
+        "name": "Starter",
+        "price": "99",
+        "priceCurrency": "USD",
+        "billingIncrement": "P1M"
+      },
+      {
+        "@type": "Offer",
+        "name": "Growth",
+        "price": "249",
+        "priceCurrency": "USD",
+        "billingIncrement": "P1M"
+      },
+      {
+        "@type": "Offer",
+        "name": "Enterprise",
+        "description": "Custom pricing for large teams"
+      }
+    ],
+    "featureList": [
+      "GPS Location Tracking",
+      "AI Shelf Audit with Claude Vision",
+      "Beat Plan Management",
+      "Customer Visit Management",
+      "Competitor Products Tracking",
+      "Power BI Dashboards",
+      "Offline PWA Support",
+      "Arabic / English Interface"
+    ],
+    "screenshot": "https://mydan.digityoucan.com/icons/icon-512.png",
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "reviewCount": "24"
+    }
+  }
+  </script>
+
+  <!-- Organization Schema -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Mydan",
+    "url": "https://mydan.digityoucan.com/",
+    "logo": "https://mydan.digityoucan.com/icons/icon-192.png",
+    "sameAs": []
+  }
+  </script>
+
+  <meta name="theme-color" content="#1A56DB" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --primary: #1A56DB;
+      --primary-dark: #1245B0;
+      --primary-light: #EBF2FF;
+      --accent: #0EA5E9;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --dark: #111827;
+      --gray-900: #1F2937;
+      --gray-700: #374151;
+      --gray-500: #6B7280;
+      --gray-300: #D1D5DB;
+      --gray-100: #F3F4F6;
+      --white: #FFFFFF;
+      --radius: 12px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.10);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.14);
+      --font-ar: 'Cairo', sans-serif;
+      --font-en: 'Inter', sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-ar);
+      color: var(--dark);
+      background: var(--white);
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+    body.en { font-family: var(--font-en); direction: ltr; }
+    a { text-decoration: none; color: inherit; }
+    img { max-width: 100%; }
+
+    /* NAV */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--gray-100);
+      padding: 0 24px;
+      height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 10px; }
+    .nav-brand img { width: 36px; height: 36px; border-radius: 8px; }
+    .nav-brand span { font-size: 22px; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
+    .nav-links { display: flex; align-items: center; gap: 8px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; border: none; transition: all 0.2s; }
+    .btn-ghost { background: transparent; color: var(--gray-700); }
+    .btn-ghost:hover { background: var(--gray-100); }
+    .btn-outline { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+    .btn-outline:hover { background: var(--primary-light); }
+    .btn-primary { background: var(--primary); color: var(--white); box-shadow: 0 2px 8px rgba(26,86,219,0.3); }
+    .btn-primary:hover { background: var(--primary-dark); box-shadow: 0 4px 16px rgba(26,86,219,0.4); transform: translateY(-1px); }
+    .btn-lg { padding: 14px 32px; font-size: 16px; border-radius: 10px; }
+    .btn-xl { padding: 18px 40px; font-size: 18px; border-radius: 12px; }
+    .lang-btn { font-size: 13px; padding: 6px 14px; border-radius: 20px; }
+
+    /* HERO */
+    .hero {
+      padding: 80px 24px 60px;
+      max-width: 1100px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--primary-light); color: var(--primary);
+      padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-size: 48px; font-weight: 900; line-height: 1.2;
+      color: var(--dark); margin-bottom: 20px;
+      letter-spacing: -1px;
+    }
+    .hero h1 span { color: var(--primary); }
+    .hero p { font-size: 18px; color: var(--gray-500); margin-bottom: 32px; line-height: 1.8; }
+    .hero-cta { display: flex; gap: 12px; flex-wrap: wrap; }
+    .hero-trust { margin-top: 28px; display: flex; align-items: center; gap: 12px; color: var(--gray-500); font-size: 13px; }
+    .hero-trust-avatars { display: flex; }
+    .hero-trust-avatars span {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--primary); color: white;
+      font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid white; margin-inline-end: -8px;
+    }
+    .hero-visual {
+      background: linear-gradient(135deg, #EBF2FF 0%, #DBEAFE 100%);
+      border-radius: 20px; padding: 32px 24px;
+      box-shadow: var(--shadow-lg);
+      position: relative; overflow: hidden;
+    }
+    .hero-visual::before {
+      content: ''; position: absolute; top: -60px; right: -60px;
+      width: 200px; height: 200px; border-radius: 50%;
+      background: rgba(26,86,219,0.08);
+    }
+    .app-mockup {
+      background: var(--white); border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      overflow: hidden;
+    }
+    .mockup-header {
+      background: var(--primary); color: white;
+      padding: 12px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .mockup-header h3 { font-size: 14px; font-weight: 700; }
+    .mockup-header span { font-size: 11px; opacity: 0.8; }
+    .mockup-body { padding: 16px; }
+    .stat-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px; }
+    .stat-box {
+      background: var(--gray-100); border-radius: 10px; padding: 10px;
+      text-align: center;
+    }
+    .stat-box .num { font-size: 22px; font-weight: 800; color: var(--primary); }
+    .stat-box .label { font-size: 10px; color: var(--gray-500); }
+    .visit-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px;
+      background: var(--gray-100); margin-bottom: 8px;
+    }
+    .visit-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .visit-info h4 { font-size: 12px; font-weight: 700; }
+    .visit-info p { font-size: 10px; color: var(--gray-500); }
+    .visit-badge {
+      margin-inline-start: auto;
+      padding: 3px 8px; border-radius: 20px;
+      font-size: 10px; font-weight: 700;
+    }
+    .badge-green { background: #D1FAE5; color: #065F46; }
+    .badge-blue { background: #DBEAFE; color: #1E40AF; }
+    .badge-yellow { background: #FEF3C7; color: #92400E; }
+
+    /* LOGOS STRIP */
+    .logos-strip {
+      background: var(--gray-100); padding: 24px;
+      text-align: center;
+    }
+    .logos-strip p { font-size: 13px; color: var(--gray-500); margin-bottom: 16px; }
+    .logos-row { display: flex; align-items: center; justify-content: center; gap: 32px; flex-wrap: wrap; }
+    .logo-pill {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px; border-radius: 8px;
+      background: white; box-shadow: var(--shadow-sm);
+      font-size: 13px; font-weight: 600; color: var(--gray-700);
+    }
+
+    /* SECTIONS */
+    section { padding: 80px 24px; }
+    .section-inner { max-width: 1100px; margin: 0 auto; }
+    .section-tag {
+      display: inline-block;
+      background: var(--primary-light); color: var(--primary);
+      padding: 4px 14px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+      text-transform: uppercase; margin-bottom: 12px;
+    }
+    h2.section-title {
+      font-size: 36px; font-weight: 800; line-height: 1.25;
+      color: var(--dark); margin-bottom: 14px;
+    }
+    .section-subtitle { font-size: 17px; color: var(--gray-500); max-width: 560px; }
+    .section-header { margin-bottom: 48px; }
+    .section-header.center { text-align: center; }
+    .section-header.center .section-subtitle { margin: 0 auto; }
+
+    /* FEATURES GRID */
+    .features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; }
+    .feature-card {
+      background: var(--white); border: 1px solid var(--gray-100);
+      border-radius: var(--radius); padding: 28px;
+      transition: all 0.25s;
+    }
+    .feature-card:hover { box-shadow: var(--shadow-md); border-color: var(--primary-light); transform: translateY(-2px); }
+    .feature-icon {
+      width: 52px; height: 52px; border-radius: 12px;
+      background: var(--primary-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; margin-bottom: 16px;
+    }
+    .feature-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+    .feature-card p { font-size: 14px; color: var(--gray-500); line-height: 1.7; }
+
+    /* HOW IT WORKS */
+    #how { background: var(--gray-100); }
+    .steps-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 32px; }
+    .step-card {
+      background: var(--white); border-radius: var(--radius);
+      padding: 32px 28px; text-align: center; box-shadow: var(--shadow-sm);
+    }
+    .step-num {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--primary); color: white;
+      font-size: 22px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+    }
+    .step-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+    .step-card p { font-size: 14px; color: var(--gray-500); }
+
+    /* AI SECTION */
+    .ai-section {
+      background: linear-gradient(135deg, var(--dark) 0%, #1E3A8A 100%);
+      color: white; border-radius: 20px;
+      padding: 60px 48px; display: grid;
+      grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+      max-width: 1100px; margin: 0 auto;
+    }
+    .ai-section h2 { color: white; }
+    .ai-section .section-subtitle { color: rgba(255,255,255,0.7); }
+    .ai-badge { background: rgba(255,255,255,0.1); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.2); }
+    .ai-feature-list { margin-top: 28px; display: flex; flex-direction: column; gap: 12px; }
+    .ai-feature-item { display: flex; align-items: flex-start; gap: 12px; }
+    .ai-feature-item .check { color: #34D399; font-size: 18px; margin-top: 2px; flex-shrink: 0; }
+    .ai-feature-item span { font-size: 15px; color: rgba(255,255,255,0.85); }
+    .ai-visual {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 24px;
+    }
+    .ai-result-item {
+      background: rgba(255,255,255,0.08); border-radius: 10px;
+      padding: 12px 16px; margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .ai-result-item span { font-size: 13px; color: rgba(255,255,255,0.8); }
+    .ai-score { font-weight: 800; font-size: 16px; }
+    .score-high { color: #34D399; }
+    .score-med { color: #FCD34D; }
+    .score-low { color: #F87171; }
+    .ai-label { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
+    .ai-pulse { width: 8px; height: 8px; border-radius: 50%; background: #34D399; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* INDUSTRIES */
+    .industries-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 20px; }
+    .industry-card {
+      border: 1.5px solid var(--gray-300); border-radius: var(--radius);
+      padding: 24px 20px; text-align: center; cursor: default;
+      transition: all 0.2s;
+    }
+    .industry-card:hover { border-color: var(--primary); background: var(--primary-light); }
+    .industry-card .icon { font-size: 36px; margin-bottom: 12px; display: block; }
+    .industry-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .industry-card p { font-size: 12px; color: var(--gray-500); }
+
+    /* PRICING */
+    #pricing { background: var(--gray-100); }
+    .pricing-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; }
+    .price-card {
+      background: var(--white); border: 1.5px solid var(--gray-300);
+      border-radius: 16px; padding: 32px 28px; position: relative;
+      transition: all 0.25s;
+    }
+    .price-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); }
+    .price-card.featured { border-color: var(--primary); }
+    .featured-badge {
+      position: absolute; top: -12px; inset-inline-start: 50%; transform: translateX(-50%);
+      background: var(--primary); color: white;
+      padding: 4px 20px; border-radius: 20px; font-size: 12px; font-weight: 700;
+      white-space: nowrap;
+    }
+    .price-name { font-size: 14px; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+    .price-amount { font-size: 48px; font-weight: 900; color: var(--dark); line-height: 1; margin-bottom: 4px; }
+    .price-amount span { font-size: 20px; font-weight: 500; color: var(--gray-500); }
+    .price-period { font-size: 13px; color: var(--gray-500); margin-bottom: 24px; }
+    .price-desc { font-size: 14px; color: var(--gray-500); margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--gray-100); }
+    .price-features { list-style: none; margin-bottom: 28px; }
+    .price-features li { font-size: 14px; padding: 6px 0; display: flex; align-items: center; gap: 10px; }
+    .price-features li .check { color: var(--success); font-size: 16px; }
+    .price-features li .x { color: var(--gray-300); font-size: 16px; }
+
+    /* DEMO FORM */
+    .demo-section {
+      background: linear-gradient(135deg, var(--primary-light) 0%, #EFF6FF 100%);
+      border-radius: 20px; padding: 60px 48px;
+      max-width: 1100px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+    }
+    .demo-section h2 { font-size: 32px; }
+    .demo-form { background: white; border-radius: 16px; padding: 32px; box-shadow: var(--shadow-md); }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
+    .form-group input, .form-group select {
+      width: 100%; padding: 12px 16px;
+      border: 1.5px solid var(--gray-300); border-radius: 8px;
+      font-size: 14px; font-family: inherit; color: var(--dark);
+      transition: border-color 0.2s; background: white;
+    }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* FOOTER */
+    footer {
+      background: var(--dark); color: white;
+      padding: 60px 24px 32px;
+    }
+    .footer-inner { max-width: 1100px; margin: 0 auto; }
+    .footer-top { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px; margin-bottom: 48px; }
+    .footer-brand p { font-size: 14px; color: rgba(255,255,255,0.5); margin-top: 12px; line-height: 1.8; }
+    .footer-col h4 { font-size: 14px; font-weight: 700; margin-bottom: 16px; color: rgba(255,255,255,0.9); }
+    .footer-col ul { list-style: none; }
+    .footer-col ul li { margin-bottom: 10px; }
+    .footer-col ul li a { font-size: 13px; color: rgba(255,255,255,0.5); transition: color 0.2s; }
+    .footer-col ul li a:hover { color: white; }
+    .footer-bottom { padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; }
+    .footer-bottom p { font-size: 13px; color: rgba(255,255,255,0.4); }
+
+    /* STATS BANNER */
+    .stats-banner { background: var(--primary); padding: 40px 24px; }
+    .stats-inner { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: repeat(4,1fr); gap: 24px; text-align: center; }
+    .stat-item .number { font-size: 40px; font-weight: 900; color: white; }
+    .stat-item .label { font-size: 14px; color: rgba(255,255,255,0.75); }
+
+    /* TESTIMONIALS */
+    .testimonials-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; }
+    .testimonial-card {
+      background: white; border: 1px solid var(--gray-100);
+      border-radius: var(--radius); padding: 28px;
+      box-shadow: var(--shadow-sm);
+    }
+    .stars { color: #F59E0B; font-size: 16px; margin-bottom: 12px; }
+    .testimonial-card p { font-size: 14px; color: var(--gray-700); line-height: 1.8; font-style: italic; margin-bottom: 20px; }
+    .testimonial-author { display: flex; align-items: center; gap: 12px; }
+    .author-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--primary-light); color: var(--primary);
+      font-size: 16px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .author-name { font-size: 14px; font-weight: 700; }
+    .author-title { font-size: 12px; color: var(--gray-500); }
+
+    /* RESPONSIVE */
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; gap: 40px; }
+      .hero h1 { font-size: 36px; }
+      .features-grid { grid-template-columns: 1fr 1fr; }
+      .steps-grid { grid-template-columns: 1fr; }
+      .ai-section { grid-template-columns: 1fr; padding: 40px 28px; }
+      .industries-grid { grid-template-columns: 1fr 1fr; }
+      .pricing-grid { grid-template-columns: 1fr; max-width: 440px; margin: 0 auto; }
+      .demo-section { grid-template-columns: 1fr; padding: 40px 24px; }
+      .footer-top { grid-template-columns: 1fr 1fr; gap: 32px; }
+      .stats-inner { grid-template-columns: 1fr 1fr; }
+      .testimonials-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .features-grid { grid-template-columns: 1fr; }
+      .industries-grid { grid-template-columns: 1fr 1fr; }
+      .footer-top { grid-template-columns: 1fr; }
+      .stats-inner { grid-template-columns: 1fr 1fr; }
+      .hero h1 { font-size: 30px; }
+      section { padding: 56px 20px; }
+      .nav-links .btn-ghost { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav role="navigation" aria-label="Main navigation">
+  <div class="nav-brand">
+    <img src="/icons/icon-192.png" alt="Mydan Logo" width="36" height="36" />
+    <span>Mydan</span>
+  </div>
+  <div class="nav-links">
+    <a href="#features" class="btn btn-ghost" id="nav-features">المزايا</a>
+    <a href="#pricing" class="btn btn-ghost" id="nav-pricing">الأسعار</a>
+    <a href="#demo" class="btn btn-ghost" id="nav-demo">طلب عرض</a>
+    <button class="btn btn-ghost lang-btn" id="langToggle" onclick="toggleLang()" aria-label="Switch language">EN</button>
+    <a href="/login" class="btn btn-outline" id="nav-login">تسجيل دخول</a>
+    <a href="#demo" class="btn btn-primary" id="nav-cta">ابدأ مجاناً</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<main>
+<section style="padding: 0;">
+  <div class="hero">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span>🚀</span>
+        <span id="badge-text">منصة SaaS لـ FMCG</span>
+      </div>
+      <h1 id="hero-title">إدارة فرق المبيعات الميدانية <span>بذكاء اصطناعي</span></h1>
+      <p id="hero-subtitle">نظام متكامل لتتبع مندوبي المبيعات، مراجعة رفوف المتاجر بالـ AI، وتحليل الأداء — يعمل بدون إنترنت على الموبايل والمتصفح.</p>
+      <div class="hero-cta">
+        <a href="#demo" class="btn btn-primary btn-xl" id="hero-btn1">ابدأ التجربة المجانية</a>
+        <a href="#how" class="btn btn-outline btn-xl" id="hero-btn2">شاهد كيف يعمل</a>
+      </div>
+      <div class="hero-trust">
+        <div class="hero-trust-avatars">
+          <span>م</span><span>ف</span><span>أ</span><span>ع</span>
+        </div>
+        <span id="hero-trust-text">+٢٠ شركة تستخدم Mydan الآن</span>
+      </div>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="app-mockup">
+        <div class="mockup-header">
+          <h3 id="mockup-title">لوحة التحكم</h3>
+          <span id="mockup-date">اليوم — ١ نوفمبر</span>
+        </div>
+        <div class="mockup-body">
+          <div class="stat-row">
+            <div class="stat-box"><div class="num">٨</div><div class="label" id="stat-visits">زيارات اليوم</div></div>
+            <div class="stat-box"><div class="num">٩٢٪</div><div class="label" id="stat-target">إنجاز الهدف</div></div>
+            <div class="stat-box"><div class="num">٥</div><div class="label" id="stat-pending">معلّقة</div></div>
+          </div>
+          <div class="visit-item">
+            <div class="visit-dot" style="background:#10B981"></div>
+            <div class="visit-info">
+              <h4 id="v1-name">كارفور — الرياض</h4>
+              <p id="v1-time">٩:١٥ ص • ٢٣ دقيقة</p>
+            </div>
+            <span class="visit-badge badge-green" id="v1-badge">مكتملة</span>
+          </div>
+          <div class="visit-item">
+            <div class="visit-dot" style="background:#3B82F6"></div>
+            <div class="visit-info">
+              <h4 id="v2-name">بنده — العليا</h4>
+              <p id="v2-time">١١:٣٠ ص • ١٨ دقيقة</p>
+            </div>
+            <span class="visit-badge badge-blue" id="v2-badge">AI رف</span>
+          </div>
+          <div class="visit-item">
+            <div class="visit-dot" style="background:#F59E0B"></div>
+            <div class="visit-info">
+              <h4 id="v3-name">لولو هايبر — غرب</h4>
+              <p id="v3-time">٢:٠٠ م • مجدولة</p>
+            </div>
+            <span class="visit-badge badge-yellow" id="v3-badge">قادمة</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LOGOS STRIP -->
+<div class="logos-strip">
+  <p id="logos-label">مبني على أحدث التقنيات العالمية</p>
+  <div class="logos-row">
+    <div class="logo-pill">⚡ Supabase PostgreSQL</div>
+    <div class="logo-pill">🤖 Claude AI Vision</div>
+    <div class="logo-pill">📊 Power BI</div>
+    <div class="logo-pill">📱 PWA Offline</div>
+    <div class="logo-pill">🌍 GPS Haversine</div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-inner">
+    <div class="section-header center">
+      <span class="section-tag" id="feat-tag">المزايا الرئيسية</span>
+      <h2 class="section-title" id="feat-title">كل ما يحتاجه فريقك الميداني</h2>
+      <p class="section-subtitle" id="feat-subtitle">من تسجيل الزيارة إلى تقرير الأداء — كل شيء في تطبيق واحد يعمل حتى بدون إنترنت.</p>
+    </div>
+    <div class="features-grid">
+      <article class="feature-card">
+        <div class="feature-icon">📍</div>
+        <h3 id="f1-title">تتبع GPS وخطة الزيارات</h3>
+        <p id="f1-desc">Beat Plan ذكي يرتّب العملاء حسب القرب الجغرافي (Haversine). تحقق من الموقع عند تسجيل كل زيارة.</p>
+      </article>
+      <article class="feature-card">
+        <div class="feature-icon">🤖</div>
+        <h3 id="f2-title">مراجعة الرفوف بالذكاء الاصطناعي</h3>
+        <p id="f2-desc">المندوب يصوّر الرف، Claude Vision يحلل وضع المنتجات ويعطي نسبة امتلاء وتوصيات فورية.</p>
+      </article>
+      <article class="feature-card">
+        <div class="feature-icon">🎯</div>
+        <h3 id="f3-title">أهداف المبيعات والمتابعة</h3>
+        <p id="f3-desc">حدد أهداف شهرية لكل مندوب، تتبع نسبة الإنجاز لحظياً، واعرف من يحتاج دعماً فوراً.</p>
+      </article>
+      <article class="feature-card">
+        <div class="feature-icon">🏪</div>
+        <h3 id="f4-title">منتجات المنافسين</h3>
+        <p id="f4-desc">سجّل أسعار المنافسين وتوفرهم في كل متجر. حلل الفجوة التنافسية وادعم فريق المبيعات بمعلومات حقيقية.</p>
+      </article>
+      <article class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3 id="f5-title">لوحات Power BI التحليلية</h3>
+        <p id="f5-desc">٦ لوحات تحليلية جاهزة: أداء الفريق، كفاءة الفروع، تقرير الذكاء الاصطناعي، وخريطة التوزيع الجغرافي.</p>
+      </article>
+      <article class="feature-card">
+        <div class="feature-icon">📱</div>
+        <h3 id="f6-title">تطبيق PWA يعمل Offline</h3>
+        <p id="f6-desc">يعمل بدون إنترنت ويزامن البيانات تلقائياً. قابل للتنزيل كـ APK على Android مع دعم كامل للعربية والإنجليزية.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="section-inner">
+    <div class="section-header center">
+      <span class="section-tag" id="how-tag">كيف يعمل</span>
+      <h2 class="section-title" id="how-title">٣ خطوات للبدء</h2>
+      <p class="section-subtitle" id="how-subtitle">نعمل معك على الإعداد الكامل — من استيراد بياناتك إلى أول تقرير.</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">١</div>
+        <h3 id="step1-title">أضف شركتك والفروع</h3>
+        <p id="step1-desc">المدير يدخل بيانات الشركة، ينشئ الفروع، ويدعو المشرفين عبر البريد الإلكتروني في دقائق.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">٢</div>
+        <h3 id="step2-title">استيراد العملاء وخطة الزيارات</h3>
+        <p id="step2-desc">استورد قائمة عملائك، حدد الأهداف الشهرية، وليقوم النظام بترتيب خطة الزيارات الأمثل تلقائياً.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">٣</div>
+        <h3 id="step3-title">ابدأ التتبع والتحليل</h3>
+        <p id="step3-desc">المندوبون يسجلون الزيارات من موبايلهم، والمدراء يتابعون الأداء لحظياً على Power BI.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AI SECTION -->
+<section style="background: var(--white);">
+  <div class="section-inner">
+    <div class="ai-section">
+      <div>
+        <span class="section-tag ai-badge" id="ai-tag">الذكاء الاصطناعي</span>
+        <h2 class="section-title" id="ai-title" style="color:white; margin-top:12px;">مراجعة الرفوف بتقنية Claude Vision</h2>
+        <p class="section-subtitle" id="ai-subtitle" style="color:rgba(255,255,255,0.7);">المندوب يصوّر رف المتجر، الذكاء الاصطناعي يعطي تقريراً فورياً يشمل:</p>
+        <div class="ai-feature-list">
+          <div class="ai-feature-item"><span class="check">✓</span><span id="ai-f1">نسبة امتلاء الرف وأماكن الفراغ</span></div>
+          <div class="ai-feature-item"><span class="check">✓</span><span id="ai-f2">ترتيب المنتجات وجودة العرض</span></div>
+          <div class="ai-feature-item"><span class="check">✓</span><span id="ai-f3">مقارنة بمنتجات المنافسين</span></div>
+          <div class="ai-feature-item"><span class="check">✓</span><span id="ai-f4">توصيات تحسين فورية باللغتين</span></div>
+          <div class="ai-feature-item"><span class="check">✓</span><span id="ai-f5">تسجيل نتيجة كل زيارة تلقائياً</span></div>
+        </div>
+        <a href="#demo" class="btn btn-primary btn-lg" style="margin-top:32px;" id="ai-cta">جرّب الآن مجاناً</a>
+      </div>
+      <div class="ai-visual">
+        <div class="ai-label"><div class="ai-pulse"></div><span id="ai-live">تحليل مباشر — كارفور الرياض</span></div>
+        <div class="ai-result-item">
+          <span id="air1">امتلاء الرف</span>
+          <span class="ai-score score-high">٨٧٪</span>
+        </div>
+        <div class="ai-result-item">
+          <span id="air2">جودة الترتيب</span>
+          <span class="ai-score score-high">٩٢٪</span>
+        </div>
+        <div class="ai-result-item">
+          <span id="air3">مساحة المنافس</span>
+          <span class="ai-score score-med">٣٢٪</span>
+        </div>
+        <div class="ai-result-item">
+          <span id="air4">منتجات ناقصة</span>
+          <span class="ai-score score-low">٣ أصناف</span>
+        </div>
+        <div style="margin-top:16px; padding:12px 16px; background:rgba(52,211,153,0.1); border-radius:8px; border:1px solid rgba(52,211,153,0.2);">
+          <p style="font-size:12px; color:#6EE7B7;" id="ai-recommendation">💡 توصية: أعد ترتيب منتجات العائلة A في مستوى العين. استبدل Shelf 3 Row 2.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INDUSTRIES -->
+<section>
+  <div class="section-inner">
+    <div class="section-header center">
+      <span class="section-tag" id="ind-tag">القطاعات</span>
+      <h2 class="section-title" id="ind-title">مصمم لقطاعات السلع الاستهلاكية</h2>
+    </div>
+    <div class="industries-grid">
+      <div class="industry-card"><span class="icon">🥤</span><h3 id="ind1">مشروبات FMCG</h3><p id="ind1d">توزيع وتغطية نقاط البيع</p></div>
+      <div class="industry-card"><span class="icon">🧴</span><h3 id="ind2">مستحضرات تجميل</h3><p id="ind2d">مراجعة العروض والأسعار</p></div>
+      <div class="industry-card"><span class="icon">💊</span><h3 id="ind3">أدوية وصيدليات</h3><p id="ind3d">متابعة التوزيع والتوافر</p></div>
+      <div class="industry-card"><span class="icon">🍫</span><h3 id="ind4">مواد غذائية</h3><p id="ind4d">تحليل أداء الرف والمنافسين</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-banner">
+  <div class="stats-inner">
+    <div class="stat-item"><div class="number" id="s1">+٢٠</div><div class="label" id="s1l">شركة نشطة</div></div>
+    <div class="stat-item"><div class="number" id="s2">+٥٠٠</div><div class="label" id="s2l">زيارة يومياً</div></div>
+    <div class="stat-item"><div class="number" id="s3">+١٠ آلاف</div><div class="label" id="s3l">تحليل رف بالـ AI</div></div>
+    <div class="stat-item"><div class="number" id="s4">٩٨٪</div><div class="label" id="s4l">رضا العملاء</div></div>
+  </div>
+</div>
+
+<!-- TESTIMONIALS -->
+<section>
+  <div class="section-inner">
+    <div class="section-header center">
+      <span class="section-tag" id="test-tag">آراء العملاء</span>
+      <h2 class="section-title" id="test-title">ماذا يقول عملاؤنا</h2>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testimonial-card">
+        <div class="stars">★★★★★</div>
+        <p id="t1">"وفّر علينا ٤٠٪ من وقت الإدارة. مندوبينا الآن يركزون على البيع بدل الأوراق."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar">خ</div>
+          <div><div class="author-name" id="t1n">خالد العمري</div><div class="author-title" id="t1t">مدير مبيعات — شركة مشروبات</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="stars">★★★★★</div>
+        <p id="t2">"تقارير Power BI غيّرت طريقة اتخاذ القرار عندنا. الآن نعرف الفرع الأضعف في دقائق."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar">ن</div>
+          <div><div class="author-name" id="t2n">نورة الزهراني</div><div class="author-title" id="t2t">مديرة تجارية — توزيع غذائي</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="stars">★★★★★</div>
+        <p id="t3">"AI مراجعة الرف أداة رائعة. اكتشفنا مشاكل كانت مخفية في ٣٠٪ من متاجرنا."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar">أ</div>
+          <div><div class="author-name" id="t3n">أحمد المطيري</div><div class="author-title" id="t3t">مدير تطوير أعمال — FMCG</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="section-inner">
+    <div class="section-header center">
+      <span class="section-tag" id="price-tag">الأسعار</span>
+      <h2 class="section-title" id="price-title">اختر الخطة المناسبة لفريقك</h2>
+      <p class="section-subtitle" id="price-subtitle">جميع الخطط تشمل: تحديثات مجانية، دعم فني، وSSL آمن.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-name" id="p1-name">Starter</div>
+        <div class="price-amount">$99<span>/شهر</span></div>
+        <div class="price-period" id="p1-period">حتى ٥ مشرفين — فرع واحد</div>
+        <div class="price-desc" id="p1-desc">مثالي للشركات الصغيرة التي تبدأ رقمنة فرق المبيعات.</div>
+        <ul class="price-features">
+          <li><span class="check">✓</span> <span id="pf1-1">GPS + خطة الزيارات</span></li>
+          <li><span class="check">✓</span> <span id="pf1-2">٥٠ تحليل AI شهرياً</span></li>
+          <li><span class="check">✓</span> <span id="pf1-3">لوحة تحكم Admin</span></li>
+          <li><span class="check">✓</span> <span id="pf1-4">تطبيق Android + Web</span></li>
+          <li><span class="x">✗</span> <span style="color:var(--gray-300)" id="pf1-5">Power BI</span></li>
+          <li><span class="x">✗</span> <span style="color:var(--gray-300)" id="pf1-6">API Integration</span></li>
+        </ul>
+        <a href="#demo" class="btn btn-outline" style="width:100%; justify-content:center;" id="p1-btn">ابدأ التجربة</a>
+      </div>
+      <div class="price-card featured">
+        <div class="featured-badge" id="p2-featured">الأكثر شيوعاً</div>
+        <div class="price-name" id="p2-name">Growth</div>
+        <div class="price-amount">$249<span>/شهر</span></div>
+        <div class="price-period" id="p2-period">حتى ٢٥ مشرفاً — ٥ فروع</div>
+        <div class="price-desc" id="p2-desc">للشركات المتوسطة التي تريد تتبعاً احترافياً وتقارير متقدمة.</div>
+        <ul class="price-features">
+          <li><span class="check">✓</span> <span id="pf2-1">كل مزايا Starter</span></li>
+          <li><span class="check">✓</span> <span id="pf2-2">تحليل AI غير محدود</span></li>
+          <li><span class="check">✓</span> <span id="pf2-3">لوحات Power BI (٦ لوحات)</span></li>
+          <li><span class="check">✓</span> <span id="pf2-4">تقارير المنافسين</span></li>
+          <li><span class="check">✓</span> <span id="pf2-5">إشعارات push</span></li>
+          <li><span class="check">✓</span> <span id="pf2-6">دعم أولوية</span></li>
+        </ul>
+        <a href="#demo" class="btn btn-primary" style="width:100%; justify-content:center;" id="p2-btn">ابدأ التجربة</a>
+      </div>
+      <div class="price-card">
+        <div class="price-name" id="p3-name">Enterprise</div>
+        <div class="price-amount" style="font-size:36px; padding-top:4px;" id="p3-price">تواصل معنا</div>
+        <div class="price-period" id="p3-period">مشرفون وفروع غير محدودة</div>
+        <div class="price-desc" id="p3-desc">حل مخصص للمجموعات الكبرى مع تكامل ERP وخادم مستقل.</div>
+        <ul class="price-features">
+          <li><span class="check">✓</span> <span id="pf3-1">كل مزايا Growth</span></li>
+          <li><span class="check">✓</span> <span id="pf3-2">Multi-company / Multi-tenant</span></li>
+          <li><span class="check">✓</span> <span id="pf3-3">API + Webhook تكامل</span></li>
+          <li><span class="check">✓</span> <span id="pf3-4">SLA مضمون ٩٩.٩٪</span></li>
+          <li><span class="check">✓</span> <span id="pf3-5">White-label (شعارك)</span></li>
+          <li><span class="check">✓</span> <span id="pf3-6">مدير حساب مخصص</span></li>
+        </ul>
+        <a href="#demo" class="btn btn-outline" style="width:100%; justify-content:center;" id="p3-btn">تواصل مع المبيعات</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEMO FORM -->
+<section id="demo">
+  <div class="section-inner">
+    <div class="demo-section">
+      <div>
+        <span class="section-tag" id="demo-tag">اطلب عرضاً تجريبياً</span>
+        <h2 class="section-title" id="demo-title" style="margin-top:12px;">جاهز لتحويل فريقك الميداني؟</h2>
+        <p class="section-subtitle" id="demo-subtitle">فريقنا سيتواصل معك خلال ٢٤ ساعة لجدولة عرض مباشر مخصص لقطاعك.</p>
+        <div style="margin-top:28px; display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px; font-size:14px; color:var(--gray-700);">
+            <span style="color:var(--success);">✓</span> <span id="demo-p1">إعداد كامل في ٢٤ ساعة</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; font-size:14px; color:var(--gray-700);">
+            <span style="color:var(--success);">✓</span> <span id="demo-p2">تجربة مجانية ١٤ يوم</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; font-size:14px; color:var(--gray-700);">
+            <span style="color:var(--success);">✓</span> <span id="demo-p3">لا يلزم بطاقة ائتمان</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; font-size:14px; color:var(--gray-700);">
+            <span style="color:var(--success);">✓</span> <span id="demo-p4">دعم باللغة العربية</span>
+          </div>
+        </div>
+      </div>
+      <div class="demo-form">
+        <h3 style="font-size:20px; font-weight:700; margin-bottom:20px;" id="form-title">طلب عرض تجريبي</h3>
+        <form id="demoForm" onsubmit="submitDemo(event)" novalidate>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fname" id="lbl-fname">الاسم الكامل</label>
+              <input type="text" id="fname" name="full_name" placeholder="محمد أحمد" required autocomplete="name" />
+            </div>
+            <div class="form-group">
+              <label for="fphone" id="lbl-phone">رقم الهاتف</label>
+              <input type="tel" id="fphone" name="phone" placeholder="+966 5x xxx xxxx" required autocomplete="tel" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="femail" id="lbl-email">البريد الإلكتروني</label>
+            <input type="email" id="femail" name="email" placeholder="name@company.com" required autocomplete="email" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="fcompany" id="lbl-company">اسم الشركة</label>
+              <input type="text" id="fcompany" name="company" placeholder="شركة المثال" required />
+            </div>
+            <div class="form-group">
+              <label for="fsize" id="lbl-size">حجم فريق المبيعات</label>
+              <select id="fsize" name="team_size">
+                <option value="" disabled selected id="opt0">اختر</option>
+                <option value="1-5" id="opt1">١–٥ مندوبين</option>
+                <option value="6-20" id="opt2">٦–٢٠ مندوب</option>
+                <option value="21-50" id="opt3">٢١–٥٠ مندوب</option>
+                <option value="50+" id="opt4">أكثر من ٥٠</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="fsector" id="lbl-sector">القطاع</label>
+            <select id="fsector" name="sector">
+              <option value="" disabled selected id="sopt0">اختر قطاعك</option>
+              <option value="fmcg" id="sopt1">FMCG / مشروبات</option>
+              <option value="pharma" id="sopt2">أدوية / صيدليات</option>
+              <option value="cosmetics" id="sopt3">مستحضرات تجميل</option>
+              <option value="food" id="sopt4">مواد غذائية</option>
+              <option value="other" id="sopt5">أخرى</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; margin-top:8px;" id="form-submit">
+            <span id="form-btn-text">أرسل طلب العرض</span>
+          </button>
+          <p style="font-size:11px; color:var(--gray-500); text-align:center; margin-top:12px;" id="form-privacy">نحافظ على خصوصية بياناتك ولا نشاركها مع أطراف ثالثة.</p>
+        </form>
+        <div id="formSuccess" style="display:none; text-align:center; padding:24px 0;">
+          <div style="font-size:48px; margin-bottom:12px;">🎉</div>
+          <h3 style="color:var(--success); font-size:18px; margin-bottom:8px;" id="success-title">تم استلام طلبك!</h3>
+          <p style="color:var(--gray-500); font-size:14px;" id="success-msg">سيتواصل معك فريقنا خلال ٢٤ ساعة.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="nav-brand">
+          <img src="/icons/icon-192.png" alt="Mydan" width="32" height="32" />
+          <span style="color:white;">Mydan</span>
+        </div>
+        <p id="footer-desc">نظام SaaS متكامل لإدارة فرق المبيعات الميدانية في قطاع FMCG والسلع الاستهلاكية بمنطقة الشرق الأوسط وشمال أفريقيا.</p>
+      </div>
+      <div class="footer-col">
+        <h4 id="fc1-title">المنتج</h4>
+        <ul>
+          <li><a href="#features" id="fc1-1">المزايا</a></li>
+          <li><a href="#pricing" id="fc1-2">الأسعار</a></li>
+          <li><a href="#how" id="fc1-3">كيف يعمل</a></li>
+          <li><a href="/login" id="fc1-4">تسجيل الدخول</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4 id="fc2-title">القطاعات</h4>
+        <ul>
+          <li><a href="#" id="fc2-1">FMCG</a></li>
+          <li><a href="#" id="fc2-2">أدوية</a></li>
+          <li><a href="#" id="fc2-3">تجميل</a></li>
+          <li><a href="#" id="fc2-4">مواد غذائية</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4 id="fc3-title">تواصل معنا</h4>
+        <ul>
+          <li><a href="mailto:hello@mydan.digityoucan.com" id="fc3-1">hello@mydan.digityoucan.com</a></li>
+          <li><a href="#demo" id="fc3-2">اطلب عرضاً تجريبياً</a></li>
+          <li><a href="#" id="fc3-3">سياسة الخصوصية</a></li>
+          <li><a href="#" id="fc3-4">الشروط والأحكام</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p id="footer-copy">© 2025 Mydan. جميع الحقوق محفوظة.</p>
+      <p id="footer-powered">Powered by Supabase · Claude AI · Netlify</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ─── BILINGUAL CONTENT ────────────────────────────────────────────────
+const content = {
+  ar: {
+    lang: 'ar', dir: 'rtl', fontClass: '',
+    'nav-features': 'المزايا', 'nav-pricing': 'الأسعار', 'nav-demo': 'طلب عرض',
+    'nav-login': 'تسجيل دخول', 'nav-cta': 'ابدأ مجاناً',
+    'badge-text': 'منصة SaaS لـ FMCG',
+    'hero-title': 'إدارة فرق المبيعات الميدانية <span>بذكاء اصطناعي</span>',
+    'hero-subtitle': 'نظام متكامل لتتبع مندوبي المبيعات، مراجعة رفوف المتاجر بالـ AI، وتحليل الأداء — يعمل بدون إنترنت على الموبايل والمتصفح.',
+    'hero-btn1': 'ابدأ التجربة المجانية', 'hero-btn2': 'شاهد كيف يعمل',
+    'hero-trust-text': '+٢٠ شركة تستخدم Mydan الآن',
+    'mockup-title': 'لوحة التحكم', 'mockup-date': 'اليوم — ١ نوفمبر',
+    'stat-visits': 'زيارات اليوم', 'stat-target': 'إنجاز الهدف', 'stat-pending': 'معلّقة',
+    'v1-name': 'كارفور — الرياض', 'v1-time': '٩:١٥ ص • ٢٣ دقيقة', 'v1-badge': 'مكتملة',
+    'v2-name': 'بنده — العليا', 'v2-time': '١١:٣٠ ص • ١٨ دقيقة', 'v2-badge': 'AI رف',
+    'v3-name': 'لولو هايبر — غرب', 'v3-time': '٢:٠٠ م • مجدولة', 'v3-badge': 'قادمة',
+    'logos-label': 'مبني على أحدث التقنيات العالمية',
+    'feat-tag': 'المزايا الرئيسية', 'feat-title': 'كل ما يحتاجه فريقك الميداني',
+    'feat-subtitle': 'من تسجيل الزيارة إلى تقرير الأداء — كل شيء في تطبيق واحد يعمل حتى بدون إنترنت.',
+    'f1-title': 'تتبع GPS وخطة الزيارات', 'f1-desc': 'Beat Plan ذكي يرتّب العملاء حسب القرب الجغرافي (Haversine). تحقق من الموقع عند تسجيل كل زيارة.',
+    'f2-title': 'مراجعة الرفوف بالذكاء الاصطناعي', 'f2-desc': 'المندوب يصوّر الرف، Claude Vision يحلل وضع المنتجات ويعطي نسبة امتلاء وتوصيات فورية.',
+    'f3-title': 'أهداف المبيعات والمتابعة', 'f3-desc': 'حدد أهداف شهرية لكل مندوب، تتبع نسبة الإنجاز لحظياً، واعرف من يحتاج دعماً فوراً.',
+    'f4-title': 'منتجات المنافسين', 'f4-desc': 'سجّل أسعار المنافسين وتوفرهم في كل متجر. حلل الفجوة التنافسية.',
+    'f5-title': 'لوحات Power BI التحليلية', 'f5-desc': '٦ لوحات تحليلية جاهزة: أداء الفريق، كفاءة الفروع، تقرير الذكاء الاصطناعي، وخريطة التوزيع.',
+    'f6-title': 'تطبيق PWA يعمل Offline', 'f6-desc': 'يعمل بدون إنترنت ويزامن البيانات تلقائياً. قابل للتنزيل كـ APK على Android.',
+    'how-tag': 'كيف يعمل', 'how-title': '٣ خطوات للبدء', 'how-subtitle': 'نعمل معك على الإعداد الكامل — من استيراد بياناتك إلى أول تقرير.',
+    'step1-title': 'أضف شركتك والفروع', 'step1-desc': 'المدير يدخل بيانات الشركة، ينشئ الفروع، ويدعو المشرفين عبر البريد الإلكتروني في دقائق.',
+    'step2-title': 'استيراد العملاء وخطة الزيارات', 'step2-desc': 'استورد قائمة عملائك، حدد الأهداف الشهرية، وليقوم النظام بترتيب خطة الزيارات الأمثل تلقائياً.',
+    'step3-title': 'ابدأ التتبع والتحليل', 'step3-desc': 'المندوبون يسجلون الزيارات من موبايلهم، والمدراء يتابعون الأداء لحظياً على Power BI.',
+    'ai-tag': 'الذكاء الاصطناعي', 'ai-title': 'مراجعة الرفوف بتقنية Claude Vision',
+    'ai-subtitle': 'المندوب يصوّر رف المتجر، الذكاء الاصطناعي يعطي تقريراً فورياً يشمل:',
+    'ai-f1': 'نسبة امتلاء الرف وأماكن الفراغ', 'ai-f2': 'ترتيب المنتجات وجودة العرض',
+    'ai-f3': 'مقارنة بمنتجات المنافسين', 'ai-f4': 'توصيات تحسين فورية باللغتين', 'ai-f5': 'تسجيل نتيجة كل زيارة تلقائياً',
+    'ai-cta': 'جرّب الآن مجاناً', 'ai-live': 'تحليل مباشر — كارفور الرياض',
+    'air1': 'امتلاء الرف', 'air2': 'جودة الترتيب', 'air3': 'مساحة المنافس', 'air4': 'منتجات ناقصة',
+    'ai-recommendation': '💡 توصية: أعد ترتيب منتجات العائلة A في مستوى العين. استبدل Shelf 3 Row 2.',
+    'ind-tag': 'القطاعات', 'ind-title': 'مصمم لقطاعات السلع الاستهلاكية',
+    'ind1': 'مشروبات FMCG', 'ind1d': 'توزيع وتغطية نقاط البيع',
+    'ind2': 'مستحضرات تجميل', 'ind2d': 'مراجعة العروض والأسعار',
+    'ind3': 'أدوية وصيدليات', 'ind3d': 'متابعة التوزيع والتوافر',
+    'ind4': 'مواد غذائية', 'ind4d': 'تحليل أداء الرف والمنافسين',
+    's1': '+٢٠', 's1l': 'شركة نشطة', 's2': '+٥٠٠', 's2l': 'زيارة يومياً',
+    's3': '+١٠ آلاف', 's3l': 'تحليل رف بالـ AI', 's4': '٩٨٪', 's4l': 'رضا العملاء',
+    'test-tag': 'آراء العملاء', 'test-title': 'ماذا يقول عملاؤنا',
+    't1': '"وفّر علينا ٤٠٪ من وقت الإدارة. مندوبينا الآن يركزون على البيع بدل الأوراق."',
+    't1n': 'خالد العمري', 't1t': 'مدير مبيعات — شركة مشروبات',
+    't2': '"تقارير Power BI غيّرت طريقة اتخاذ القرار عندنا. الآن نعرف الفرع الأضعف في دقائق."',
+    't2n': 'نورة الزهراني', 't2t': 'مديرة تجارية — توزيع غذائي',
+    't3': '"AI مراجعة الرف أداة رائعة. اكتشفنا مشاكل كانت مخفية في ٣٠٪ من متاجرنا."',
+    't3n': 'أحمد المطيري', 't3t': 'مدير تطوير أعمال — FMCG',
+    'price-tag': 'الأسعار', 'price-title': 'اختر الخطة المناسبة لفريقك',
+    'price-subtitle': 'جميع الخطط تشمل: تحديثات مجانية، دعم فني، وSSL آمن.',
+    'p1-name': 'Starter', 'p1-period': 'حتى ٥ مشرفين — فرع واحد',
+    'p1-desc': 'مثالي للشركات الصغيرة التي تبدأ رقمنة فرق المبيعات.',
+    'pf1-1': 'GPS + خطة الزيارات', 'pf1-2': '٥٠ تحليل AI شهرياً', 'pf1-3': 'لوحة تحكم Admin',
+    'pf1-4': 'تطبيق Android + Web', 'pf1-5': 'Power BI', 'pf1-6': 'API Integration',
+    'p1-btn': 'ابدأ التجربة',
+    'p2-name': 'Growth', 'p2-featured': 'الأكثر شيوعاً', 'p2-period': 'حتى ٢٥ مشرفاً — ٥ فروع',
+    'p2-desc': 'للشركات المتوسطة التي تريد تتبعاً احترافياً وتقارير متقدمة.',
+    'pf2-1': 'كل مزايا Starter', 'pf2-2': 'تحليل AI غير محدود', 'pf2-3': 'لوحات Power BI (٦ لوحات)',
+    'pf2-4': 'تقارير المنافسين', 'pf2-5': 'إشعارات push', 'pf2-6': 'دعم أولوية',
+    'p2-btn': 'ابدأ التجربة',
+    'p3-name': 'Enterprise', 'p3-price': 'تواصل معنا', 'p3-period': 'مشرفون وفروع غير محدودة',
+    'p3-desc': 'حل مخصص للمجموعات الكبرى مع تكامل ERP وخادم مستقل.',
+    'pf3-1': 'كل مزايا Growth', 'pf3-2': 'Multi-company / Multi-tenant',
+    'pf3-3': 'API + Webhook تكامل', 'pf3-4': 'SLA مضمون ٩٩.٩٪',
+    'pf3-5': 'White-label (شعارك)', 'pf3-6': 'مدير حساب مخصص',
+    'p3-btn': 'تواصل مع المبيعات',
+    'demo-tag': 'اطلب عرضاً تجريبياً', 'demo-title': 'جاهز لتحويل فريقك الميداني؟',
+    'demo-subtitle': 'فريقنا سيتواصل معك خلال ٢٤ ساعة لجدولة عرض مباشر مخصص لقطاعك.',
+    'demo-p1': 'إعداد كامل في ٢٤ ساعة', 'demo-p2': 'تجربة مجانية ١٤ يوم',
+    'demo-p3': 'لا يلزم بطاقة ائتمان', 'demo-p4': 'دعم باللغة العربية',
+    'form-title': 'طلب عرض تجريبي',
+    'lbl-fname': 'الاسم الكامل', 'lbl-phone': 'رقم الهاتف', 'lbl-email': 'البريد الإلكتروني',
+    'lbl-company': 'اسم الشركة', 'lbl-size': 'حجم فريق المبيعات', 'lbl-sector': 'القطاع',
+    'opt0': 'اختر', 'opt1': '١–٥ مندوبين', 'opt2': '٦–٢٠ مندوب', 'opt3': '٢١–٥٠ مندوب', 'opt4': 'أكثر من ٥٠',
+    'sopt0': 'اختر قطاعك', 'sopt1': 'FMCG / مشروبات', 'sopt2': 'أدوية / صيدليات',
+    'sopt3': 'مستحضرات تجميل', 'sopt4': 'مواد غذائية', 'sopt5': 'أخرى',
+    'form-btn-text': 'أرسل طلب العرض', 'form-privacy': 'نحافظ على خصوصية بياناتك ولا نشاركها مع أطراف ثالثة.',
+    'success-title': 'تم استلام طلبك!', 'success-msg': 'سيتواصل معك فريقنا خلال ٢٤ ساعة.',
+    'footer-desc': 'نظام SaaS متكامل لإدارة فرق المبيعات الميدانية في قطاع FMCG والسلع الاستهلاكية بمنطقة الشرق الأوسط وشمال أفريقيا.',
+    'fc1-title': 'المنتج', 'fc1-1': 'المزايا', 'fc1-2': 'الأسعار', 'fc1-3': 'كيف يعمل', 'fc1-4': 'تسجيل الدخول',
+    'fc2-title': 'القطاعات', 'fc2-1': 'FMCG', 'fc2-2': 'أدوية', 'fc2-3': 'تجميل', 'fc2-4': 'مواد غذائية',
+    'fc3-title': 'تواصل معنا', 'fc3-1': 'hello@mydan.digityoucan.com', 'fc3-2': 'اطلب عرضاً تجريبياً',
+    'fc3-3': 'سياسة الخصوصية', 'fc3-4': 'الشروط والأحكام',
+    'footer-copy': '© 2025 Mydan. جميع الحقوق محفوظة.',
+    'footer-powered': 'Powered by Supabase · Claude AI · Netlify',
+  },
+  en: {
+    lang: 'en', dir: 'ltr', fontClass: 'en',
+    'nav-features': 'Features', 'nav-pricing': 'Pricing', 'nav-demo': 'Book Demo',
+    'nav-login': 'Sign In', 'nav-cta': 'Start Free',
+    'badge-text': 'SaaS Platform for FMCG',
+    'hero-title': 'Field Sales Management <span>Powered by AI</span>',
+    'hero-subtitle': 'A complete system to track field reps, AI shelf audits, and performance analytics — works offline on mobile and browser.',
+    'hero-btn1': 'Start Free Trial', 'hero-btn2': 'See How It Works',
+    'hero-trust-text': '+20 companies use Mydan today',
+    'mockup-title': 'Dashboard', 'mockup-date': 'Today — Nov 1',
+    'stat-visits': "Today's Visits", 'stat-target': 'Target Hit', 'stat-pending': 'Pending',
+    'v1-name': 'Carrefour — Riyadh', 'v1-time': '9:15 AM • 23 min', 'v1-badge': 'Done',
+    'v2-name': 'Panda — Al Olaya', 'v2-time': '11:30 AM • 18 min', 'v2-badge': 'AI Shelf',
+    'v3-name': 'Lulu Hypermarket', 'v3-time': '2:00 PM • Scheduled', 'v3-badge': 'Upcoming',
+    'logos-label': 'Built on world-class technology',
+    'feat-tag': 'KEY FEATURES', 'feat-title': 'Everything your field team needs',
+    'feat-subtitle': 'From visit check-in to performance report — all in one app that works even without internet.',
+    'f1-title': 'GPS & Beat Plan', 'f1-desc': 'Smart beat plan sorts customers by GPS proximity (Haversine). Verify location on every visit check-in.',
+    'f2-title': 'AI Shelf Audit', 'f2-desc': 'Rep photos the shelf, Claude Vision analyzes product placement and gives instant fill-rate + recommendations.',
+    'f3-title': 'Sales Targets & KPIs', 'f3-desc': 'Set monthly targets per rep, track completion in real-time, and know who needs support immediately.',
+    'f4-title': 'Competitor Products', 'f4-desc': 'Log competitor prices and availability at each store. Analyze gaps to arm your sales team with real intel.',
+    'f5-title': 'Power BI Dashboards', 'f5-desc': '6 ready dashboards: team performance, branch efficiency, AI shelf report, and geographic distribution.',
+    'f6-title': 'Offline PWA App', 'f6-desc': 'Works without internet and auto-syncs data. Installable as APK on Android with full Arabic/English support.',
+    'how-tag': 'HOW IT WORKS', 'how-title': '3 Steps to Get Started', 'how-subtitle': 'We handle full setup — from importing your data to your first live report.',
+    'step1-title': 'Add your Company & Branches', 'step1-desc': 'Admin enters company data, creates branches, and invites supervisors via email — done in minutes.',
+    'step2-title': 'Import Customers & Visit Plan', 'step2-desc': 'Upload your customer list, set monthly targets, and let the system auto-build the optimal visit route.',
+    'step3-title': 'Track & Analyze', 'step3-desc': 'Reps log visits from their mobile; managers monitor performance live on Power BI.',
+    'ai-tag': 'ARTIFICIAL INTELLIGENCE', 'ai-title': 'Shelf Audit with Claude Vision',
+    'ai-subtitle': 'The rep photographs the shelf, AI delivers an instant report covering:',
+    'ai-f1': 'Shelf fill rate and empty spots', 'ai-f2': 'Product arrangement and display quality',
+    'ai-f3': 'Competitor share comparison', 'ai-f4': 'Instant improvement recommendations (AR/EN)', 'ai-f5': 'Automatic visit result logging',
+    'ai-cta': 'Try It Free Now', 'ai-live': 'Live Analysis — Carrefour Riyadh',
+    'air1': 'Shelf Fill Rate', 'air2': 'Arrangement Quality', 'air3': 'Competitor Share', 'air4': 'Missing SKUs',
+    'ai-recommendation': '💡 Tip: Reposition Family A products to eye-level. Swap Shelf 3 Row 2.',
+    'ind-tag': 'INDUSTRIES', 'ind-title': 'Built for Consumer Goods Sectors',
+    'ind1': 'FMCG / Beverages', 'ind1d': 'Distribution & POS coverage',
+    'ind2': 'Cosmetics', 'ind2d': 'Promotion and pricing review',
+    'ind3': 'Pharma / Pharmacies', 'ind3d': 'Distribution & availability tracking',
+    'ind4': 'Food Products', 'ind4d': 'Shelf & competitor performance',
+    's1': '20+', 's1l': 'Active Companies', 's2': '500+', 's2l': 'Daily Visits',
+    's3': '10K+', 's3l': 'AI Shelf Analyses', 's4': '98%', 's4l': 'Customer Satisfaction',
+    'test-tag': 'TESTIMONIALS', 'test-title': 'What Our Customers Say',
+    't1': '"Saved us 40% of management time. Our reps now focus on selling, not paperwork."',
+    't1n': 'Khaled Al-Omari', 't1t': 'Sales Manager — Beverage Company',
+    't2': '"Power BI reports transformed our decision-making. We now spot weak branches in minutes."',
+    't2n': 'Noura Al-Zahrani', 't2t': 'Commercial Director — Food Distribution',
+    't3': '"AI shelf audit is brilliant. We discovered problems hidden in 30% of our stores."',
+    't3n': 'Ahmed Al-Mutairi', 't3t': 'Business Development Manager — FMCG',
+    'price-tag': 'PRICING', 'price-title': 'Choose the Right Plan for Your Team',
+    'price-subtitle': 'All plans include: free updates, support, and SSL security.',
+    'p1-name': 'Starter', 'p1-period': 'Up to 5 supervisors — 1 branch',
+    'p1-desc': 'Perfect for small companies beginning to digitize their field sales.',
+    'pf1-1': 'GPS + Beat Plan', 'pf1-2': '50 AI analyses/month', 'pf1-3': 'Admin dashboard',
+    'pf1-4': 'Android + Web app', 'pf1-5': 'Power BI', 'pf1-6': 'API Integration',
+    'p1-btn': 'Start Trial',
+    'p2-name': 'Growth', 'p2-featured': 'Most Popular', 'p2-period': 'Up to 25 supervisors — 5 branches',
+    'p2-desc': 'For mid-size companies wanting professional tracking and advanced reports.',
+    'pf2-1': 'Everything in Starter', 'pf2-2': 'Unlimited AI analyses', 'pf2-3': 'Power BI (6 dashboards)',
+    'pf2-4': 'Competitor reports', 'pf2-5': 'Push notifications', 'pf2-6': 'Priority support',
+    'p2-btn': 'Start Trial',
+    'p3-name': 'Enterprise', 'p3-price': 'Contact Us', 'p3-period': 'Unlimited supervisors & branches',
+    'p3-desc': 'Custom solution for large groups with ERP integration and dedicated server.',
+    'pf3-1': 'Everything in Growth', 'pf3-2': 'Multi-company / Multi-tenant',
+    'pf3-3': 'API + Webhook integration', 'pf3-4': '99.9% SLA guaranteed',
+    'pf3-5': 'White-label (your brand)', 'pf3-6': 'Dedicated account manager',
+    'p3-btn': 'Contact Sales',
+    'demo-tag': 'BOOK A DEMO', 'demo-title': 'Ready to Transform Your Field Team?',
+    'demo-subtitle': 'Our team will contact you within 24 hours to schedule a live demo tailored to your sector.',
+    'demo-p1': 'Full setup in 24 hours', 'demo-p2': '14-day free trial',
+    'demo-p3': 'No credit card required', 'demo-p4': 'Arabic & English support',
+    'form-title': 'Book a Demo',
+    'lbl-fname': 'Full Name', 'lbl-phone': 'Phone Number', 'lbl-email': 'Email Address',
+    'lbl-company': 'Company Name', 'lbl-size': 'Sales Team Size', 'lbl-sector': 'Sector',
+    'opt0': 'Select', 'opt1': '1–5 reps', 'opt2': '6–20 reps', 'opt3': '21–50 reps', 'opt4': '50+ reps',
+    'sopt0': 'Select your sector', 'sopt1': 'FMCG / Beverages', 'sopt2': 'Pharma / Pharmacies',
+    'sopt3': 'Cosmetics', 'sopt4': 'Food Products', 'sopt5': 'Other',
+    'form-btn-text': 'Submit Demo Request', 'form-privacy': 'We respect your privacy and never share your data with third parties.',
+    'success-title': 'Request Received!', 'success-msg': 'Our team will contact you within 24 hours.',
+    'footer-desc': 'Complete SaaS system for managing field sales teams in FMCG and consumer goods across the Middle East and North Africa.',
+    'fc1-title': 'Product', 'fc1-1': 'Features', 'fc1-2': 'Pricing', 'fc1-3': 'How It Works', 'fc1-4': 'Sign In',
+    'fc2-title': 'Industries', 'fc2-1': 'FMCG', 'fc2-2': 'Pharma', 'fc2-3': 'Cosmetics', 'fc2-4': 'Food',
+    'fc3-title': 'Contact', 'fc3-1': 'hello@mydan.digityoucan.com', 'fc3-2': 'Book a Demo',
+    'fc3-3': 'Privacy Policy', 'fc3-4': 'Terms & Conditions',
+    'footer-copy': '© 2025 Mydan. All rights reserved.',
+    'footer-powered': 'Powered by Supabase · Claude AI · Netlify',
+  }
+};
+
+let currentLang = 'ar';
+
+function applyLang(lang) {
+  currentLang = lang;
+  const d = content[lang];
+  document.documentElement.lang = d.lang;
+  document.documentElement.dir = d.dir;
+  document.body.className = d.fontClass;
+  document.getElementById('langToggle').textContent = lang === 'ar' ? 'EN' : 'ع';
+  Object.keys(d).forEach(id => {
+    if (['lang','dir','fontClass'].includes(id)) return;
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = d[id];
+  });
+  // Update HTML lang meta
+  document.documentElement.setAttribute('lang', d.lang);
+  // Update canonical alternate
+  const url = new URL(window.location.href);
+  if (lang === 'en') url.searchParams.set('lang','en');
+  else url.searchParams.delete('lang');
+  history.replaceState(null,'', url.toString());
+}
+
+function toggleLang() {
+  applyLang(currentLang === 'ar' ? 'en' : 'ar');
+}
+
+// Demo form
+function submitDemo(e) {
+  e.preventDefault();
+  const btn = document.getElementById('form-btn-text');
+  btn.textContent = currentLang === 'ar' ? 'جاري الإرسال...' : 'Sending...';
+  // Simulate API call (replace with real endpoint later)
+  setTimeout(() => {
+    document.getElementById('demoForm').style.display = 'none';
+    document.getElementById('formSuccess').style.display = 'block';
+  }, 1200);
+}
+
+// Init from URL ?lang=en
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('lang') === 'en') applyLang('en');
+
+// Smooth anchor scrolling for in-page links
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+});
+</script>
+</body>
+</html>

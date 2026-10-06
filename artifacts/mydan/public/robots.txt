@@ -1,2 +1,18 @@
 User-agent: *
 Allow: /
+Allow: /landing.html
+Disallow: /login
+Disallow: /set-password
+Disallow: /dashboard
+Disallow: /visits
+Disallow: /shelf-audit
+Disallow: /competitors
+Disallow: /customers
+Disallow: /targets
+Disallow: /beat-plan
+Disallow: /notifications
+Disallow: /admin/
+Disallow: /assets/
+Disallow: /sw.js
+
+Sitemap: https://mydan.digityoucan.com/sitemap.xml
