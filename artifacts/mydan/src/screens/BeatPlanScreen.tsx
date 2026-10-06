@@ -1,6 +1,6 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Route } from '@/components/Icons';
+import { ClipboardList, MapPin, MapPinned, Route } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useBeatPlan, useBeatPlanDays, type BeatRow } from '@/lib/data';
@@ -12,6 +12,8 @@ import { ErrorState, SkeletonList } from '@/components/States';
 import { DAYS } from '@/lib/format';
 import { Chip, useRefetch } from './shared';
 import { t } from '@/i18n';
+
+const BeatMap = lazy(() => import('@/components/BeatMap'));
 
 const Item = memo(function Item({ b, i, status, onOpen }: { b: BeatRow; i: number; status?: string; onOpen: (id: string) => void }) {
   const open = useCallback(() => onOpen(b.customer_id), [onOpen, b.customer_id]);
@@ -34,8 +36,8 @@ export default function BeatPlanScreen() {
   const daysQ = useBeatPlanDays();
   const availableDays = daysQ.data ?? [];
 
-  // اختر يوم افتراضي: اليوم إن كان فيه خطة، وإلا أول يوم متاح
   const [day, setDay] = useState<number | null>(null);
+  const [showMap, setShowMap] = useState(false);
   useEffect(() => {
     if (availableDays.length === 0) return;
     if (day === null || !availableDays.includes(day)) {
@@ -47,9 +49,16 @@ export default function BeatPlanScreen() {
   const retry = useRefetch(q.refetch);
   const onDay = useCallback((v: string) => setDay(Number(v)), []);
   const open = useCallback((id: string) => nav(`/visits/new?customer=${id}`), [nav]);
+  const toggleMap = useCallback(() => setShowMap((s) => !s), []);
+
+  const mapAction = (
+    <button className="icon-btn" aria-label={showMap ? t('عرض القائمة') : t('عرض الخريطة')} onClick={toggleMap} data-testid="button-toggle-map">
+      {showMap ? <ClipboardList size={20} /> : <MapPinned size={20} />}
+    </button>
+  );
 
   return <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
-    <PageTitle>{t('خطة الزيارات')}</PageTitle>
+    <PageTitle action={mapAction}>{t('خطة الزيارات')}</PageTitle>
 
     {/* Tabs — تظهر فقط الأيام التي فيها زيارات مخططة لهذا المشرف */}
     {daysQ.isPending
@@ -75,9 +84,16 @@ export default function BeatPlanScreen() {
               ? <ErrorState error={q.error} onRetry={retry} />
               : q.data.plan.length === 0
                 ? <EmptyState icon={<Route />} title={t('لا توجد زيارات مخططة')} />
-                : q.data.plan.map((b, i) => (
-                    <Item key={b.id} b={b} i={i} status={day === today ? q.data.visited.get(b.customer_id) : undefined} onOpen={open} />
-                  ))
+                : showMap
+                  ? <Suspense fallback={<SkeletonList />}>
+                      <BeatMap
+                        plan={q.data.plan}
+                        visited={day === today ? q.data.visited : new Map()}
+                      />
+                    </Suspense>
+                  : q.data.plan.map((b, i) => (
+                      <Item key={b.id} b={b} i={i} status={day === today ? q.data.visited.get(b.customer_id) : undefined} onOpen={open} />
+                    ))
     }
   </div>;
 }
