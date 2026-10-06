@@ -8,6 +8,13 @@
 .adm-nav a:hover{background:#ffffff14;color:#fff}
 .adm-nav a.active{background:var(--color-primary);color:var(--primary-foreground)}
 .adm-foot{display:none}
+/* صف الإجراءات السريعة على الموبايل */
+.adm-mobile-actions{display:flex;gap:8px;padding:4px 2px 6px;border-top:1px solid #ffffff18}
+.adm-mobile-btn{display:flex;align-items:center;gap:6px;flex:1;justify-content:center;min-height:40px;border-radius:10px;font-weight:600;font-size:13px;white-space:nowrap;cursor:pointer;font-family:inherit;border:none;text-decoration:none;transition:background .15s}
+.adm-mobile-back{background:#ffffff14;color:#C9D3E0}
+.adm-mobile-back:hover{background:#ffffff22;color:#fff}
+.adm-mobile-logout{background:rgba(248,113,113,.15);color:#F87171}
+.adm-mobile-logout:hover{background:rgba(248,113,113,.25)}
 .adm-brand .lang-toggle{color:#fff}
 .adm-main{padding:16px;display:flex;flex-direction:column;gap:16px;min-width:0}
 .adm-main h2{margin:0;font-size:22px}
@@ -30,6 +37,7 @@
   .adm-side{position:sticky;top:0;height:100dvh;padding:20px 14px}
   .adm-nav{flex-direction:column;overflow:visible}
   .adm-lang-mobile{display:none}
+  .adm-mobile-actions{display:none}
   .adm-foot{display:flex;flex-direction:column;gap:6px;margin-top:auto}
   .adm-foot button,.adm-foot a{color:#C9D3E0}
   .adm-main{padding:28px 32px}
