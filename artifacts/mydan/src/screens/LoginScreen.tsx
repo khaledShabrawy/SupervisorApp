@@ -5,6 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useInput } from './shared';
+import { t } from '@/i18n';
+import { LanguageToggle } from '@/components/LanguageToggle';
 
 export default function LoginScreen() {
   const { isAuthenticated, isLoading, session, error, signIn, signOut, retryProfile } = useAuth();
@@ -15,7 +17,7 @@ export default function LoginScreen() {
   const toggle = useCallback(() => setShow((v) => !v), []);
   const submit = useCallback(async (e: FormEvent) => {
     e.preventDefault(); setBusy(true); setLocal(null);
-    try { await signIn(email, password); } catch (x) { setLocal(x instanceof Error ? x.message : 'تعذر تسجيل الدخول.'); } finally { setBusy(false); }
+    try { await signIn(email, password); } catch (x) { setLocal(x instanceof Error ? x.message : t('تعذر تسجيل الدخول.')); } finally { setBusy(false); }
   }, [signIn, email, password]);
   const retry = useCallback(() => { void retryProfile(); }, [retryProfile]);
   const out = useCallback(() => { void signOut().catch(() => undefined); }, [signOut]);
@@ -24,21 +26,22 @@ export default function LoginScreen() {
   const profileFailed = !!session && !!error;
   return <main className="login">
     <div className="s-card s-login-card">
-      {settings.logo_url ? <img className="s-login-logo" src={settings.logo_url} alt={settings.app_name} loading="lazy" /> : <div className="s-login-logo" aria-hidden="true">م</div>}
+      <div className="row" style={{ justifyContent: 'flex-end' }}><LanguageToggle className="btn sm ghost" /></div>
+      {settings.logo_url ? <img className="s-login-logo" src={settings.logo_url} alt={settings.app_name} loading="lazy" /> : <div className="s-login-logo" aria-hidden="true">{settings.app_name.slice(0, 1)}</div>}
       <h1 style={{ margin: 0, fontSize: 28 }}>{settings.app_name}</h1>
-      <p className="muted" style={{ margin: 0 }}>نظام إدارة المشرفين الميدانيين</p>
+      <p className="muted" style={{ margin: 0 }}>{t('نظام إدارة المشرفين الميدانيين')}</p>
       {profileFailed ? <>
-        <div className="alert err row" role="alert"><AlertCircle /><span>{error}</span></div>
-        <button className="btn block" data-testid="button-retry" onClick={retry}>إعادة المحاولة</button>
-        <button className="btn ghost block" data-testid="button-signout" onClick={out}>تسجيل الخروج</button>
+        <div className="alert err row" role="alert"><AlertCircle /><span>{t(error)}</span></div>
+        <button className="btn block" data-testid="button-retry" onClick={retry}>{t('إعادة المحاولة')}</button>
+        <button className="btn ghost block" data-testid="button-signout" onClick={out}>{t('تسجيل الخروج')}</button>
       </> : <form onSubmit={submit} className="col" style={{ gap: 12, textAlign: 'start' }}>
-        <input className="input" type="email" dir="ltr" placeholder="البريد الإلكتروني" aria-label="البريد الإلكتروني" autoComplete="username" required value={email} onChange={onEmail} data-testid="input-email" />
+        <input className="input" type="email" dir="ltr" placeholder={t('البريد الإلكتروني')} aria-label={t('البريد الإلكتروني')} autoComplete="username" required value={email} onChange={onEmail} data-testid="input-email" />
         <div className="s-pw">
-          <input className="input" type={show ? 'text' : 'password'} dir="ltr" placeholder="كلمة المرور" aria-label="كلمة المرور" autoComplete="current-password" required value={password} onChange={onPass} data-testid="input-password" />
-          <button type="button" className="icon-btn" aria-label={show ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'} onClick={toggle}>{show ? <EyeOff /> : <Eye />}</button>
+          <input className="input" type={show ? 'text' : 'password'} dir="ltr" placeholder={t('كلمة المرور')} aria-label={t('كلمة المرور')} autoComplete="current-password" required value={password} onChange={onPass} data-testid="input-password" />
+          <button type="button" className="icon-btn" aria-label={show ? t('إخفاء كلمة المرور') : t('إظهار كلمة المرور')} onClick={toggle}>{show ? <EyeOff /> : <Eye />}</button>
         </div>
-        {(local || error) && <div className="alert err" role="alert">{local ?? error}</div>}
-        <button className="btn block" disabled={busy} data-testid="button-login">{busy && <span className="loading-spinner" aria-hidden="true" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: 'currentColor' }} />}{busy ? 'جاري الدخول...' : 'تسجيل الدخول'}</button>
+        {(local || error) && <div className="alert err" role="alert">{t(local ?? error ?? '')}</div>}
+        <button className="btn block" disabled={busy} data-testid="button-login">{busy && <span className="loading-spinner" aria-hidden="true" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: 'currentColor' }} />}{busy ? t('جاري الدخول...') : t('تسجيل الدخول')}</button>
       </form>}
     </div>
   </main>;

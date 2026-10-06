@@ -14,10 +14,11 @@ import { ErrorState } from '@/components/States';
 import { PageTitle } from '@/components/Layout';
 import { fmtDate, fmtTime, num, todayStr } from '@/lib/format';
 import { Act, useRefetch } from './shared';
+import { t } from '@/i18n';
 
 const Recent = memo(function Recent({ v, onOpen }: { v: VisitRow; onOpen: (id: string) => void }) {
   return <Act id={v.id} onAct={onOpen} className="s-row" testId={`row-recent-${v.id}`}>
-    <div className="grow"><div className="title">{v.customers?.name ?? 'عميل'}</div><div className="muted">{fmtDate(v.visit_date)} · {fmtTime(v.check_in_time)}</div></div>
+    <div className="grow"><div className="title">{v.customers?.name ?? t('عميل')}</div><div className="muted">{fmtDate(v.visit_date)} · {fmtTime(v.check_in_time)}</div></div>
     <StatusBadge status={v.status} />
   </Act>;
 });
@@ -36,18 +37,18 @@ export default function DashboardScreen() {
     <PageTitle>{settings.app_name}<span className="muted" style={{ fontSize: 14, fontWeight: 400 }}> · {fmtDate(todayStr())}</span></PageTitle>
     {q.isError ? <ErrorState error={q.error} onRetry={retry} /> : <>
       <div className="s-kpis">
-        <KPICard icon={<MapPin size={18} />} title="زيارات اليوم" value={d && num(d.visits)} loading={L} />
-        <KPICard icon={<Camera size={18} />} title="مراجعات الرف" value={d && num(d.audits)} loading={L} color="#6D3FC0" />
-        <KPICard icon={<TargetIcon size={18} />} title="نسبة الهدف%" value={d && `${num(Math.round(d.visitsProgress))}%`} loading={L} color="var(--color-success)" />
+        <KPICard icon={<MapPin size={18} />} title={t('زيارات اليوم')} value={d && num(d.visits)} loading={L} />
+        <KPICard icon={<Camera size={18} />} title={t('مراجعات الرف')} value={d && num(d.audits)} loading={L} color="#6D3FC0" />
+        <KPICard icon={<TargetIcon size={18} />} title={t('نسبة الهدف%')} value={d && `${num(Math.round(d.visitsProgress))}%`} loading={L} color="var(--color-success)" />
       </div>
       <div className="s-acts">
-        <Act id="/visits/new" onAct={go} className="s-act s-green" testId="button-new-visit"><Plus /> زيارة جديدة</Act>
-        <Act id="/shelf-audit" onAct={go} className="s-act s-blue"><Camera /> مراجعة الرف</Act>
-        <Act id="/beat-plan" onAct={go} className="s-act s-purple"><Route /> خطة الزيارات</Act>
+        <Act id="/visits/new" onAct={go} className="s-act s-green" testId="button-new-visit"><Plus /> {t('زيارة جديدة')}</Act>
+        <Act id="/shelf-audit" onAct={go} className="s-act s-blue"><Camera /> {t('مراجعة الرف')}</Act>
+        <Act id="/beat-plan" onAct={go} className="s-act s-purple"><Route /> {t('خطة الزيارات')}</Act>
       </div>
-      <PageTitle>آخر الزيارات</PageTitle>
+      <PageTitle>{t('آخر الزيارات')}</PageTitle>
       {L ? <div className="skel" style={{ height: 70 }} /> : d!.recent.length === 0
-        ? <div className="card"><EmptyState icon={<ClipboardList />} title="لا توجد زيارات بعد" action={{ label: 'بدء زيارة', onClick: goNew }} /></div>
+        ? <div className="card"><EmptyState icon={<ClipboardList />} title={t('لا توجد زيارات بعد')} action={{ label: t('بدء زيارة'), onClick: goNew }} /></div>
         : recent.map((v) => <Recent key={v.id} v={v} onOpen={open} />)}
     </>}
   </div>;

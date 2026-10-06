@@ -10,7 +10,9 @@ import { useRealtime } from '@/hooks/useRealtime';
 import { canAdmin } from '@/lib/policy';
 import { notify } from '@/lib/toast';
 import { BottomNav } from './BottomNav';
+import { LanguageToggle } from './LanguageToggle';
 import LoadingSpinner from './LoadingSpinner';
+import { t } from '@/i18n';
 
 export function RequireAuth() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -27,7 +29,7 @@ function Realtime({ id, company }: { id: string; company: string }) {
   useRealtime('notifications', `supervisor_id=eq.${id}`, () => {
     void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'mydan' && q.queryKey[1] === company && q.queryKey[2] === id && q.queryKey[4] === 'notifications' });
   });
-  useRealtime('shelf_audits', `supervisor_id=eq.${id}`, () => {
+  useRealtime('shelf_audit', `supervisor_id=eq.${id}`, () => {
     void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'mydan'
       && q.queryKey[1] === company && q.queryKey[2] === id && q.queryKey[4] === 'audits' });
   });
@@ -46,27 +48,28 @@ function Shell() {
   const logout = useCallback(() => void signOut().catch((e: Error) => notify(e.message, 'error')), [signOut]);
   const home = pathname === '/';
   useEffect(() => {
-    const names: Record<string, string> = { '/': 'الرئيسية', '/visits': 'الزيارات',
-      '/visits/new': 'بدء زيارة', '/shelf-audit': 'مراجعة الرف',
-      '/customers': 'العملاء', '/targets': 'الأهداف والتقارير', '/beat-plan': 'خطة الزيارات',
-      '/notifications': 'الإشعارات', '/admin': 'لوحة الإدارة' };
-    document.title = `${names[pathname] ?? 'ميدان'} | ${s.app_name}`;
-    return () => { document.title = 'ميدان | إدارة المبيعات الميدانية'; };
+    const names: Record<string, string> = { '/': t('الرئيسية'), '/visits': t('الزيارات'),
+      '/visits/new': t('بدء زيارة'), '/shelf-audit': t('مراجعة الرف'),
+      '/customers': t('العملاء'), '/targets': t('الأهداف والتقارير'), '/beat-plan': t('خطة الزيارات'),
+      '/notifications': t('الإشعارات'), '/admin': t('لوحة الإدارة') };
+    document.title = `${names[pathname] ?? 'Mydan'} | ${s.app_name}`;
+    return () => { document.title = `Mydan | ${t('إدارة المشرفين الميدانيين')}`; };
   }, [pathname, s.app_name]);
   return <div className="shell">
     <Realtime id={supervisor!.id} company={supervisor!.company_id} />
     <header className="topbar">
       {home || ['/visits', '/customers', '/targets', '/notifications'].includes(pathname)
         ? (s.logo_url ? <img className="logo" src={s.logo_url} alt={s.app_name} loading="lazy" /> : <span className="logo">{s.app_name.slice(0, 1)}</span>)
-        : <button className="icon-btn" aria-label="رجوع" onClick={goBack}><ArrowRight /></button>}
+        : <button className="icon-btn" aria-label={t('رجوع')} onClick={goBack}><ArrowRight className="flip-ltr" /></button>}
       <h1><span className="header-brand">{s.app_name}</span><small>{supervisor!.full_name}</small></h1>
-      <button className="icon-btn" aria-label="الإشعارات" data-testid="button-notifications" onClick={goNotifications}>
+      <LanguageToggle />
+      <button className="icon-btn" aria-label={t('الإشعارات')} data-testid="button-notifications" onClick={goNotifications}>
         <Bell size={21} />
-        {unread.isError ? <span className="dot" aria-label="تعذر قراءة عدد الإشعارات">!</span>
+        {unread.isError ? <span className="dot" aria-label={t('تعذر قراءة عدد الإشعارات')}>!</span>
           : unread.data != null && unread.data > 0 && <span className="dot">{unread.data > 99 ? '99+' : num(unread.data)}</span>}
       </button>
-      {admin && <button className="icon-btn" aria-label="الإدارة" aria-current={pathname === '/admin' ? 'page' : undefined} data-testid="button-admin" onClick={goAdmin}><Settings2 /></button>}
-      <button className="icon-btn" aria-label="تسجيل الخروج" data-testid="button-logout"
+      {admin && <button className="icon-btn" aria-label={t('الإدارة')} aria-current={pathname === '/admin' ? 'page' : undefined} data-testid="button-admin" onClick={goAdmin}><Settings2 /></button>}
+      <button className="icon-btn" aria-label={t('تسجيل الخروج')} data-testid="button-logout"
         onClick={logout}><LogOut /></button>
     </header>
     <Suspense fallback={<LoadingSpinner />}><Outlet /></Suspense>

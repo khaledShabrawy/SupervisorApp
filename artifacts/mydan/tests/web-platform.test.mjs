@@ -4,13 +4,18 @@ import { readFileSync, existsSync } from 'node:fs';
 
 const approved = new Set(['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js',
   '@tanstack/react-query', 'vite', 'typescript', 'tailwindcss', 'vite-plugin-pwa',
-  '@types/node', '@types/react', '@types/react-dom']);
+  '@types/node', '@types/react', '@types/react-dom',
+  // Android APK shell (WebView wrapper around the same web build — see docs/mydan-roadmap-to-apk.md).
+  '@capacitor/core', '@capacitor/android', '@capacitor/cli']);
+const webScripts = { dev: 'vite', build: 'vite build', preview: 'vite preview' };
+const apkScripts = { 'cap:sync': 'vite build && cap sync android', 'cap:open': 'cap open android',
+  'apk:debug': 'vite build && cap sync android && cd android && gradlew.bat assembleDebug' };
 const root = new URL('../../../', import.meta.url);
 const app = new URL('../', import.meta.url);
 test('both manifests use only approved web packages and standard Vite scripts', () => {
   for (const base of [root, app]) {
     const pkg = JSON.parse(readFileSync(new URL('package.json', base), 'utf8'));
-    assert.deepEqual(pkg.scripts, { dev: 'vite', build: 'vite build', preview: 'vite preview' });
+    assert.deepEqual(pkg.scripts, base === app ? { ...webScripts, ...apkScripts } : webScripts);
     for (const name of Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })) {
       assert.ok(approved.has(name), `Unexpected dependency: ${name}`);
     }

@@ -11,6 +11,11 @@ const settings = { id: 's1', company_id: 'c1', app_name: 'شركة تجريبي�
 
 test('authorized supervisor must match authenticated user and active company', () => {
   assert.equal(isAuthorizedSupervisor(supervisor, 'u1'), true);
+  // Field roles that exist in the DB can sign in, but never gain admin screens.
+  for (const role of ['senior_supervisor', 'branch_manager'] as const) {
+    assert.equal(isAuthorizedSupervisor({ ...supervisor, role }, 'u1'), true);
+    assert.equal(canAdmin({ ...supervisor, role }), false);
+  }
   for (const p of [null, {}, { ...supervisor, is_active: false }, { ...supervisor, company_id: '' },
     { ...supervisor, user_id: 'other' }, { ...supervisor, role: 'unknown' }]) {
     assert.equal(isAuthorizedSupervisor(p, 'u1'), false);

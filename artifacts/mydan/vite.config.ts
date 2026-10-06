@@ -31,7 +31,7 @@ export default defineConfig({
       injectRegister: false,
       registerType: 'autoUpdate',
       manifest: {
-        name: 'ميدان', short_name: 'ميدان',
+        name: 'Mydan', short_name: 'Mydan',
         description: 'نظام إدارة المشرفين الميدانيين',
         lang: 'ar', dir: 'rtl',
         theme_color: '#1A56DB', background_color: '#F8FAFC',

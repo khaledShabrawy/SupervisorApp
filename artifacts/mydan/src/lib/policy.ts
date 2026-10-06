@@ -4,7 +4,7 @@ export function isAuthorizedSupervisor(value: unknown, userId: string): value is
   const p = value as Partial<Supervisor> | null;
   return !!p && p.user_id === userId && typeof p.id === 'string' && !!p.id
     && typeof p.company_id === 'string' && !!p.company_id
-    && p.is_active === true && ['admin', 'supervisor', 'super_admin'].includes(p.role ?? '');
+    && p.is_active === true && ['admin', 'supervisor', 'senior_supervisor', 'branch_manager', 'super_admin'].includes(p.role ?? '');
 }
 export function canAdmin(profile: Supervisor | null): boolean {
   return !!profile?.is_active && ['admin', 'super_admin'].includes(profile.role);
