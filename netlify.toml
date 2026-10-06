@@ -6,6 +6,7 @@
 [build.environment]
   NODE_VERSION = "20"
   PNPM_VERSION = "10"
+  VITE_VAPID_PUBLIC_KEY = "BEJuGXGBkQ9jvLb5DEh-dY3jsVsRGWHDbHrAXJamefa8izvXCRyH0QqK7YB1Xt68WoHS7v25ie8_gGYDvae-sAM"
 
 # ── Service Worker — never cache ──────────────────────────────────────
 [[headers]]
