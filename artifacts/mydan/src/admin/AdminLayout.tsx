@@ -47,8 +47,12 @@ export default function AdminLayout() {
       <nav className="adm-nav" aria-label={t('قائمة الإدارة')}>
         {ADMIN_NAV.map(({ to, label, icon: Icon, ...rest }) =>
           <NavLink key={to} to={to} end={'end' in rest} data-testid={`admin-nav-${to.split('/').pop()}`}><Icon size={18} />{label}</NavLink>)}
-        <NavLink to="/" className="adm-back-mobile"><Home size={18} />{t('التطبيق')}</NavLink>
       </nav>
+      {/* صف ثابت على الموبايل — دائماً مرئي بدون تمرير */}
+      <div className="adm-mobile-actions">
+        <NavLink to="/" className="adm-mobile-btn adm-mobile-back"><Home size={16} />{t('الرئيسية')}</NavLink>
+        <button className="adm-mobile-btn adm-mobile-logout" onClick={logout}><LogOut size={16} />{t('تسجيل الخروج')}</button>
+      </div>
       <div className="adm-foot">
         <LanguageToggle className="btn sm ghost" />
         <NavLink to="/" className="row" style={{ textDecoration: 'none', minHeight: 44 }}><ArrowRight size={18} className="flip-ltr" />{t('العودة للتطبيق')}</NavLink>
