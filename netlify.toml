@@ -1,6 +1,6 @@
 [build]
   base    = "artifacts/mydan"
-  command = "pnpm install --frozen-lockfile && pnpm run build"
+  command = "npm install && npm run build"
   publish = "dist/public"
 
 [build.environment]
