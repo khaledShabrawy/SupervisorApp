@@ -9,7 +9,10 @@ export function useRealtime(table: string, filter: string | undefined,
   const [status, setStatus] = useState('CONNECTING');
   useEffect(() => {
     let alive = true;
-    const channel = supabase.channel(`mydan:${table}:${filter ?? 'all'}:${crypto.randomUUID()}`)
+    const uid = typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const channel = supabase.channel(`mydan:${table}:${filter ?? 'all'}:${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table, ...(filter ? { filter } : {}) },
         (payload) => latest.current(payload))
       .subscribe((state) => {
