@@ -327,6 +327,24 @@ export function useTargets(month: number, year: number) {
 }
 
 /* ---------- Beat plan ---------- */
+
+/** الأيام التي فيها زيارات مخططة للمشرف الحالي — ديناميكية من DB */
+export function useBeatPlanDays() {
+  const sc = useScope();
+  return useQuery({
+    queryKey: [...sc.base, 'beat-days'],
+    staleTime: 60_000,
+    queryFn: async ({ signal }) => {
+      const { data, error } = await sc.scope(
+        supabase.from('beat_plans').select('day_of_week')
+      ).abortSignal(signal);
+      if (error) fail('تعذر تحميل أيام الخطة.', error);
+      const unique = [...new Set((data as { day_of_week: number }[]).map((r) => r.day_of_week))];
+      return unique.sort((a, b) => a - b); // 0=أحد → 6=سبت
+    },
+  });
+}
+
 export function useBeatPlan(day: number) {
   const sc = useScope();
   return useQuery({
