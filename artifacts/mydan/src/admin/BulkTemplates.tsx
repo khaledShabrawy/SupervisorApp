@@ -1,4 +1,4 @@
-import { Download, Upload } from '@/components/Icons';
+import { Download, Save } from '@/components/Icons';
 import { t } from '@/i18n';
 import { useCallback, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -241,7 +241,7 @@ export function BulkTemplates() {
             onClick={() => customerFileRef.current?.click()}
             disabled={importCustomers.isPending}
           >
-            <Upload size={18} /> {importCustomers.isPending ? t('جاري الاستيراد...') : t('رفع CSV')}
+            <Save size={18} /> {importCustomers.isPending ? t('جاري الاستيراد...') : t('رفع CSV')}
           </button>
           <input
             ref={customerFileRef}
@@ -276,7 +276,7 @@ export function BulkTemplates() {
             onClick={() => beatFileRef.current?.click()}
             disabled={importBeats.isPending}
           >
-            <Upload size={18} /> {importBeats.isPending ? t('جاري الاستيراد...') : t('رفع CSV')}
+            <Save size={18} /> {importBeats.isPending ? t('جاري الاستيراد...') : t('رفع CSV')}
           </button>
           <input
             ref={beatFileRef}
