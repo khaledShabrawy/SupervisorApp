@@ -29,7 +29,8 @@ export function useUploadAudit() {
       if (!file.type.startsWith('image/')) throw new Error('اختر صورة صالحة للرف.');
       if (file.size > 10 * 1024 * 1024) throw new Error('حجم الصورة أكبر من 10 ميجابايت.');
       const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-      const path = `${sc.companyId}/${sc.supervisorId}/${visit.id}-${crypto.randomUUID()}.${ext}`;
+      const uid = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
+      const path = `${sc.companyId}/${sc.supervisorId}/${visit.id}-${uid}.${ext}`;
       const uploaded = await supabase.storage.from(PHOTO_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
       if (uploaded.error) throw new Error('تعذر رفع صورة الرف. تحقق من الحاوية والصلاحيات.');
       const inserted = await supabase.from('shelf_audit').insert({
