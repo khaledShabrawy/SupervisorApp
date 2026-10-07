@@ -5,6 +5,8 @@ import { readFileSync, existsSync } from 'node:fs';
 const approved = new Set(['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js',
   '@tanstack/react-query', 'vite', 'typescript', 'tailwindcss', 'vite-plugin-pwa',
   '@types/node', '@types/react', '@types/react-dom',
+  // Beat Plan interactive map (BeatMap.tsx — dynamic import to keep the initial bundle small).
+  'leaflet', '@types/leaflet',
   // Android APK shell (WebView wrapper around the same web build — see docs/mydan-roadmap-to-apk.md).
   '@capacitor/core', '@capacitor/android', '@capacitor/cli']);
 const webScripts = { dev: 'vite', build: 'vite build', preview: 'vite preview' };
