@@ -589,4 +589,19 @@ export const EN: Record<string, string> = {
   'تعديل الإعدادات للمدراء فقط.': 'Only admins can change settings.',
   'تعذر حفظ إعدادات الشركة. تحقق من صلاحيات الإدارة.': 'Could not save company settings. Check admin permissions.',
   'تم حفظ إعدادات الشركة': 'Company settings saved',
+  // Audit Logs screen
+  'سجل المراجعة': 'Audit Log',
+  'التفاصيل': 'Details',
+  'لا توجد سجلات': 'No records',
+  'التاريخ': 'Date',
+  'الجدول': 'Table',
+  'الإجراء': 'Action',
+  // Beat Plan screen
+  'عرض القائمة': 'List view',
+  'عرض الخريطة': 'Map view',
+  'لا توجد خطة زيارات مضافة': 'No beat plan added yet',
+  // Notifications screen
+  'الإشعارات الفورية مفعّلة': 'Push notifications enabled',
+  'جاري التفعيل...': 'Enabling...',
+  'فعّل إشعارات الجوال لتصلك الرسائل فوراً': 'Enable mobile notifications to receive messages instantly',
 };
