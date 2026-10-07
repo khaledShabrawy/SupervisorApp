@@ -29,6 +29,7 @@ const section = (name: 'AdminBranches' | 'AdminCustomers' | 'AdminProducts' | 'A
 const AdminBranches = section('AdminBranches'), AdminCustomers = section('AdminCustomers'), AdminProducts = section('AdminProducts'),
   AdminTargets = section('AdminTargets'), AdminAssets = section('AdminAssets'), AdminSurveys = section('AdminSurveys'),
   AdminNotifications = section('AdminNotifications'), AdminSettings = section('AdminSettings'), AdminAuditLogs = section('AdminAuditLogs');
+const BulkImport = lazy(() => import('@/admin/BulkTemplates').then(m => ({ default: m.BulkTemplates })));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
 const queryClient = new QueryClient({
@@ -58,6 +59,7 @@ function App() {
                     <Route path="notifications" element={<AdminNotifications />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="audit" element={<AdminAuditLogs />} />
+                    <Route path="bulk-import" element={<BulkImport />} />
                   </Route>
                   <Route element={<RequireAuth />}>
                     <Route index element={<Dashboard />} />
