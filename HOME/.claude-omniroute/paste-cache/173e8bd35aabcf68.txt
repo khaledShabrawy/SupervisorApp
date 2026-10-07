@@ -1,0 +1,23 @@
+Role & Objective:
+You are an expert Full-Stack Developer and Mobile App Architect. Review the entire project codebase, identify and fix all bugs, enhance the UI color scheme for high clarity and contrast, and finally build a clean, error-free production APK.
+
+Specific Requirements & Tasks to Implement:
+
+1. Code Review & Bug Fixing:
+   - Perform a comprehensive review of the codebase.
+   - Fix any logical, syntax, or runtime errors.
+   - Ensure seamless integration between frontend, backend/database (Supabase/APIs), and state management.
+
+2. UI/UX & Color Scheme Enhancements:
+   - Refactor the color palette to ensure clear visual hierarchy, high contrast, and accessibility.
+   - Specifically fix the Admin panel: Ensure the **"Logout" (زرار الخروج)** button is fully visible, properly aligned, interactive, and distinct.
+
+3. Feature Additions (Templates for Bulk Operations):
+   - **Bulk Customer Import Template:** Create a downloadable/pre-defined template (e.g., CSV/Excel structure or UI template) allowing admins/users to upload multiple customers simultaneously with validation.
+   - **Supervisor Plan Template:** Create a structured template for supervisor planning (Route/Target plans) so supervisors can easily import or assign structured plans.
+
+4. Build Production APK:
+   - After successfully implementing all fixes and enhancements, run the necessary build scripts to generate a clean, release-ready, and error-free Android APK package.
+   - Verify that there are no broken assets or compilation warnings during the build process.
+
+Please execute these steps sequentially and report progress for each task.

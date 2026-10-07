@@ -1,0 +1,91 @@
+import { Download } from '@/components/Icons';
+import { t } from '@/i18n';
+
+/** CSV template for bulk customer import */
+const CUSTOMER_CSV_TEMPLATE = `name,type,customer_type,owner_name,phone,address,latitude,longitude,branch,supervisor_id,is_active
+بقالة الأمل,بقالة,retail,أحمد محمد,01012345678,شارع النيل، القاهرة,30.0444,31.2357,القاهرة,,true
+سوبرماركت النور,سوبرماركت,wholesale,محمود علي,01098765432,ميدان التحرير، الجيزة,30.0626,31.2497,الجيزة,,true`;
+
+/** CSV template for supervisor beat plans */
+const BEAT_PLAN_CSV_TEMPLATE = `supervisor_id,day_of_week,customer_id,sequence
+,0,,1
+,0,,2
+,1,,1`;
+
+function downloadTemplate(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+export function BulkTemplates() {
+  return (
+    <div className="col" style={{ gap: 16 }}>
+      <h2>{t('قوالب الاستيراد الجماعي')}</h2>
+
+      <div className="card col">
+        <div className="title">{t('قالب استيراد العملاء')}</div>
+        <div className="muted">{t('قم بتنزيل القالب، املأ بيانات العملاء، ثم ارفعه للاستيراد.')}</div>
+        <div className="alert warn" style={{ fontSize: 13 }}>
+          <strong>{t('تنسيق الحقول:')}</strong>
+          <ul style={{ marginTop: 4, paddingInlineStart: 20 }}>
+            <li><code>name</code>: {t('اسم العميل (مطلوب)')}</li>
+            <li><code>type</code>: {t('النوع (بقالة، سوبرماركت، هايبرماركت، كيوسك، محل جملة، ضيافة، أخرى)')}</li>
+            <li><code>customer_type</code>: retail, wholesale</li>
+            <li><code>owner_name</code>: {t('اسم المسؤول')}</li>
+            <li><code>phone</code>: {t('رقم الهاتف')}</li>
+            <li><code>address</code>: {t('العنوان (مطلوب)')}</li>
+            <li><code>latitude</code>, <code>longitude</code>: {t('الإحداثيات (اختياري)')}</li>
+            <li><code>branch</code>: {t('اسم الفرع')}</li>
+            <li><code>supervisor_id</code>: {t('معرّف المشرف (اتركه فارغاً لتعيين لاحق)')}</li>
+            <li><code>is_active</code>: true / false</li>
+          </ul>
+        </div>
+        <button
+          className="btn ghost"
+          onClick={() => downloadTemplate('customers_template.csv', CUSTOMER_CSV_TEMPLATE)}
+        >
+          <Download size={18} /> {t('تنزيل قالب CSV للعملاء')}
+        </button>
+      </div>
+
+      <div className="card col">
+        <div className="title">{t('قالب خطة زيارات المشرف')}</div>
+        <div className="muted">{t('قم بتنزيل القالب، حدد خطط الزيارات اليومية لكل مشرف.')}</div>
+        <div className="alert warn" style={{ fontSize: 13 }}>
+          <strong>{t('تنسيق الحقول:')}</strong>
+          <ul style={{ marginTop: 4, paddingInlineStart: 20 }}>
+            <li><code>supervisor_id</code>: {t('معرّف المشرف (UUID)')}</li>
+            <li><code>day_of_week</code>: {t('اليوم (0=أحد، 1=إثنين، ... 6=سبت)')}</li>
+            <li><code>customer_id</code>: {t('معرّف العميل (UUID)')}</li>
+            <li><code>sequence</code>: {t('ترتيب الزيارة في اليوم (1، 2، 3...)')}</li>
+          </ul>
+        </div>
+        <button
+          className="btn ghost"
+          onClick={() => downloadTemplate('beat_plan_template.csv', BEAT_PLAN_CSV_TEMPLATE)}
+        >
+          <Download size={18} /> {t('تنزيل قالب CSV لخطة الزيارات')}
+        </button>
+      </div>
+
+      <div className="card col">
+        <div className="title">{t('ملاحظات هامة')}</div>
+        <ul className="muted" style={{ fontSize: 14, paddingInlineStart: 20, margin: 0 }}>
+          <li>{t('تأكد من استخدام ترميز UTF-8 عند حفظ ملف CSV لضمان ظهور الحروف العربية بشكل صحيح.')}</li>
+          <li>{t('يمكنك استخدام Excel أو Google Sheets لتحرير الملف، ثم حفظه بصيغة CSV.')}</li>
+          <li>{t('لا تقم بتعديل رؤوس الأعمدة (السطر الأول).')}</li>
+          <li>{t('للحصول على معرفات UUID للمشرفين والعملاء، راجع جداول المستخدمين والعملاء في لوحة الإدارة.')}</li>
+          <li>{t('سيتم تخطي الصفوف غير الصحيحة وإظهار تقرير بالأخطاء بعد الاستيراد.')}</li>
+        </ul>
+      </div>
+
+      <div className="alert ok">
+        <strong>{t('قريباً:')}</strong> {t('ميزة رفع وتحليل ملفات CSV ستكون متاحة في التحديث القادم. حالياً يمكنك تنزيل القوالب للإعداد المسبق.')}
+      </div>
+    </div>
+  );
+}

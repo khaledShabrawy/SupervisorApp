@@ -1,0 +1,98 @@
+{
+  "numStartups": 1,
+  "installMethod": "native",
+  "autoUpdates": false,
+  "customApiKeyResponses": {
+    "approved": [],
+    "rejected": [
+      "71e2-c829a0-4d2f69b7"
+    ]
+  },
+  "tipsHistory": {
+    "new-user-warmup": 1,
+    "plan-mode-for-complex-tasks": 1,
+    "terminal-setup": 1,
+    "vscode-gpu-accel-garbled-glyphs": 1,
+    "shift-enter-setup": 1,
+    "memory-command": 1,
+    "theme-command": 1
+  },
+  "promptQueueUseCount": 4,
+  "firstStartTime": "2026-10-07T17:51:33.096Z",
+  "firstStartVersion": "2.1.292",
+  "machineID": "ce0f4db3f0a8595858526eee6792a84b86060baeb368a0f1a75b7b46053a9b06",
+  "opusProMigrationComplete": true,
+  "sonnet1m45MigrationComplete": true,
+  "seenNotifications": {},
+  "hasResetAutoModeOptInForDefaultOffer": true,
+  "migrationVersion": 14,
+  "userID": "9571f9ecff1262b278952a7276a75c34164aa64b14018091d8230a32a1f6c7d7",
+  "changelogLastFetched": 1791395495166,
+  "hasCompletedOnboarding": true,
+  "lastOnboardingVersion": "2.1.292",
+  "projects": {
+    "C:/Users/Khaled.Mahmoud/Downloads/ReplitExport-khaledmahmoud32/Supabase-Scalable-Cross": {
+      "allowedTools": [],
+      "mcpContextUris": [],
+      "mcpServers": {},
+      "enabledMcpjsonServers": [],
+      "disabledMcpjsonServers": [],
+      "hasTrustDialogAccepted": true,
+      "hasClaudeMdExternalIncludesApproved": false,
+      "hasClaudeMdExternalIncludesWarningShown": false,
+      "lastGracefulShutdown": false,
+      "lastVersionBase": "2.1.292"
+    }
+  },
+  "githubRepoPaths": {
+    "khaledshabrawy/supervisorapp": [
+      "C:\\Users\\Khaled.Mahmoud\\Downloads\\ReplitExport-khaledmahmoud32\\Supabase-Scalable-Cross"
+    ]
+  },
+  "lastReleaseNotesSeen": "2.1.292",
+  "pluginUsage": {
+    "cc-plugin-agents-md@builtin": {
+      "usageCount": 0,
+      "lastUsedAt": 1791395692308,
+      "lastUsedNumStartups": 1
+    },
+    "cc-plugin-telemetry@builtin": {
+      "usageCount": 0,
+      "lastUsedAt": 1791395692308,
+      "lastUsedNumStartups": 1
+    },
+    "cc-plugin-plugin-authoring@builtin": {
+      "usageCount": 0,
+      "lastUsedAt": 1791395692308,
+      "lastUsedNumStartups": 1
+    },
+    "cc-plugin-diff@builtin": {
+      "usageCount": 0,
+      "lastUsedAt": 1791395692308,
+      "lastUsedNumStartups": 1
+    }
+  },
+  "autoUpdatesProtectedForNative": true,
+  "closedIssuesLastChecked": 1791395691800,
+  "officialMarketplaceAutoInstallAttempted": true,
+  "officialMarketplaceAutoInstalled": false,
+  "officialMarketplaceAutoInstallFailReason": "unknown",
+  "officialMarketplaceAutoInstallRetryCount": 1,
+  "officialMarketplaceAutoInstallLastAttemptTime": 1791395722798,
+  "officialMarketplaceAutoInstallNextRetryTime": 1791402922798,
+  "tipLifetimeShownCounts": {
+    "new-user-warmup": 1,
+    "plan-mode-for-complex-tasks": 1,
+    "terminal-setup": 1,
+    "vscode-gpu-accel-garbled-glyphs": 1,
+    "shift-enter-setup": 1,
+    "memory-command": 1,
+    "theme-command": 1
+  },
+  "tipsHistoryByCommand": {
+    "memory": {
+      "tipId": "memory-command",
+      "numStartups": 1
+    }
+  }
+}
