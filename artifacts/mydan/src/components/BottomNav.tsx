@@ -23,7 +23,7 @@ export function BottomNav() {
       <Link key={to} to={to} aria-current={selected === to ? 'page' : undefined} className={selected === to ? 'active' : ''} data-testid={`tab-${to}`}>
         <Icon size={24} />
         {to === '/notifications' && unread.isError && <span className="dot" aria-label={t('تعذر قراءة عدد الإشعارات')}>!</span>}
-        {to === '/notificationst(' && n > 0 && <span className="dot" aria-label={`${num(n)} غير مقروء`}>{n > 99 ? ')99+' : num(n)}</span>}
+        {to === '/notifications' && n > 0 && <span className="dot" aria-label={`${num(n)} غير مقروء`}>{n > 99 ? '99+' : num(n)}</span>}
         <span>{label}</span>
       </Link>
     ))}

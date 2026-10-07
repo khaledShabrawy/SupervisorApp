@@ -162,7 +162,7 @@ export default function VisitDetailScreen() {
     if (!id || !detail.data) return;
     if (!isVisitOutcome(detail.data.visit_outcome)) { notify(t('اختر نتيجة الزيارة أولاً: متعامل / غير متعامل / غير موجود'), 'error'); return; }
     // Mandatory tasks only apply when the outlet is trading with us.
-    const open = detail.data.visit_outcome === t('متعامل')
+    const open = detail.data.visit_outcome === 'متعامل'
       ? detail.data.visit_tasks.filter((t) => t.is_mandatory && !t.is_completed).length : 0;
     const msg = open ? t('توجد {n} مهام إلزامية غير منجزة. إنهاء الزيارة على أي حال؟', { n: open }) : t('إنهاء الزيارة وتسجيل الخروج؟');
     if (!window.confirm(msg)) return;
