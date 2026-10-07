@@ -31,7 +31,7 @@ export function useAdminKpis() {
         count('assets', (q) => q.eq('is_active', true)),
         count('asset_tickets', (q) => q.in('status', ['open', 'dispatched', 'in_progress'])),
         supabase.from('shelf_audit').select('audit_score').eq('company_id', sc.companyId).eq('status', 'completed')
-          .gte('audited_at', since).not('audit_score', 'is', null).limit(1000).abortSignal(signal),
+          .gte('created_at', since).not('audit_score', 'is', null).limit(1000).abortSignal(signal),
       ]);
       if (scores.error) fail('تعذر حساب متوسط PSS.', scores.error);
       const list = (scores.data ?? []).map((r) => Number(r.audit_score));
@@ -153,12 +153,12 @@ export const ASSET_STATUS: Record<string, [string, string]> = {
   active: ['يعمل', 'b-green'], defective: ['معطل', 'b-red'], under_maintenance: ['تحت الصيانة', 'b-yellow'], retired: ['خارج الخدمة', 'b-gray'],
 };
 export type AssetRow = { id: string; asset_code: string; asset_type_id: string; customer_id: string | null; serial_number: string | null;
-  model: string | null; status: string; notes: string | null; is_active: boolean;
+  model: string | null; status: string; is_active: boolean;
   asset_types: { name_ar: string; icon: string } | null; customers: { name: string } | null };
 export function useAssets(search: string) {
   const sc = useScope();
   return usePaged<AssetRow>(sc, 'assets', [search], async (from, to, signal) => {
-    let q = supabase.from('assets').select('id,asset_code,asset_type_id,customer_id,serial_number,model,status,notes,is_active,asset_types(name_ar,icon),customers(name)')
+    let q = supabase.from('assets').select('id,asset_code,asset_type_id,customer_id,serial_number,model,status,is_active,asset_types(name_ar,icon),customers(name)')
       .eq('company_id', sc.companyId);
     const s = search.trim().replace(/[%,()]/g, '');
     if (s) q = q.or(`asset_code.ilike.%${s}%,serial_number.ilike.%${s}%`);
@@ -170,10 +170,10 @@ export function useAssets(search: string) {
 export function useSaveAsset() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (a: { id?: string; asset_code: string; asset_type_id: string; customer_id: string; serial_number: string; model: string; status: string; notes: string }) => {
+    mutationFn: async (a: { id?: string; asset_code: string; asset_type_id: string; customer_id: string; serial_number: string; model: string; status: string }) => {
       requireAdmin(sc);
       const values = { asset_code: a.asset_code.trim(), asset_type_id: a.asset_type_id, customer_id: a.customer_id || null,
-        serial_number: a.serial_number.trim() || null, model: a.model.trim() || null, status: a.status, notes: a.notes.trim() || null };
+        serial_number: a.serial_number.trim() || null, model: a.model.trim() || null, status: a.status };
       if (!values.asset_code || !values.asset_type_id) throw new Error('كود الأصل ونوعه مطلوبان.');
       if (!(values.status in ASSET_STATUS)) throw new Error('حالة الأصل غير صالحة.');
       const r = a.id

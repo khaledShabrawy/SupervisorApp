@@ -109,11 +109,11 @@ function AssetForm({ edit, types, onClose }: { edit: AssetRow | null; types: { i
   const m = useSaveAsset();
   const [code, setCode] = useState(edit?.asset_code ?? ''); const [type, setType] = useState(edit?.asset_type_id ?? types[0]?.id ?? '');
   const [serial, setSerial] = useState(edit?.serial_number ?? ''); const [model, setModel] = useState(edit?.model ?? '');
-  const [status, setStatus] = useState(edit?.status ?? 'active'); const [notes, setNotes] = useState(edit?.notes ?? '');
+  const [status, setStatus] = useState(edit?.status ?? 'active');
   const [customer, setCustomer] = useState<{ id: string; name: string } | null>(edit?.customer_id ? { id: edit.customer_id, name: edit.customers?.name ?? '' } : null);
   const [term, setTerm] = useState(''); const found = useCustomerSearch(useDebouncedValue(term, 300)); const onTerm = useInput(setTerm);
   const submit = useCallback((e: FormEvent) => { e.preventDefault();
-    m.mutate({ id: edit?.id, asset_code: code, asset_type_id: type, customer_id: customer?.id ?? '', serial_number: serial, model, status, notes }, { onSuccess: onClose });
+    m.mutate({ id: edit?.id, asset_code: code, asset_type_id: type, customer_id: customer?.id ?? '', serial_number: serial, model, status }, { onSuccess: onClose });
   }, [m, edit, code, type, customer, serial, model, status, notes, onClose]);
   return <Modal title={edit ? t('تعديل الأصل') : t('أصل جديد')} onClose={onClose} onSubmit={submit}>
     <label className="f">{t('كود الأصل * (يُطبع كـ QR)')}<input className="input" dir="ltr" required value={code} onChange={useInput(setCode)} data-testid="input-asset-code" /></label>
@@ -128,7 +128,6 @@ function AssetForm({ edit, types, onClose }: { edit: AssetRow | null; types: { i
         : <><input className="input" placeholder={t('ابحث عن عميل...')} value={term} onChange={onTerm} />
           {term && found.data?.slice(0, 5).map((c) => <button key={c.id} type="button" className="chip" style={{ textAlign: 'start' }} onClick={() => { setCustomer(c); setTerm(''); }}>{c.name}</button>)}</>}
     </div>
-    <label className="f">{t('ملاحظات')}<textarea className="input" rows={2} value={notes} onChange={useInput(setNotes)} /></label>
     <button className="btn" disabled={m.isPending || !types.length}>{m.isPending ? t('جاري الحفظ...') : t('حفظ')}</button>
   </Modal>;
 }
