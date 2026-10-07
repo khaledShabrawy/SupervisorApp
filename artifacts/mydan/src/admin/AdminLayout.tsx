@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { ArrowRight, BarChart3, Bell, ClipboardList, FileText, Home, LogOut, MapPin, Package, Settings2, ShieldCheck, Store, Target, Users } from '@/components/Icons';
+import { ArrowRight, BarChart3, Bell, ClipboardList, Download, FileText, Home, LogOut, MapPin, Package, Settings2, ShieldCheck, Store, Target, Users } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { canAdmin } from '@/lib/policy';
@@ -22,6 +22,7 @@ export const ADMIN_NAV = [
   { to: '/admin/notifications', label: t('الإشعارات'), icon: Bell },
   { to: '/admin/settings', label: t('إعدادات الشركة'), icon: Settings2 },
   { to: '/admin/audit', label: t('سجل المراجعة'), icon: ClipboardList },
+  { to: '/admin/bulk-import', label: t('استيراد جماعي'), icon: Download },
 ] as const;
 
 /** Auth + role gate for /admin/*; renders the desktop admin shell instead of the mobile one. */
@@ -58,7 +59,7 @@ export default function AdminLayout() {
       <div className="adm-foot">
         <LanguageToggle className="btn sm ghost" />
         <NavLink to="/" className="row" style={{ textDecoration: 'none', minHeight: 44 }}><ArrowRight size={18} className="flip-ltr" />{t('العودة للتطبيق')}</NavLink>
-        <button className="row icon-btn" style={{ justifyContent: 'flex-start', gap: 10, font: 'inherit' }} onClick={logout}><LogOut size={18} />{t('تسجيل الخروج')}</button>
+        <button className="row icon-btn logout-btn" style={{ justifyContent: 'flex-start', gap: 10, font: 'inherit' }} onClick={logout}><LogOut size={18} />{t('تسجيل الخروج')}</button>
       </div>
     </aside>
     <main className="adm-main">

@@ -177,7 +177,7 @@ function AssetForm({ edit, types, onClose }: { edit: AssetRow | null; types: { i
   const [term, setTerm] = useState(''); const found = useCustomerSearch(useDebouncedValue(term, 300)); const onTerm = useInput(setTerm);
   const submit = useCallback((e: FormEvent) => { e.preventDefault();
     m.mutate({ id: edit?.id, asset_code: code, asset_type_id: type, customer_id: customer?.id ?? '', serial_number: serial, model, status }, { onSuccess: onClose });
-  }, [m, edit, code, type, customer, serial, model, status, notes, onClose]);
+  }, [m, edit, code, type, customer, serial, model, status, onClose]);
   return <Modal title={edit ? t('تعديل الأصل') : t('أصل جديد')} onClose={onClose} onSubmit={submit}>
     <label className="f">{t('كود الأصل * (يُطبع كـ QR)')}<input className="input" dir="ltr" required value={code} onChange={useInput(setCode)} data-testid="input-asset-code" /></label>
     <label className="f">{t('النوع *')}<select className="input" required value={type} onChange={useInput(setType)}>
