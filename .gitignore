@@ -11,6 +11,9 @@ out-tsc
 # dependencies
 node_modules
 
+# npm lockfile — project uses pnpm (pnpm-lock.yaml is the source of truth)
+package-lock.json
+
 # IDEs and editors
 /.idea
 .project
