@@ -244,7 +244,8 @@ export function useUploadLogo() {
       if (!['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'].includes(file.type)) throw new Error('الشعار يجب أن يكون PNG أو JPG أو WEBP أو SVG.');
       if (file.size > 1024 * 1024) throw new Error('حجم الشعار أكبر من 1 ميجابايت.');
       const ext = file.type === 'image/svg+xml' ? 'svg' : file.type.split('/')[1].replace('jpeg', 'jpg');
-      const path = `${sc.companyId}/logo-${crypto.randomUUID()}.${ext}`;
+      const uid = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
+      const path = `${sc.companyId}/logo-${uid}.${ext}`;
       const up = await supabase.storage.from(LOGO_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
       if (up.error) fail(t('تعذر رفع الشعار. تأكد من إنشاء الحاوية "{bucket}".', { bucket: LOGO_BUCKET }), up.error);
       return supabase.storage.from(LOGO_BUCKET).getPublicUrl(path).data.publicUrl;
