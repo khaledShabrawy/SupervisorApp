@@ -24,11 +24,11 @@ const Notifications = lazy(() => import('@/screens/NotificationsScreen'));
 const SetPassword = lazy(() => import('@/screens/SetPasswordScreen'));
 const AdminDashboard = lazy(() => import('@/admin/AdminDashboard'));
 const AdminUsers = lazy(() => import('@/admin/AdminUsers'));
-const section = (name: 'AdminBranches' | 'AdminCustomers' | 'AdminProducts' | 'AdminTargets' | 'AdminAssets' | 'AdminNotifications' | 'AdminSettings' | 'AdminAuditLogs') =>
+const section = (name: 'AdminBranches' | 'AdminCustomers' | 'AdminProducts' | 'AdminTargets' | 'AdminAssets' | 'AdminSurveys' | 'AdminNotifications' | 'AdminSettings' | 'AdminAuditLogs') =>
   lazy(() => import('@/admin/AdminSections').then((m) => ({ default: m[name] })));
 const AdminBranches = section('AdminBranches'), AdminCustomers = section('AdminCustomers'), AdminProducts = section('AdminProducts'),
-  AdminTargets = section('AdminTargets'), AdminAssets = section('AdminAssets'), AdminNotifications = section('AdminNotifications'),
-  AdminSettings = section('AdminSettings'), AdminAuditLogs = section('AdminAuditLogs');
+  AdminTargets = section('AdminTargets'), AdminAssets = section('AdminAssets'), AdminSurveys = section('AdminSurveys'),
+  AdminNotifications = section('AdminNotifications'), AdminSettings = section('AdminSettings'), AdminAuditLogs = section('AdminAuditLogs');
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
 const queryClient = new QueryClient({
@@ -54,6 +54,7 @@ function App() {
                     <Route path="products" element={<AdminProducts />} />
                     <Route path="targets" element={<AdminTargets />} />
                     <Route path="assets" element={<AdminAssets />} />
+                    <Route path="surveys" element={<AdminSurveys />} />
                     <Route path="notifications" element={<AdminNotifications />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="audit" element={<AdminAuditLogs />} />

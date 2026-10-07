@@ -45,7 +45,7 @@ export function useScreenDashboard() {
     queryFn: async ({ signal }) => {
       const [visits, audits, actualVisits, targets, recent] = await Promise.all([
         countRows(sc, 'visits', signal, q => q.eq('visit_date', day.start)),
-        countRows(sc, 'shelf_audit', signal, q => q.gte('audited_at', day.startIso).lt('audited_at', day.endIso)),
+        countRows(sc, 'shelf_audit', signal, q => q.gte('created_at', day.startIso).lt('created_at', day.endIso)),
         countRows(sc, 'visits', signal, q => q.eq('status', 'completed').gte('visit_date', mr.start).lt('visit_date', mr.end)),
         targetsFor(sc, month, year, signal),
         sc.scope(supabase.from('visits').select(VISIT_JOIN)).order('visit_date', { ascending: false })
