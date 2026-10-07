@@ -257,7 +257,7 @@ export function useShelfAudits() {
   const sc = useScope();
   return usePaged<ShelfAudit>(sc, 'audits', [], async (from, to, signal) => {
     const { data, error } = await sc.scope(supabase.from('shelf_audit').select(AUDIT_COLUMNS))
-      .order('audited_at', { ascending: false, nullsFirst: true }).order('id').range(from, to).abortSignal(signal);
+      .order('created_at', { ascending: false, nullsFirst: true }).order('id').range(from, to).abortSignal(signal);
     if (error) fail('تعذر تحميل سجلات الرف.', error);
     return Promise.all((data as ShelfAudit[]).map(async (audit) => {
       if (!audit.photo_url || /^https:\/\//.test(audit.photo_url)) return audit;

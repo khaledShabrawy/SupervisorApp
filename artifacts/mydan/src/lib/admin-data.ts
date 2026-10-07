@@ -234,6 +234,91 @@ export function useAuditLogs(tableFilter: string) {
   }, sc.isAdmin);
 }
 
+/* ---------- Admin Customers ---------- */
+export type AdminCustomerRow = {
+  id: string; name: string; type: string; customer_type: string | null;
+  owner_name: string | null; phone: string | null; address: string;
+  latitude: number | null; longitude: number | null; branch: string | null;
+  supervisor_id: string | null; is_active: boolean;
+  supervisors: { full_name: string } | null;
+};
+export function useAdminCustomers(search: string) {
+  const sc = useScope();
+  return usePaged<AdminCustomerRow>(sc, 'admin-customers', [search], async (from, to, signal) => {
+    const term = search.trim().replace(/[%,()]/g, '');
+    let q = supabase.from('customers')
+      .select('id,name,type,customer_type,owner_name,phone,address,latitude,longitude,branch,supervisor_id,is_active,supervisors(full_name)')
+      .eq('company_id', sc.companyId);
+    if (term) q = q.or(`name.ilike.%${term}%,phone.ilike.%${term}%,address.ilike.%${term}%`);
+    const { data, error } = await q.order('name').order('id').range(from, to).abortSignal(signal);
+    if (error) fail('تعذر تحميل العملاء.', error);
+    return data as unknown as AdminCustomerRow[];
+  }, sc.isAdmin);
+}
+export function useSaveAdminCustomer() {
+  const sc = useScope(); const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (c: { id?: string; name: string; type: string; owner_name: string; phone: string;
+      address: string; latitude: number | null; longitude: number | null;
+      branch: string; supervisor_id: string; is_active: boolean }) => {
+      requireAdmin(sc);
+      if (!c.name.trim() || !c.type.trim() || !c.address.trim()) throw new Error('الاسم والنوع والعنوان مطلوبة.');
+      const values = { name: c.name.trim(), type: c.type.trim(), owner_name: c.owner_name.trim() || null,
+        phone: c.phone.trim() || null, address: c.address.trim(), latitude: c.latitude, longitude: c.longitude,
+        branch: c.branch.trim() || null, supervisor_id: c.supervisor_id || null, is_active: c.is_active };
+      const r = c.id
+        ? await supabase.from('customers').update(values).eq('id', c.id).eq('company_id', sc.companyId).select('id')
+        : await supabase.from('customers').insert({ ...values, company_id: sc.companyId }).select('id');
+      if (r.error) fail('تعذر حفظ العميل.', r.error);
+      if (!r.data?.length) throw new Error('لم يتم الحفظ. قد لا تملك الصلاحية.');
+    },
+    onSuccess: () => { notify('تم حفظ العميل', 'success'); void invalidate(qc, sc, 'admin-customers', 'customers'); },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+/* ---------- Surveys ---------- */
+export type SurveyQuestion = { text: string; type: 'text' | 'rating' | 'choice'; options?: string[] };
+export type SurveyRow = { id: string; title: string; questions: SurveyQuestion[];
+  target_customer_type: string | null; is_mandatory: boolean; is_active: boolean;
+  valid_from: string | null; valid_to: string | null };
+export function useAdminSurveys() {
+  const sc = useScope();
+  return useQuery({
+    queryKey: [...sc.base, 'surveys'], enabled: sc.isAdmin, retry: 1,
+    queryFn: async ({ signal }) => {
+      const { data, error } = await supabase.from('surveys')
+        .select('id,title,questions,target_customer_type,is_mandatory,is_active,valid_from,valid_to')
+        .eq('company_id', sc.companyId).order('created_at', { ascending: false }).abortSignal(signal);
+      if (error) fail('تعذر تحميل الاستبيانات.', error);
+      return data as SurveyRow[];
+    },
+  });
+}
+export function useSaveSurvey() {
+  const sc = useScope(); const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (s: { id?: string; title: string; questions: SurveyQuestion[];
+      target_customer_type: string; is_mandatory: boolean; is_active: boolean;
+      valid_from: string; valid_to: string }) => {
+      requireAdmin(sc);
+      if (!s.title.trim()) throw new Error('عنوان الاستبيان مطلوب.');
+      if (!s.questions.length) throw new Error('أضف سؤالاً واحداً على الأقل.');
+      if (s.questions.some((q) => !q.text.trim())) throw new Error('يجب أن يكون لكل سؤال نص.');
+      const values = { title: s.title.trim(), questions: s.questions,
+        target_customer_type: s.target_customer_type || null, is_mandatory: s.is_mandatory,
+        is_active: s.is_active, valid_from: s.valid_from || null, valid_to: s.valid_to || null };
+      const r = s.id
+        ? await supabase.from('surveys').update(values).eq('id', s.id).eq('company_id', sc.companyId).select('id')
+        : await supabase.from('surveys').insert({ ...values, company_id: sc.companyId }).select('id');
+      if (r.error) fail('تعذر حفظ الاستبيان.', r.error);
+      if (!r.data?.length) throw new Error('لم يتم الحفظ. قد لا تملك الصلاحية.');
+    },
+    onSuccess: () => { notify('تم حفظ الاستبيان', 'success'); void invalidate(qc, sc, 'surveys'); },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
 /* ---------- Company logo ---------- */
 export const LOGO_BUCKET = 'company-logos';
 export function useUploadLogo() {

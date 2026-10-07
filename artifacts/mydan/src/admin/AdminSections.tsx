@@ -2,18 +2,19 @@ import { useCallback, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
-import { Bell, MapPin, Package, Plus, X } from '@/components/Icons';
+import { Bell, FileText, MapPin, Package, Plus, Store, X } from '@/components/Icons';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useCustomerSearch, useSupervisors } from '@/lib/data';
 import { useAdminProducts, useSaveSettings, type CatalogProduct } from '@/lib/screen-data';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
-  ASSET_STATUS, useAssets, useAuditLogs, useBranches, useBroadcast, useSaveAsset, useSaveBranch, useSaveProduct, useUploadLogo,
-  type AssetRow, type AuditRow, type Branch,
+  ASSET_STATUS, useAdminCustomers, useAdminSurveys, useAssets, useAuditLogs, useBranches, useBroadcast,
+  useSaveAdminCustomer, useSaveAsset, useSaveBranch, useSaveProduct, useSaveSurvey, useUploadLogo,
+  type AdminCustomerRow, type AssetRow, type AuditRow, type Branch, type SurveyQuestion, type SurveyRow,
 } from '@/lib/admin-data';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
 import EmptyState from '@/components/EmptyState';
-import CustomersScreen from '@/screens/CustomersScreen';
+import type { Supervisor } from '@/types/database';
 import { AssetTypes, SettingsForm, TargetForm } from '@/screens/AdminPanel';
 import { useInput, useRefetch } from '@/screens/shared';
 import { t } from '@/i18n';
@@ -67,8 +68,70 @@ export function AdminBranches() {
   </>;
 }
 
-/* ---------- Customers / Targets (reuse the existing screens) ---------- */
-export function AdminCustomers() { return <CustomersScreen />; }
+/* ---------- Customers ---------- */
+const CUST_TYPES = ['بقالة', 'سوبرماركت', 'هايبرماركت', 'كيوسك', 'محل جملة', 'ضيافة', 'أخرى'];
+function CustomerForm({ edit, sups, onClose }: { edit: AdminCustomerRow | null; sups: Supervisor[]; onClose: () => void }) {
+  const m = useSaveAdminCustomer();
+  const [name, setName] = useState(edit?.name ?? ''); const [type, setType] = useState(edit?.type ?? CUST_TYPES[0]);
+  const [ownerName, setOwnerName] = useState(edit?.owner_name ?? ''); const [phone, setPhone] = useState(edit?.phone ?? '');
+  const [address, setAddress] = useState(edit?.address ?? ''); const [branch, setBranch] = useState(edit?.branch ?? '');
+  const [lat, setLat] = useState(edit?.latitude?.toString() ?? ''); const [lng, setLng] = useState(edit?.longitude?.toString() ?? '');
+  const [supId, setSupId] = useState(edit?.supervisor_id ?? ''); const [active, setActive] = useState(edit?.is_active ?? true);
+  const numOrNull = (v: string) => (v.trim() === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+  const submit = useCallback((e: FormEvent) => { e.preventDefault();
+    m.mutate({ id: edit?.id, name, type, owner_name: ownerName, phone, address,
+      latitude: numOrNull(lat), longitude: numOrNull(lng), branch, supervisor_id: supId, is_active: active },
+      { onSuccess: onClose });
+  }, [m, edit, name, type, ownerName, phone, address, lat, lng, branch, supId, active, onClose]);
+  return <Modal title={edit ? t('تعديل العميل') : t('عميل جديد')} onClose={onClose} onSubmit={submit}>
+    <label className="f">{t('اسم العميل *')}<input className="input" required value={name} onChange={useInput(setName)} /></label>
+    <div className="row">
+      <label className="f grow">{t('النوع *')}<select className="input" required value={type} onChange={useInput(setType)}>
+        {CUST_TYPES.map((tp) => <option key={tp} value={tp}>{tp}</option>)}</select></label>
+      <label className="f grow">{t('المسؤول')}<input className="input" value={ownerName} onChange={useInput(setOwnerName)} /></label>
+    </div>
+    <div className="row">
+      <label className="f grow">{t('الهاتف')}<input className="input" dir="ltr" inputMode="tel" value={phone} onChange={useInput(setPhone)} /></label>
+      <label className="f grow">{t('الفرع')}<input className="input" value={branch} onChange={useInput(setBranch)} /></label>
+    </div>
+    <label className="f">{t('العنوان *')}<input className="input" required value={address} onChange={useInput(setAddress)} /></label>
+    <div className="row">
+      <label className="f grow">{t('خط العرض')}<input className="input" dir="ltr" inputMode="decimal" value={lat} onChange={useInput(setLat)} /></label>
+      <label className="f grow">{t('خط الطول')}<input className="input" dir="ltr" inputMode="decimal" value={lng} onChange={useInput(setLng)} /></label>
+    </div>
+    <label className="f">{t('المشرف المسؤول')}<select className="input" value={supId} onChange={useInput(setSupId)}>
+      <option value="">{t('بدون')}</option>{sups.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}</select></label>
+    <label className="row" style={{ minHeight: 44 }}><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} style={{ width: 22, height: 22 }} /> {t('عميل نشط')}</label>
+    <button className="btn" disabled={m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ')}</button>
+  </Modal>;
+}
+export function AdminCustomers() {
+  const [search, setSearch] = useState(''); const q = useAdminCustomers(useDebouncedValue(search, 300));
+  const sups = useSupervisors(); const retry = useRefetch(q.refetch);
+  const [edit, setEdit] = useState<AdminCustomerRow | null | undefined>(undefined);
+  return <>
+    <div className="row between"><h2>{t('العملاء')}</h2>
+      <button className="btn" onClick={() => setEdit(null)}><Plus size={18} /> {t('عميل جديد')}</button></div>
+    <input className="input" placeholder={t('ابحث بالاسم أو الهاتف أو العنوان...')} value={search} onChange={useInput(setSearch)} style={{ maxWidth: 420 }} />
+    {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
+      : !q.items.length ? <EmptyState icon={<Store />} title={t('لا يوجد عملاء')} action={{ label: t('إضافة عميل'), onClick: () => setEdit(null) }} />
+      : <div className="adm-table-wrap"><table className="adm-table">
+          <thead><tr><th>{t('الاسم')}</th><th>{t('النوع')}</th><th>{t('الهاتف')}</th><th>{t('المشرف')}</th><th>{t('الحالة')}</th><th /></tr></thead>
+          <tbody>{q.items.map((c) => <tr key={c.id}>
+            <td><div className="title">{c.name}</div><div className="muted" style={{ fontSize: 12 }}>{c.address}</div></td>
+            <td>{c.type}</td>
+            <td dir="ltr" style={{ textAlign: 'start' }}>{c.phone ?? '—'}</td>
+            <td>{c.supervisors?.full_name ?? '—'}</td>
+            <td><span className={`badge ${c.is_active ? 'b-green' : 'b-gray'}`}>{c.is_active ? t('نشط') : t('متوقف')}</span></td>
+            <td><button className="btn sm ghost" onClick={() => setEdit(c)}>{t('تعديل')}</button></td>
+          </tr>)}</tbody>
+        </table></div>}
+    <LoadMore q={q} />
+    {edit !== undefined && <CustomerForm edit={edit} sups={sups.items} onClose={() => setEdit(undefined)} />}
+  </>;
+}
+
+/* ---------- Targets (reuse AdminPanel form) ---------- */
 export function AdminTargets() { return <><h2>{t('الأهداف الشهرية')}</h2><div style={{ maxWidth: 560 }}><TargetForm /></div></>; }
 
 /* ---------- Products (catalog only; pricing is out of scope by design) ---------- */
@@ -260,6 +323,79 @@ export function AdminAuditLogs() {
           </tr>)}</tbody>
         </table></div>}
     <LoadMore q={q} />
+  </>;
+}
+
+/* ---------- Surveys ---------- */
+function SurveyForm({ edit, onClose }: { edit: SurveyRow | null; onClose: () => void }) {
+  const m = useSaveSurvey();
+  const [title, setTitle] = useState(edit?.title ?? '');
+  const [targetType, setTargetType] = useState(edit?.target_customer_type ?? '');
+  const [mandatory, setMandatory] = useState(edit?.is_mandatory ?? false);
+  const [active, setActive] = useState(edit?.is_active ?? true);
+  const [validFrom, setValidFrom] = useState(edit?.valid_from?.slice(0, 10) ?? '');
+  const [validTo, setValidTo] = useState(edit?.valid_to?.slice(0, 10) ?? '');
+  const [questions, setQuestions] = useState<SurveyQuestion[]>(edit?.questions ?? []);
+  const addQ = useCallback(() => setQuestions((q) => [...q, { text: '', type: 'text' }]), []);
+  const removeQ = useCallback((i: number) => setQuestions((q) => q.filter((_, idx) => idx !== i)), []);
+  const updateQ = useCallback((i: number, field: keyof SurveyQuestion, val: string) =>
+    setQuestions((q) => q.map((item, idx) => idx === i ? { ...item, [field]: val } : item)), []);
+  const submit = useCallback((e: FormEvent) => { e.preventDefault();
+    m.mutate({ id: edit?.id, title, questions, target_customer_type: targetType,
+      is_mandatory: mandatory, is_active: active, valid_from: validFrom, valid_to: validTo }, { onSuccess: onClose });
+  }, [m, edit, title, questions, targetType, mandatory, active, validFrom, validTo, onClose]);
+  return <Modal title={edit ? t('تعديل الاستبيان') : t('استبيان جديد')} onClose={onClose} onSubmit={submit}>
+    <label className="f">{t('عنوان الاستبيان *')}<input className="input" required value={title} onChange={useInput(setTitle)} /></label>
+    <div className="row">
+      <label className="f grow">{t('نوع العميل المستهدف')}<input className="input" placeholder={t('الكل')} value={targetType} onChange={useInput(setTargetType)} /></label>
+    </div>
+    <div className="row">
+      <label className="f grow">{t('من تاريخ')}<input className="input" type="date" value={validFrom} onChange={useInput(setValidFrom)} /></label>
+      <label className="f grow">{t('إلى تاريخ')}<input className="input" type="date" value={validTo} onChange={useInput(setValidTo)} /></label>
+    </div>
+    <div className="row" style={{ gap: 24 }}>
+      <label className="row"><input type="checkbox" checked={mandatory} onChange={(e) => setMandatory(e.target.checked)} style={{ width: 20, height: 20 }} /> {t('إلزامي')}</label>
+      <label className="row"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} style={{ width: 20, height: 20 }} /> {t('نشط')}</label>
+    </div>
+    <div className="title" style={{ marginTop: 8 }}>{t('الأسئلة')}</div>
+    {questions.map((q, i) => <div key={i} className="card col" style={{ gap: 6, padding: '10px 12px' }}>
+      <div className="row between">
+        <span className="muted" style={{ fontSize: 12 }}>{t('سؤال')} {i + 1}</span>
+        <button type="button" className="icon-btn" onClick={() => removeQ(i)}><X size={16} /></button>
+      </div>
+      <input className="input" placeholder={t('نص السؤال *')} value={q.text}
+        onChange={(e) => updateQ(i, 'text', e.target.value)} required />
+      <select className="input" value={q.type} onChange={(e) => updateQ(i, 'type', e.target.value)}>
+        <option value="text">{t('نص حر')}</option>
+        <option value="rating">{t('تقييم (1-5)')}</option>
+        <option value="choice">{t('اختيار من متعدد')}</option>
+      </select>
+    </div>)}
+    <button type="button" className="btn ghost" onClick={addQ}><Plus size={16} /> {t('إضافة سؤال')}</button>
+    <button className="btn" disabled={m.isPending || !questions.length}>
+      {m.isPending ? t('جاري الحفظ...') : t('حفظ')}</button>
+  </Modal>;
+}
+export function AdminSurveys() {
+  const q = useAdminSurveys(); const retry = useRefetch(q.refetch);
+  const [edit, setEdit] = useState<SurveyRow | null | undefined>(undefined);
+  return <>
+    <div className="row between"><h2>{t('الاستبيانات')}</h2>
+      <button className="btn" onClick={() => setEdit(null)}><Plus size={18} /> {t('استبيان جديد')}</button></div>
+    {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
+      : !q.data?.length ? <EmptyState icon={<FileText />} title={t('لا توجد استبيانات')} action={{ label: t('إنشاء استبيان'), onClick: () => setEdit(null) }} />
+      : <div className="adm-table-wrap"><table className="adm-table">
+          <thead><tr><th>{t('العنوان')}</th><th>{t('الأسئلة')}</th><th>{t('الفترة')}</th><th>{t('الحالة')}</th><th /></tr></thead>
+          <tbody>{q.data.map((s) => <tr key={s.id}>
+            <td><div className="title">{s.title}</div>{s.is_mandatory && <span className="badge b-red" style={{ fontSize: 11 }}>{t('إلزامي')}</span>}</td>
+            <td>{s.questions.length}</td>
+            <td style={{ fontSize: 12, direction: 'ltr', textAlign: 'start' }}>
+              {s.valid_from ? `${s.valid_from.slice(0, 10)} → ${s.valid_to?.slice(0, 10) ?? '∞'}` : '—'}</td>
+            <td><span className={`badge ${s.is_active ? 'b-green' : 'b-gray'}`}>{s.is_active ? t('نشط') : t('متوقف')}</span></td>
+            <td><button className="btn sm ghost" onClick={() => setEdit(s)}>{t('تعديل')}</button></td>
+          </tr>)}</tbody>
+        </table></div>}
+    {edit !== undefined && <SurveyForm edit={edit} onClose={() => setEdit(undefined)} />}
   </>;
 }
 
