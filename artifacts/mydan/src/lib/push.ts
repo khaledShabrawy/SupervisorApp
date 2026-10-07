@@ -5,10 +5,11 @@ import { useCallback, useEffect, useState } from 'react';
 
 const VAPID_PUBLIC = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
 
-function urlB64ToUint8(base64: string): Uint8Array {
+function urlB64ToUint8(base64: string): Uint8Array<ArrayBuffer> {
   const b64 = base64.replace(/-/g, '+').replace(/_/g, '/');
   const raw = atob(b64);
-  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  const arr = Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  return new Uint8Array(arr.buffer as ArrayBuffer);
 }
 
 async function getOrCreateSub(): Promise<PushSubscription | null> {
