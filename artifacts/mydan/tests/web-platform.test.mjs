@@ -5,11 +5,17 @@ import { readFileSync, existsSync } from 'node:fs';
 const approved = new Set(['react', 'react-dom', 'react-router-dom', '@supabase/supabase-js',
   '@tanstack/react-query', 'vite', 'typescript', 'tailwindcss', 'vite-plugin-pwa',
   '@types/node', '@types/react', '@types/react-dom',
+  // Beat-plan map (Leaflet renders visit-route maps without a tile-server dependency).
+  'leaflet', '@types/leaflet',
   // Android APK shell (WebView wrapper around the same web build — see docs/mydan-roadmap-to-apk.md).
   '@capacitor/core', '@capacitor/android', '@capacitor/cli']);
 const webScripts = { dev: 'vite', build: 'vite build', preview: 'vite preview' };
 const apkScripts = { 'cap:sync': 'vite build && cap sync android', 'cap:open': 'cap open android',
-  'apk:debug': 'vite build && cap sync android && cd android && gradlew.bat assembleDebug' };
+  'apk:debug': 'vite build && cap sync android && cd android && gradlew.bat assembleDebug',
+  'apk:release:win': 'vite build && cap sync android && cd android && gradlew.bat assembleRelease',
+  'apk:release:unix': 'vite build && cap sync android && cd android && ./gradlew assembleRelease',
+  'aab:release:win': 'vite build && cap sync android && cd android && gradlew.bat bundleRelease',
+  'aab:release:unix': 'vite build && cap sync android && cd android && ./gradlew bundleRelease' };
 const root = new URL('../../../', import.meta.url);
 const app = new URL('../', import.meta.url);
 test('both manifests use only approved web packages and standard Vite scripts', () => {

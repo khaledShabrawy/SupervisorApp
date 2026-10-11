@@ -1,5 +1,15 @@
 apply plugin: 'com.android.application'
 
+// Release signing credentials are read from android/keystore.properties (gitignored).
+// NEVER hardcode passwords or put keystore files into version control.
+// See android/keystore.properties.example for setup instructions.
+def keystorePropsFile = rootProject.file("keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystoreProps.load(new FileInputStream(keystorePropsFile))
+}
+def releaseSigningReady = keystoreProps.containsKey('storeFile')
+
 android {
     namespace "com.mydan.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -16,10 +26,39 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (releaseSigningReady) {
+                storeFile file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig releaseSigningReady ? signingConfigs.release : null
+        }
+    }
+}
+
+// Fail loudly when assembleRelease / bundleRelease is attempted without signing configured.
+// Debug builds are unaffected.
+gradle.taskGraph.whenReady { taskGraph ->
+    if (!releaseSigningReady) {
+        def needsRelease = taskGraph.allTasks.any { task ->
+            task.name.contains('Release') && !task.name.toLowerCase().contains('test')
+        }
+        if (needsRelease) {
+            throw new GradleException(
+                "\n\n[MYDAN] Release signing is NOT configured.\n" +
+                "Copy  android/keystore.properties.example  ->  android/keystore.properties\n" +
+                "and fill in your keystore path, alias, and passwords.\n" +
+                "NEVER commit keystore.properties or *.keystore files to git.\n"
+            )
         }
     }
 }
