@@ -72,12 +72,22 @@ export default function BeatMap({ plan, visited }: Props) {
           popupAnchor: [0, -20],
         });
 
+        // Build popup via DOM so customer name/address are never raw HTML.
+        const popup = document.createElement('div');
+        popup.style.cssText = 'font-family:inherit;min-width:140px';
+        const nameEl = document.createElement('b');
+        nameEl.textContent = c.name;
+        popup.appendChild(nameEl);
+        popup.appendChild(document.createElement('br'));
+        const addrEl = document.createElement('span');
+        addrEl.style.cssText = 'color:#888;font-size:12px';
+        addrEl.textContent = c.address ?? '';
+        popup.appendChild(addrEl);
+
         (L as typeof import('leaflet'))
           .marker(ll, { icon })
           .addTo(map)
-          .bindPopup(
-            `<div style="font-family:inherit;min-width:140px"><b>${c.name}</b><br><span style="color:#888;font-size:12px">${c.address ?? ''}</span></div>`,
-          );
+          .bindPopup(popup);
       });
 
       if (points.length > 1) {

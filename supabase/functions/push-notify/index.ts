@@ -109,28 +109,70 @@ async function sendOne(
 
 // ── Handler ────────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization,content-type,apikey' } });
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization,content-type,apikey' },
+    });
+  }
 
   const privateKey = Deno.env.get('VAPID_PRIVATE_KEY');
   if (!privateKey) return new Response('VAPID_PRIVATE_KEY not set', { status: 500 });
 
-  const { supervisorIds, title, body } = await req.json() as {
-    supervisorIds: string[]; title: string; body: string;
-  };
-  if (!supervisorIds?.length || !title || !body)
-    return new Response('bad request', { status: 400 });
+  // ── Step 1: Verify caller JWT via Supabase Auth ───────────────────────────
+  // SUPABASE_ANON_KEY is auto-injected alongside SUPABASE_URL.
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return new Response('unauthorized', { status: 401 });
 
+  const sbVerify = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+  const { data: { user }, error: authErr } = await sbVerify.auth.getUser();
+  if (authErr || !user) return new Response('unauthorized', { status: 401 });
+
+  // ── Step 2: Verify caller is an active admin in their company ─────────────
   const sb = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
+  const { data: caller } = await sb
+    .from('supervisors')
+    .select('role, company_id, is_active')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (!caller?.is_active || !['admin', 'super_admin'].includes(caller.role as string)) {
+    return new Response('forbidden', { status: 403 });
+  }
+
+  // ── Step 3: Parse and validate request body (after auth) ──────────────────
+  let supervisorIds: string[], title: string, body: string;
+  try {
+    ({ supervisorIds, title, body } = await req.json() as {
+      supervisorIds: string[]; title: string; body: string;
+    });
+  } catch {
+    return new Response('bad request', { status: 400 });
+  }
+  if (!Array.isArray(supervisorIds) || !supervisorIds.length || !title || !body) {
+    return new Response('bad request', { status: 400 });
+  }
+
+  // ── Step 4: Query subscriptions scoped strictly to caller's company ────────
+  // The .eq('company_id', ...) prevents a cross-company notification even if
+  // supervisorIds contains UUIDs from a different tenant.
   const { data: subs } = await sb
     .from('push_subscriptions')
     .select('endpoint,p256dh,auth')
-    .in('supervisor_id', supervisorIds);
+    .in('supervisor_id', supervisorIds)
+    .eq('company_id', caller.company_id);
 
-  if (!subs?.length)
-    return new Response(JSON.stringify({ sent: 0 }), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+  if (!subs?.length) {
+    return new Response(JSON.stringify({ sent: 0 }), {
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
+  }
 
   const results = await Promise.allSettled(
     subs.map((s: { endpoint: string; p256dh: string; auth: string }) =>
