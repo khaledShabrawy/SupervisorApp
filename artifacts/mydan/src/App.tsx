@@ -38,6 +38,7 @@ const AdminBranches = section('AdminBranches'), AdminCustomers = section('AdminC
   AdminNotifications = section('AdminNotifications'), AdminSettings = section('AdminSettings'), AdminAuditLogs = section('AdminAuditLogs');
 const BulkImport = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/BulkTemplates').then(m => ({ default: m.BulkTemplates })));
 const AdminCompanies = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminCompanies'));
+const AdminReports = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminReports'));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { gcTime: 0, staleTime: 15_000, refetchOnWindowFocus: true } },
@@ -69,6 +70,7 @@ function App() {
                       <Route path="audit" element={<AdminAuditLogs />} />
                       <Route path="bulk-import" element={<BulkImport />} />
                       <Route path="companies" element={<AdminCompanies />} />
+                      <Route path="reports" element={<AdminReports />} />
                     </Route>
                   )}
                   <Route element={<RequireAuth />}>
