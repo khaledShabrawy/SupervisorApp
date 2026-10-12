@@ -4,13 +4,25 @@ import { type CompanyRow, useCompanies, useSaveCompany } from '@/lib/admin-data'
 import { t } from '@/i18n';
 
 /* ─── helpers ─── */
+const trialExpiry = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 14);
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+};
+
 const EMPTY: Omit<CompanyRow, 'id'> = {
-  name: '', name_en: null, license_type: 'basic',
-  max_supervisors: 10, is_active: true, expires_at: null,
+  name: '', name_en: null, license_type: 'trial',
+  max_supervisors: 10, is_active: true, expires_at: trialExpiry(),
   country: null, city: null,
 };
 
-const LICENSE_TYPES = ['basic', 'pro', 'enterprise'] as const;
+const LICENSE_TYPES = ['trial', 'basic', 'pro', 'enterprise'] as const;
+const LICENSE_LABELS: Record<string, string> = {
+  trial: 'تجربة مجانية (14 يوم)',
+  basic: 'أساسي',
+  pro: 'احترافي',
+  enterprise: 'مؤسسي',
+};
 
 /* ─── Modal ─── */
 function CompanyModal({ initial, onClose }: { initial: (CompanyRow & { id?: string }) | null; onClose: () => void }) {
@@ -39,8 +51,16 @@ function CompanyModal({ initial, onClose }: { initial: (CompanyRow & { id?: stri
             <input value={form.name_en ?? ''} onChange={(e) => set('name_en', e.target.value || null)} />
           </label>
           <label>{t('نوع الترخيص')}
-            <select value={form.license_type ?? 'basic'} onChange={(e) => set('license_type', e.target.value)}>
-              {LICENSE_TYPES.map((l) => <option key={l} value={l}>{l}</option>)}
+            <select value={form.license_type ?? 'trial'}
+              onChange={(e) => {
+                const lt = e.target.value;
+                setForm((p) => ({
+                  ...p, license_type: lt,
+                  // Auto-fill expiry when switching to trial on a new company
+                  expires_at: lt === 'trial' && !p.id ? trialExpiry() : p.expires_at,
+                }));
+              }}>
+              {LICENSE_TYPES.map((l) => <option key={l} value={l}>{LICENSE_LABELS[l] ?? l}</option>)}
             </select>
           </label>
           <label>{t('عدد المشرفين الأقصى')}
@@ -79,7 +99,7 @@ const Row = memo(function Row({ c, onEdit }: { c: CompanyRow; onEdit: (c: Compan
   return (
     <tr>
       <td>{c.name}{c.name_en ? <small style={{ display: 'block', color: '#6b7280' }}>{c.name_en}</small> : null}</td>
-      <td>{c.license_type ?? '—'}</td>
+      <td>{LICENSE_LABELS[c.license_type ?? ''] ?? c.license_type ?? '—'}</td>
       <td>{c.max_supervisors ?? '—'}</td>
       <td>{c.expires_at ? new Date(c.expires_at).toLocaleDateString('ar-EG') : '—'}</td>
       <td>{c.country ?? '—'}{c.city ? `, ${c.city}` : ''}</td>
