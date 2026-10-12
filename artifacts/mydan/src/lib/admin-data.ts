@@ -226,7 +226,7 @@ export function useAuditLogs(tableFilter: string) {
   const sc = useScope();
   return usePaged<AuditRow>(sc, 'audit-logs', [tableFilter], async (from, to, signal) => {
     let q = supabase.from('audit_logs')
-      .select('id,table_name,action,performed_by,old_data,new_data,created_at,supervisors(full_name)')
+      .select('id,table_name,action,performed_by,old_data,new_data,created_at,supervisors!performed_by(full_name)')
       .eq('company_id', sc.companyId);
     if (tableFilter) q = q.eq('table_name', tableFilter);
     const { data, error } = await q.order('created_at', { ascending: false }).range(from, to).abortSignal(signal);
@@ -248,7 +248,7 @@ export function useAdminCustomers(search: string) {
   return usePaged<AdminCustomerRow>(sc, 'admin-customers', [search], async (from, to, signal) => {
     const term = search.trim().replace(/[%,()]/g, '');
     let q = supabase.from('customers')
-      .select('id,name,type,customer_type,owner_name,phone,address,latitude,longitude,branch,supervisor_id,is_active,supervisors(full_name)')
+      .select('id,name,type,customer_type,owner_name,phone,address,latitude,longitude,branch,supervisor_id,is_active,supervisors!supervisor_id(full_name)')
       .eq('company_id', sc.companyId);
     if (term) q = q.or(`name.ilike.%${term}%,phone.ilike.%${term}%,address.ilike.%${term}%`);
     const { data, error } = await q.order('name').order('id').range(from, to).abortSignal(signal);
