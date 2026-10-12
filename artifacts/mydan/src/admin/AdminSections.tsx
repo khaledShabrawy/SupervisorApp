@@ -2,14 +2,14 @@ import { useCallback, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
-import { Bell, FileText, MapPin, Package, Plus, Store, X } from '@/components/Icons';
+import { Bell, FileText, MapPin, Package, Plus, Store, Trash2, X } from '@/components/Icons';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useCustomerSearch, useSupervisors } from '@/lib/data';
 import { useAdminProducts, useSaveSettings, type CatalogProduct } from '@/lib/screen-data';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
   ASSET_STATUS, useAdminCustomers, useAdminSurveys, useAssets, useAuditLogs, useBranches, useBroadcast,
-  useSaveAdminCustomer, useSaveAsset, useSaveBranch, useSaveProduct, useSaveSurvey, useUploadLogo,
+  useDeactivateRecord, useSaveAdminCustomer, useSaveAsset, useSaveBranch, useSaveProduct, useSaveSurvey, useUploadLogo,
   type AdminCustomerRow, type AssetRow, type AuditRow, type Branch, type SurveyQuestion, type SurveyRow,
 } from '@/lib/admin-data';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
@@ -52,6 +52,7 @@ function BranchForm({ edit, onClose }: { edit: Branch | null; onClose: () => voi
 }
 export function AdminBranches() {
   const q = useBranches(); const sups = useSupervisors(); const retry = useRefetch(q.refetch);
+  const deactivate = useDeactivateRecord('branches', 'admin-branches');
   const [edit, setEdit] = useState<Branch | null | undefined>(undefined);
   const name = (id: string | null) => sups.items.find((s) => s.id === id)?.full_name ?? '—';
   return <>
@@ -62,7 +63,10 @@ export function AdminBranches() {
           <thead><tr><th>{t('الفرع')}</th><th>{t('المنطقة')}</th><th>{t('المدير')}</th><th>{t('الحالة')}</th><th /></tr></thead>
           <tbody>{q.data.map((b) => <tr key={b.id}><td className="title">{b.name}</td><td>{b.region ?? '—'}</td><td>{name(b.manager_id)}</td>
             <td><span className={`badge ${b.is_active ? 'b-green' : 'b-gray'}`}>{b.is_active ? t('نشط') : t('متوقف')}</span></td>
-            <td><button className="btn sm ghost" onClick={() => setEdit(b)}>{t('تعديل')}</button></td></tr>)}</tbody>
+            <td className="row gap-1">
+              <button className="btn sm ghost" onClick={() => setEdit(b)}>{t('تعديل')}</button>
+              {b.is_active && <button className="btn sm ghost danger" title={t('تعطيل')} onClick={() => { if (confirm(t('تعطيل الفرع؟'))) deactivate.mutate(b.id); }}><Trash2 size={14} /></button>}
+            </td></tr>)}</tbody>
         </table></div>}
     {edit !== undefined && <BranchForm edit={edit} onClose={() => setEdit(undefined)} />}
   </>;
@@ -108,6 +112,7 @@ function CustomerForm({ edit, sups, onClose }: { edit: AdminCustomerRow | null; 
 export function AdminCustomers() {
   const [search, setSearch] = useState(''); const q = useAdminCustomers(useDebouncedValue(search, 300));
   const sups = useSupervisors(); const retry = useRefetch(q.refetch);
+  const deactivate = useDeactivateRecord('customers', 'admin-customers');
   const [edit, setEdit] = useState<AdminCustomerRow | null | undefined>(undefined);
   return <>
     <div className="row between"><h2>{t('العملاء')}</h2>
@@ -123,7 +128,10 @@ export function AdminCustomers() {
             <td dir="ltr" style={{ textAlign: 'start' }}>{c.phone ?? '—'}</td>
             <td>{c.supervisors?.full_name ?? '—'}</td>
             <td><span className={`badge ${c.is_active ? 'b-green' : 'b-gray'}`}>{c.is_active ? t('نشط') : t('متوقف')}</span></td>
-            <td><button className="btn sm ghost" onClick={() => setEdit(c)}>{t('تعديل')}</button></td>
+            <td className="row gap-1">
+              <button className="btn sm ghost" onClick={() => setEdit(c)}>{t('تعديل')}</button>
+              {c.is_active && <button className="btn sm ghost danger" title={t('تعطيل')} onClick={() => { if (confirm(t('تعطيل العميل؟'))) deactivate.mutate(c.id); }}><Trash2 size={14} /></button>}
+            </td>
           </tr>)}</tbody>
         </table></div>}
     <LoadMore q={q} />
@@ -151,6 +159,7 @@ function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: 
 }
 export function AdminProducts() {
   const q = useAdminProducts(); const retry = useRefetch(q.refetch);
+  const deactivate = useDeactivateRecord('products', 'admin-products');
   const [edit, setEdit] = useState<CatalogProduct | null | undefined>(undefined);
   return <>
     <div className="row between"><h2>{t('المنتجات')}</h2><button className="btn" onClick={() => setEdit(null)}><Plus size={18} /> {t('منتج جديد')}</button></div>
@@ -160,7 +169,10 @@ export function AdminProducts() {
           <thead><tr><th>{t('المنتج')}</th><th>{t('الفئة')}</th><th>SKU</th><th>{t('الحالة')}</th><th /></tr></thead>
           <tbody>{q.items.map((p) => <tr key={p.id}><td className="title">{p.name}</td><td>{p.category || '—'}</td><td dir="ltr">{p.sku || '—'}</td>
             <td><span className={`badge ${p.is_active ? 'b-green' : 'b-gray'}`}>{p.is_active ? t('متاح') : t('متوقف')}</span></td>
-            <td><button className="btn sm ghost" onClick={() => setEdit(p)}>{t('تعديل')}</button></td></tr>)}</tbody>
+            <td className="row gap-1">
+              <button className="btn sm ghost" onClick={() => setEdit(p)}>{t('تعديل')}</button>
+              {p.is_active && <button className="btn sm ghost danger" title={t('تعطيل')} onClick={() => { if (confirm(t('تعطيل المنتج؟'))) deactivate.mutate(p.id); }}><Trash2 size={14} /></button>}
+            </td></tr>)}</tbody>
         </table></div>}
     <LoadMore q={q} />
     {edit !== undefined && <ProductForm edit={edit} onClose={() => setEdit(undefined)} />}
