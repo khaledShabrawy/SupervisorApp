@@ -9,6 +9,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import './admin.css';
 import { t } from '@/i18n';
+import { TrialBanner } from '@/components/TrialBanner';
 
 export const ADMIN_NAV = [
   { to: '/admin', label: t('لوحة المؤشرات'), icon: BarChart3, end: true },
@@ -65,6 +66,7 @@ export default function AdminLayout() {
       </div>
     </aside>
     <main className="adm-main">
+      <TrialBanner />
       <Suspense fallback={<LoadingSpinner />}><Outlet /></Suspense>
     </main>
   </div>;
