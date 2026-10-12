@@ -9,7 +9,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 const root = fileURLToPath(new URL('.', import.meta.url));
 const base = process.env.BASE_PATH || '/';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+const isAndroid = mode === 'android';
+return ({
   root,
   base,
   esbuild: { jsx: 'automatic' },
@@ -24,7 +26,7 @@ export default defineConfig({
   css: { postcss: { plugins: [tailwindcss({ config: path.resolve(root, 'tailwind.config.ts') })] } },
   build: { outDir: 'dist/public', emptyOutDir: true },
   plugins: [
-    VitePWA({
+    !isAndroid && VitePWA({
       strategies: 'injectManifest',
       srcDir: 'public',
       filename: 'sw.js',
@@ -54,8 +56,11 @@ export default defineConfig({
       generateBundle(_, bundle) {
         const assets = Object.keys(bundle).filter(name => name.startsWith('assets/')).sort();
         const hash = createHash('sha256').update(assets.join('|'));
-        for (const file of ['index.html', 'public/manifest.webmanifest', 'public/sw.js',
-          'public/icons/icon.svg', 'public/icons/icon-192.png', 'public/icons/icon-512.png']) {
+        const shellFiles = isAndroid
+          ? ['index.html']
+          : ['index.html', 'public/manifest.webmanifest', 'public/sw.js',
+            'public/icons/icon.svg', 'public/icons/icon-192.png', 'public/icons/icon-512.png'];
+        for (const file of shellFiles) {
           hash.update(readFileSync(path.resolve(root, file)));
         }
         this.emitFile({
@@ -64,5 +69,5 @@ export default defineConfig({
         });
       },
     },
-  ],
-});
+  ].filter(Boolean),
+})});

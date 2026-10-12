@@ -14,6 +14,8 @@ import { LanguageToggle } from './LanguageToggle';
 import LoadingSpinner from './LoadingSpinner';
 import { t } from '@/i18n';
 
+const IS_ANDROID = import.meta.env.VITE_PLATFORM === 'android';
+
 export function RequireAuth() {
   const { isAuthenticated, isLoading } = useAuth();
   if (isLoading) return <LoadingSpinner />;
@@ -54,7 +56,7 @@ function Shell() {
       '/notifications': t('الإشعارات'), '/admin': t('لوحة الإدارة') } as Record<string, string>)[pathname] ?? 'Mydan'} | ${s.app_name}`;
     return () => { document.title = `Mydan | ${t('إدارة المشرفين الميدانيين')}`; };
   }, [pathname, s.app_name]);
-  if (admin) return <Navigate to="/admin" replace />;
+  if (!IS_ANDROID && admin) return <Navigate to="/admin" replace />;
   return <div className="shell">
     <Realtime id={supervisor!.id} company={supervisor!.company_id} />
     <header className="topbar">
@@ -68,8 +70,8 @@ function Shell() {
         {unread.isError ? <span className="dot" aria-label={t('تعذر قراءة عدد الإشعارات')}>!</span>
           : unread.data != null && unread.data > 0 && <span className="dot">{unread.data > 99 ? '99+' : num(unread.data)}</span>}
       </button>
-      {admin && <button className="icon-btn" aria-label={t('الإدارة')} aria-current={pathname === '/admin' ? 'page' : undefined} data-testid="button-admin" onClick={goAdmin}><Settings2 /></button>}
-      <button className="icon-btn" aria-label={t('تسجيل الخروج')} data-testid="button-logout"
+      {!IS_ANDROID && admin && <button className="icon-btn" aria-label={t('الإدارة')} aria-current={pathname === '/admin' ? 'page' : undefined} data-testid="button-admin" onClick={goAdmin}><Settings2 /></button>}
+      <button className="icon-btn logout-btn" aria-label={t('تسجيل الخروج')} data-testid="button-logout"
         onClick={logout}><LogOut /></button>
     </header>
     <Suspense fallback={<LoadingSpinner />}><Outlet /></Suspense>
