@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type FC } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -8,7 +8,11 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import Toast from '@/components/Toast';
 import { RequireAuth } from '@/components/Layout';
 import { RequireScreen } from '@/components/RequireScreen';
-import AdminLayout from '@/admin/AdminLayout';
+
+// Excluded from Android APK (VITE_PLATFORM=android) via Vite dead-code elimination
+const IS_ANDROID = import.meta.env.VITE_PLATFORM === 'android';
+const NoAdmin: FC = () => null;
+const noAdmin = () => Promise.resolve({ default: NoAdmin });
 
 const Login = lazy(() => import('@/screens/LoginScreen'));
 const Dashboard = lazy(() => import('@/screens/DashboardScreen'));
@@ -22,16 +26,18 @@ const Targets = lazy(() => import('@/screens/TargetsScreen'));
 const BeatPlan = lazy(() => import('@/screens/BeatPlanScreen'));
 const Notifications = lazy(() => import('@/screens/NotificationsScreen'));
 const SetPassword = lazy(() => import('@/screens/SetPasswordScreen'));
-const AdminDashboard = lazy(() => import('@/admin/AdminDashboard'));
-const AdminUsers = lazy(() => import('@/admin/AdminUsers'));
+const NotFound = lazy(() => import('@/pages/NotFound'));
+
+const AdminLayout = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminLayout'));
+const AdminDashboard = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminDashboard'));
+const AdminUsers = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminUsers'));
 const section = (name: 'AdminBranches' | 'AdminCustomers' | 'AdminProducts' | 'AdminTargets' | 'AdminAssets' | 'AdminSurveys' | 'AdminNotifications' | 'AdminSettings' | 'AdminAuditLogs') =>
-  lazy(() => import('@/admin/AdminSections').then((m) => ({ default: m[name] })));
+  lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminSections').then((m) => ({ default: m[name] })));
 const AdminBranches = section('AdminBranches'), AdminCustomers = section('AdminCustomers'), AdminProducts = section('AdminProducts'),
   AdminTargets = section('AdminTargets'), AdminAssets = section('AdminAssets'), AdminSurveys = section('AdminSurveys'),
   AdminNotifications = section('AdminNotifications'), AdminSettings = section('AdminSettings'), AdminAuditLogs = section('AdminAuditLogs');
-const BulkImport = lazy(() => import('@/admin/BulkTemplates').then(m => ({ default: m.BulkTemplates })));
-const AdminCompanies = lazy(() => import('@/admin/AdminCompanies'));
-const NotFound = lazy(() => import('@/pages/NotFound'));
+const BulkImport = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/BulkTemplates').then(m => ({ default: m.BulkTemplates })));
+const AdminCompanies = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminCompanies'));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { gcTime: 0, staleTime: 15_000, refetchOnWindowFocus: true } },
@@ -48,21 +54,23 @@ function App() {
                 <Routes>
                   <Route path="/login" element={<Login />} />
                   <Route path="/set-password" element={<SetPassword />} />
-                  <Route path="/admin" element={<AdminLayout />}>
-                    <Route index element={<AdminDashboard />} />
-                    <Route path="users" element={<AdminUsers />} />
-                    <Route path="branches" element={<AdminBranches />} />
-                    <Route path="customers" element={<AdminCustomers />} />
-                    <Route path="products" element={<AdminProducts />} />
-                    <Route path="targets" element={<AdminTargets />} />
-                    <Route path="assets" element={<AdminAssets />} />
-                    <Route path="surveys" element={<AdminSurveys />} />
-                    <Route path="notifications" element={<AdminNotifications />} />
-                    <Route path="settings" element={<AdminSettings />} />
-                    <Route path="audit" element={<AdminAuditLogs />} />
-                    <Route path="bulk-import" element={<BulkImport />} />
-                    <Route path="companies" element={<AdminCompanies />} />
-                  </Route>
+                  {!IS_ANDROID && (
+                    <Route path="/admin" element={<AdminLayout />}>
+                      <Route index element={<AdminDashboard />} />
+                      <Route path="users" element={<AdminUsers />} />
+                      <Route path="branches" element={<AdminBranches />} />
+                      <Route path="customers" element={<AdminCustomers />} />
+                      <Route path="products" element={<AdminProducts />} />
+                      <Route path="targets" element={<AdminTargets />} />
+                      <Route path="assets" element={<AdminAssets />} />
+                      <Route path="surveys" element={<AdminSurveys />} />
+                      <Route path="notifications" element={<AdminNotifications />} />
+                      <Route path="settings" element={<AdminSettings />} />
+                      <Route path="audit" element={<AdminAuditLogs />} />
+                      <Route path="bulk-import" element={<BulkImport />} />
+                      <Route path="companies" element={<AdminCompanies />} />
+                    </Route>
+                  )}
                   <Route element={<RequireAuth />}>
                     <Route index element={<Dashboard />} />
                     <Route path="visits" element={<Visits />} />
