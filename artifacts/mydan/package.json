@@ -7,13 +7,14 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "cap:sync": "vite build && cap sync android",
+    "build:android": "vite build --mode android",
+    "cap:sync": "vite build --mode android && cap sync android",
     "cap:open": "cap open android",
-    "apk:debug": "vite build && cap sync android && cd android && gradlew.bat assembleDebug",
-    "apk:release:win": "vite build && cap sync android && cd android && gradlew.bat assembleRelease",
-    "apk:release:unix": "vite build && cap sync android && cd android && ./gradlew assembleRelease",
-    "aab:release:win": "vite build && cap sync android && cd android && gradlew.bat bundleRelease",
-    "aab:release:unix": "vite build && cap sync android && cd android && ./gradlew bundleRelease"
+    "apk:debug": "vite build --mode android && cap sync android && cd android && gradlew.bat assembleDebug",
+    "apk:release:win": "vite build --mode android && cap sync android && cd android && gradlew.bat assembleRelease",
+    "apk:release:unix": "vite build --mode android && cap sync android && cd android && ./gradlew assembleRelease",
+    "aab:release:win": "vite build --mode android && cap sync android && cd android && gradlew.bat bundleRelease",
+    "aab:release:unix": "vite build --mode android && cap sync android && cd android && ./gradlew bundleRelease"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.9",

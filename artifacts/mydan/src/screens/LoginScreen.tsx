@@ -22,7 +22,8 @@ export default function LoginScreen() {
   }, [signIn, email, password]);
   const retry = useCallback(() => { void retryProfile(); }, [retryProfile]);
   const out = useCallback(() => { void signOut().catch(() => undefined); }, [signOut]);
-  if (isAuthenticated) return <Navigate to={canAdmin(supervisor) ? '/admin' : '/'} replace />;
+  const IS_ANDROID = import.meta.env.VITE_PLATFORM === 'android';
+  if (isAuthenticated) return <Navigate to={!IS_ANDROID && canAdmin(supervisor) ? '/admin' : '/'} replace />;
   if (isLoading && !busy) return <LoadingSpinner />;
   const profileFailed = !!session && !!error;
   return <main className="login">
