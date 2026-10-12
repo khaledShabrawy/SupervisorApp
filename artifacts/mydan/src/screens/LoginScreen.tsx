@@ -3,13 +3,14 @@ import { Navigate } from 'react-router-dom';
 import { AlertCircle, Eye, EyeOff } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
+import { canAdmin } from '@/lib/policy';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useInput } from './shared';
 import { t } from '@/i18n';
 import { LanguageToggle } from '@/components/LanguageToggle';
 
 export default function LoginScreen() {
-  const { isAuthenticated, isLoading, session, error, signIn, signOut, retryProfile } = useAuth();
+  const { isAuthenticated, isLoading, session, error, signIn, signOut, retryProfile, supervisor } = useAuth();
   const settings = useAppSettings();
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
   const [show, setShow] = useState(false); const [busy, setBusy] = useState(false); const [local, setLocal] = useState<string | null>(null);
@@ -21,7 +22,7 @@ export default function LoginScreen() {
   }, [signIn, email, password]);
   const retry = useCallback(() => { void retryProfile(); }, [retryProfile]);
   const out = useCallback(() => { void signOut().catch(() => undefined); }, [signOut]);
-  if (isAuthenticated) return <Navigate to="/" replace />;
+  if (isAuthenticated) return <Navigate to={canAdmin(supervisor) ? '/admin' : '/'} replace />;
   if (isLoading && !busy) return <LoadingSpinner />;
   const profileFailed = !!session && !!error;
   return <main className="login">
