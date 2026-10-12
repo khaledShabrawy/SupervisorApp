@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from './supabase';
 import { useScope, usePaged } from './data';
+import { useAuth } from '@/contexts/AuthContext';
 import { readExactCount } from './read-count';
 import { notify } from './toast';
 import { todayStr } from './format';
@@ -335,6 +336,89 @@ export function useUploadLogo() {
       if (up.error) fail(t('تعذر رفع الشعار. تأكد من إنشاء الحاوية "{bucket}".', { bucket: LOGO_BUCKET }), up.error);
       return supabase.storage.from(LOGO_BUCKET).getPublicUrl(path).data.publicUrl;
     },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+/* ---------- Companies (super_admin only) ---------- */
+export type CompanyRow = {
+  id: string; name: string; name_en: string | null; license_type: string | null;
+  max_supervisors: number | null; is_active: boolean; expires_at: string | null;
+  country: string | null; city: string | null;
+};
+export function useCompanies() {
+  const { supervisor } = useAuth();
+  return useQuery({
+    queryKey: ['mydan', 'super-admin', 'companies'],
+    enabled: supervisor?.role === 'super_admin',
+    retry: 1,
+    queryFn: async ({ signal }) => {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('id,name,name_en,license_type,max_supervisors,is_active,expires_at,country,city')
+        .order('name')
+        .abortSignal(signal);
+      if (error) fail('تعذر تحميل الشركات.', error);
+      return data as CompanyRow[];
+    },
+  });
+}
+export function useSaveCompany() {
+  const { supervisor } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (c: Partial<CompanyRow> & { name: string }) => {
+      if (supervisor?.role !== 'super_admin') throw new Error('هذه العملية للمدير الأعلى فقط.');
+      const values = {
+        name: c.name.trim(), name_en: c.name_en?.trim() || null,
+        license_type: c.license_type || 'basic',
+        max_supervisors: c.max_supervisors ?? 10,
+        is_active: c.is_active ?? true,
+        expires_at: c.expires_at || null,
+        country: c.country?.trim() || null,
+        city: c.city?.trim() || null,
+      };
+      if (!values.name) throw new Error('اسم الشركة مطلوب.');
+      const r = c.id
+        ? await supabase.from('companies').update(values).eq('id', c.id).select('id')
+        : await supabase.from('companies').insert(values).select('id');
+      if (r.error) fail('تعذر حفظ الشركة.', r.error);
+      if (!r.data?.length) throw new Error('لم يتم الحفظ. تحقق من الصلاحيات.');
+      return r.data[0].id as string;
+    },
+    onSuccess: () => { notify(t('تم حفظ الشركة'), 'success'); void qc.invalidateQueries({ queryKey: ['mydan', 'super-admin', 'companies'] }); },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+/* ---------- Generic soft-delete (deactivate record) ---------- */
+export function useDeactivateRecord(table: 'branches' | 'customers' | 'products', queryKey: string) {
+  const sc = useScope(); const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      requireAdmin(sc);
+      const { error } = await supabase.from(table).update({ is_active: false }).eq('id', id).eq('company_id', sc.companyId);
+      if (error) fail(t('تعذر التعطيل.'), error);
+    },
+    onSuccess: () => { notify(t('تم تعطيل السجل'), 'success'); void invalidate(qc, sc, queryKey); },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+/* ---------- Edit supervisor profile (admin-side, full fields) ---------- */
+export function useEditSupervisorProfile() {
+  const sc = useScope(); const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, full_name, phone, role, branch_id }: { id: string; full_name: string; phone: string; role: InviteRole; branch_id: string }) => {
+      requireAdmin(sc);
+      const { data: existing } = await supabase.from('supervisors').select('role').eq('id', id).eq('company_id', sc.companyId).single();
+      if (existing?.role === 'super_admin') throw new Error(t('لا يمكن تعديل المدير الأعلى.'));
+      const patch = { full_name: full_name.trim(), phone: phone.trim() || null, role, branch_id: branch_id || null };
+      if (!patch.full_name) throw new Error(t('الاسم مطلوب.'));
+      const { error } = await supabase.from('supervisors').update(patch).eq('id', id).eq('company_id', sc.companyId);
+      if (error) fail(t('تعذر تعديل بيانات المشرف.'), error);
+    },
+    onSuccess: () => { notify(t('تم تحديث بيانات المشرف'), 'success'); void invalidate(qc, sc, 'admin-supervisors'); },
     onError: (e: Error) => notify(e.message, 'error'),
   });
 }

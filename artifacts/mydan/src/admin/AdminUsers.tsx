@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 
 import { Plus, ShieldCheck, X } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupervisors, useUpdateSupervisor } from '@/lib/data';
-import { useBranches, useInviteSupervisor, useSavePermissions, useSupervisorPermissions, type InviteRole } from '@/lib/admin-data';
+import { useBranches, useEditSupervisorProfile, useInviteSupervisor, useSavePermissions, useSupervisorPermissions, type InviteRole } from '@/lib/admin-data';
 import { SCREENS, isScreenAllowed, type ScreenKey } from '@/lib/permissions';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
 import EmptyState from '@/components/EmptyState';
@@ -54,6 +54,32 @@ function InviteModal({ onClose }: { onClose: () => void }) {
   </div>;
 }
 
+function EditSupervisorModal({ s, onClose }: { s: Supervisor; onClose: () => void }) {
+  const m = useEditSupervisorProfile(); const branches = useBranches();
+  const [name, setName] = useState(s.full_name); const [phone, setPhone] = useState(s.phone ?? '');
+  const [role, setRole] = useState<InviteRole>((['supervisor', 'senior_supervisor', 'branch_manager', 'admin'].includes(s.role) ? s.role : 'supervisor') as InviteRole);
+  const [branch, setBranch] = useState(s.branch_id ?? '');
+  const submit = useCallback((e: FormEvent) => {
+    e.preventDefault();
+    m.mutate({ id: s.id, full_name: name, phone, role, branch_id: branch }, { onSuccess: onClose });
+  }, [m, s.id, name, phone, role, branch, onClose]);
+  return <div className="adm-modal-bg" onClick={onClose}>
+    <form className="adm-modal col" role="dialog" aria-modal="true" aria-label={t('تعديل بيانات المشرف')} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+      <div className="row between"><h2 style={{ margin: 0, fontSize: 18 }}>{t('تعديل بيانات المشرف')}</h2>
+        <button type="button" className="icon-btn" aria-label={t('إغلاق')} onClick={onClose}><X /></button></div>
+      <label className="f">{t('الاسم بالكامل *')}<input className="input" required value={name} onChange={useInput(setName)} /></label>
+      <label className="f">{t('الهاتف')}<input className="input" dir="ltr" inputMode="tel" value={phone} onChange={useInput(setPhone)} /></label>
+      <div className="row">
+        <label className="f grow">{t('الدور')}<select className="input" value={role} onChange={(e) => setRole(e.target.value as InviteRole)}>
+          {INVITE_ROLES.map((r) => <option key={r} value={r}>{ROLE[r]}</option>)}</select></label>
+        <label className="f grow">{t('الفرع')}<select className="input" value={branch} onChange={useInput(setBranch)}>
+          <option value="">{t('بدون فرع')}</option>{branches.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+      </div>
+      <button className="btn" disabled={m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ')}</button>
+    </form>
+  </div>;
+}
+
 function PermissionsDrawer({ s, onClose }: { s: Supervisor; onClose: () => void }) {
   const q = useSupervisorPermissions(s.id); const m = useSavePermissions(); const retry = useRefetch(q.refetch);
   const [values, setValues] = useState<Record<ScreenKey, boolean> | null>(null);
@@ -74,8 +100,8 @@ function PermissionsDrawer({ s, onClose }: { s: Supervisor; onClose: () => void 
   </>;
 }
 
-const Row = memo(function Row({ s, self, branch, onPatch, onPerms }: { s: Supervisor; self: boolean; branch: string;
-  onPatch: (s: Supervisor, p: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => void; onPerms: (s: Supervisor) => void }) {
+const Row = memo(function Row({ s, self, branch, onPatch, onPerms, onEdit }: { s: Supervisor; self: boolean; branch: string;
+  onPatch: (s: Supervisor, p: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => void; onPerms: (s: Supervisor) => void; onEdit: (s: Supervisor) => void }) {
   const locked = self || s.role === 'super_admin';
   const toggle = useCallback(() => { if (!s.is_active || window.confirm(t('تعطيل حساب {name}؟', { name: s.full_name }))) onPatch(s, { is_active: !s.is_active }); }, [s, onPatch]);
   return <tr data-testid={`row-supervisor-${s.id}`}>
@@ -84,6 +110,7 @@ const Row = memo(function Row({ s, self, branch, onPatch, onPerms }: { s: Superv
     <td><span className="badge b-gray"><ShieldCheck size={14} /> {ROLE[s.role] ?? s.role}</span></td>
     <td><span className={`badge ${s.is_active ? 'b-green' : 'b-red'}`}>{s.is_active ? t('نشط') : t('معطل')}</span></td>
     <td><div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+      {!locked && <button className="btn sm ghost" onClick={() => onEdit(s)}>{t('تعديل')}</button>}
       {!locked && <button className={`btn sm ${s.is_active ? 'danger-ghost' : 'success'}`} onClick={toggle}>{s.is_active ? t('تعطيل') : t('تفعيل')}</button>}
       {!['admin', 'super_admin'].includes(s.role) && <button className="btn sm ghost" onClick={() => onPerms(s)} data-testid={`button-perms-${s.id}`}>{t('الصلاحيات')}</button>}
     </div></td>
@@ -94,7 +121,7 @@ export default function AdminUsers() {
   const { supervisor } = useAuth(); const q = useSupervisors(); const branches = useBranches(); const m = useUpdateSupervisor();
   const retry = useRefetch(q.refetch);
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: 'full_name', asc: true });
-  const [invite, setInvite] = useState(false); const [perms, setPerms] = useState<Supervisor | null>(null);
+  const [invite, setInvite] = useState(false); const [perms, setPerms] = useState<Supervisor | null>(null); const [editing, setEditing] = useState<Supervisor | null>(null);
   const mutate = m.mutate;
   const onPatch = useCallback((target: Supervisor, patch: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => mutate({ target, patch }), [mutate]);
   const branchName = useMemo(() => new Map(branches.data?.map((b) => [b.id, b.name]) ?? []), [branches.data]);
@@ -104,7 +131,7 @@ export default function AdminUsers() {
   }), [q.items, sort]);
   const th = (key: SortKey, label: string) => <th aria-sort={sort.key === key ? (sort.asc ? 'ascending' : 'descending') : 'none'}>
     <button onClick={() => setSort((s) => ({ key, asc: s.key === key ? !s.asc : true }))}>{label}{sort.key === key ? (sort.asc ? ' ▲' : ' ▼') : ''}</button></th>;
-  const closeInvite = useCallback(() => setInvite(false), []); const closePerms = useCallback(() => setPerms(null), []);
+  const closeInvite = useCallback(() => setInvite(false), []); const closePerms = useCallback(() => setPerms(null), []); const closeEdit = useCallback(() => setEditing(null), []);
 
   return <>
     <div className="row between"><h2>{t('المشرفون')}</h2>
@@ -114,10 +141,11 @@ export default function AdminUsers() {
       : <div className="adm-table-wrap"><table className="adm-table">
           <thead><tr>{th('full_name', t('الاسم'))}<th>{t('الفرع')}</th>{th('role', t('الدور'))}{th('is_active', t('الحالة'))}<th>{t('إجراءات')}</th></tr></thead>
           <tbody>{rows.map((s) => <Row key={s.id} s={s} self={s.id === supervisor?.id} branch={(s.branch_id && branchName.get(s.branch_id)) || '—'}
-            onPatch={onPatch} onPerms={setPerms} />)}</tbody>
+            onPatch={onPatch} onPerms={setPerms} onEdit={setEditing} />)}</tbody>
         </table></div>}
     <LoadMore q={q} />
     {invite && <InviteModal onClose={closeInvite} />}
+    {editing && <EditSupervisorModal s={editing} onClose={closeEdit} />}
     {perms && <PermissionsDrawer s={perms} onClose={closePerms} />}
   </>;
 }
