@@ -48,13 +48,13 @@ function Shell() {
   const logout = useCallback(() => void signOut().catch((e: Error) => notify(e.message, 'error')), [signOut]);
   const home = pathname === '/';
   useEffect(() => {
-    const names: Record<string, string> = { '/': t('الرئيسية'), '/visits': t('الزيارات'),
+    document.title = `${({ '/': t('الرئيسية'), '/visits': t('الزيارات'),
       '/visits/new': t('بدء زيارة'), '/shelf-audit': t('مراجعة الرف'),
       '/customers': t('العملاء'), '/targets': t('الأهداف والتقارير'), '/beat-plan': t('خطة الزيارات'),
-      '/notifications': t('الإشعارات'), '/admin': t('لوحة الإدارة') };
-    document.title = `${names[pathname] ?? 'Mydan'} | ${s.app_name}`;
+      '/notifications': t('الإشعارات'), '/admin': t('لوحة الإدارة') } as Record<string, string>)[pathname] ?? 'Mydan'} | ${s.app_name}`;
     return () => { document.title = `Mydan | ${t('إدارة المشرفين الميدانيين')}`; };
   }, [pathname, s.app_name]);
+  if (admin) return <Navigate to="/admin" replace />;
   return <div className="shell">
     <Realtime id={supervisor!.id} company={supervisor!.company_id} />
     <header className="topbar">

@@ -13,8 +13,8 @@
 .adm-mobile-btn{display:flex;align-items:center;gap:6px;flex:1;justify-content:center;min-height:40px;border-radius:10px;font-weight:600;font-size:13px;white-space:nowrap;cursor:pointer;font-family:inherit;border:none;text-decoration:none;transition:background .15s}
 .adm-mobile-back{background:#ffffff14;color:#C9D3E0}
 .adm-mobile-back:hover{background:#ffffff22;color:#fff}
-.adm-mobile-logout{background:rgba(248,113,113,.2);color:#EF4444;font-weight:700;border:1px solid rgba(248,113,113,.3)}
-.adm-mobile-logout:hover{background:rgba(248,113,113,.3);color:#DC2626}
+.adm-mobile-logout{background:#ffffff0f;color:#C9D3E0;font-weight:600;border:none}
+.adm-mobile-logout:hover{background:rgba(248,113,113,.15);color:#EF4444}
 .adm-brand .lang-toggle{color:#fff}
 .adm-main{padding:16px;display:flex;flex-direction:column;gap:16px;min-width:0}
 .adm-main h2{margin:0;font-size:22px}
@@ -40,8 +40,8 @@
   .adm-mobile-actions{display:none}
   .adm-foot{display:flex;flex-direction:column;gap:6px;margin-top:auto}
   .adm-foot button,.adm-foot a{color:#C9D3E0}
-.adm-foot button.logout-btn{background:rgba(248,113,113,.2);color:#EF4444;font-weight:700;border:1px solid rgba(248,113,113,.3)}
-.adm-foot button.logout-btn:hover{background:rgba(248,113,113,.3);color:#DC2626}
+.adm-foot button.logout-btn{color:#C9D3E0;background:none;border:0;font-weight:600}
+.adm-foot button.logout-btn:hover{background:rgba(248,113,113,.12);color:#EF4444}
   .adm-main{padding:28px 32px}
   .adm-modal-bg{align-items:center}
   .adm-modal{border-radius:20px}
