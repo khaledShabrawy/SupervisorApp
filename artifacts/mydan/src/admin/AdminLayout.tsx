@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { ArrowRight, BarChart3, Bell, ClipboardList, Download, FileText, Home, LogOut, MapPin, Package, Settings2, ShieldCheck, Store, Target, Users } from '@/components/Icons';
+import { ArrowRight, BarChart3, Bell, Building2, ClipboardList, Download, FileText, Home, LogOut, MapPin, Package, Settings2, ShieldCheck, Store, Target, Users } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { canAdmin } from '@/lib/policy';
@@ -13,6 +13,7 @@ import { t } from '@/i18n';
 export const ADMIN_NAV = [
   { to: '/admin', label: t('لوحة المؤشرات'), icon: BarChart3, end: true },
   { to: '/admin/users', label: t('المشرفون'), icon: Users },
+  { to: '/admin/companies', label: t('الشركات'), icon: Building2, superAdminOnly: true },
   { to: '/admin/branches', label: t('الفروع'), icon: MapPin },
   { to: '/admin/customers', label: t('العملاء'), icon: Store },
   { to: '/admin/products', label: t('المنتجات'), icon: Package },
@@ -48,7 +49,7 @@ export default function AdminLayout() {
         <span className="adm-lang-mobile"><LanguageToggle /></span>
       </div>
       <nav className="adm-nav" aria-label={t('قائمة الإدارة')}>
-        {ADMIN_NAV.map(({ to, label, icon: Icon, ...rest }) =>
+        {ADMIN_NAV.filter(({ ...rest }) => !('superAdminOnly' in rest) || supervisor?.role === 'super_admin').map(({ to, label, icon: Icon, ...rest }) =>
           <NavLink key={to} to={to} end={'end' in rest} data-testid={`admin-nav-${to.split('/').pop()}`}><Icon size={18} />{label}</NavLink>)}
       </nav>
       {/* صف ثابت على الموبايل — دائماً مرئي بدون تمرير */}
