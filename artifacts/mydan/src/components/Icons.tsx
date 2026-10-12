@@ -52,4 +52,5 @@ export const Save = icon([["path",{"d":"M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 
 export const FileText = icon([["path",{"d":"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"}],["path",{"d":"M14 2v4a2 2 0 0 0 2 2h4"}],["path",{"d":"M10 9H8"}],["path",{"d":"M16 13H8"}],["path",{"d":"M16 17H8"}]]);
 export const Building2 = icon([["path",{"d":"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"}],["path",{"d":"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2 M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2 M10 6h4 M10 10h4 M10 14h4 M10 18h4"}]]);
 export const Trash2 = icon([["path",{"d":"M3 6h18 M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6 M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2 M10 11v6 M14 11v6"}]]);
+export const PieChart = icon([["path",{"d":"M21.21 15.89A10 10 0 1 1 8 2.83"}],["path",{"d":"M22 12A10 10 0 0 0 12 2v10z"}]]);
 // Geometry adapted from Lucide under the ISC license; see THIRD_PARTY_NOTICES.
