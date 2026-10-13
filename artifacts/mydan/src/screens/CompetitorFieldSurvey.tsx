@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { CheckCircle2, MapPin, Trash2, Upload } from '@/components/Icons';
+import { CheckCircle2, MapPin, RefreshCw, Trash2 } from '@/components/Icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useScope } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
@@ -170,7 +170,7 @@ export default function CompetitorFieldSurvey({ visitId, customerId, outletName 
       </div>)}
       {pending.length > 5 && <span className="muted">{t('و {count} ملاحظات أخرى', { count: pending.length - 5 })}</span>}
       <button className="btn block" type="button" onClick={() => void uploadPending()} disabled={!online || uploading || !pending.length} data-testid="button-upload-offline-data">
-        <Upload size={18} /> {uploading ? t('جاري رفع البيانات...') : t('رفع البيانات') + ' (' + pending.length + ')'}
+        <RefreshCw size={18} className={uploading ? 's-spin' : ''} /> {uploading ? t('جاري رفع البيانات...') : t('رفع البيانات') + ' (' + pending.length + ')'}
       </button>
     </div>}
   </section>;
