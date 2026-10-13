@@ -13,6 +13,7 @@ import { num, fmtDate } from '@/lib/format';
 import { useInput } from './shared';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { t } from '@/i18n';
+import CompetitorFieldSurvey from './CompetitorFieldSurvey';
 
 interface CompetitorProduct { id: string; brand_name: string; product_name: string | null; quantity: number | null; notes: string | null; created_at: string; }
 
@@ -111,13 +112,17 @@ export default function CompetitorScreen() {
   const onDelete = useCallback((id: string) => del.mutate(id), [del]);
 
   if (!visitId) return (
-    <div className="page"><PageTitle>{t('منتجات المنافسين')}</PageTitle><div className="alert warn">{t('يجب فتح هذه الشاشة من داخل زيارة نشطة.')}</div></div>
+    <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
+      <PageTitle>{t('منتجات المنافسين')}</PageTitle>
+      <CompetitorFieldSurvey visitId={null} customerId={params.get('customer')} outletName={params.get('name') ?? ''} />
+    </div>
   );
 
   return (
     <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
       <PageTitle>{t('منتجات المنافسين')}</PageTitle>
       <div className="muted" style={{ fontSize: 13 }}><strong>{customerName}</strong></div>
+      <CompetitorFieldSurvey visitId={visitId} customerId={params.get('customer')} outletName={params.get('name') ?? ''} />
       {showForm ? (
         <div className="card col" style={{ gap: 12 }}>
           <div className="title">{t('إضافة منتج منافس')}</div>
