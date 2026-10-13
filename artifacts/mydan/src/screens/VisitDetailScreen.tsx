@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Camera, CheckCheck, ClipboardList, Plus } from '@/components/Icons';
+import { Camera, CheckCheck, ClipboardList, Plus, ShoppingBag } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useScope, useSetVisitOutcome, useUpdateVisitStatus } from '@/lib/data';
@@ -181,6 +181,10 @@ export default function VisitDetailScreen() {
     nav(`/competitors?${p}`);
   }, [nav, id, detail.data]);
 
+  const goOrder = useCallback(() => {
+    if (id) nav(`/orders/new?visit=${encodeURIComponent(id)}`);
+  }, [nav, id]);
+
   if (!id) return (
     <div className="page">
       <PageTitle>{t('تفاصيل الزيارة')}</PageTitle>
@@ -228,6 +232,7 @@ export default function VisitDetailScreen() {
               <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn sm ghost grow" onClick={goShelfAudit}><Camera size={16} /> {t('مراجعة الرف')}</button>
                 <button className="btn sm ghost grow" onClick={goCompetitors}><Plus size={16} /> {t('منافسين')}</button>
+                <button className="btn sm ghost grow" onClick={goOrder} data-testid="button-new-order-from-visit"><ShoppingBag size={16} /> {t('طلب جديد')}</button>
               </div>
             </div>
           )}
