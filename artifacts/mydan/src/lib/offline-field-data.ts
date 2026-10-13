@@ -91,3 +91,17 @@ export function readOfflineCache<T>(key: string): Promise<OfflineCache<T> | null
     request.onsuccess = () => set((request.result as OfflineCache<T> | undefined) ?? null);
   });
 }
+
+
+export function clearOfflinePlanCache(companyId: string, supervisorId: string): Promise<void> {
+  const planPrefix = 'beat-plan:' + companyId + ':' + supervisorId + ':';
+  const daysKey = 'beat-days:' + companyId + ':' + supervisorId;
+  return run<void>(PLANS, 'readwrite', store => {
+    const request = store.getAllKeys();
+    request.onsuccess = () => {
+      for (const key of request.result) {
+        if (typeof key === 'string' && (key === daysKey || key.startsWith(planPrefix))) store.delete(key);
+      }
+    };
+  });
+}
