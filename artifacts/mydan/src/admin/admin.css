@@ -18,6 +18,14 @@
 .adm-brand .lang-toggle{color:#fff}
 .adm-main{padding:16px;display:flex;flex-direction:column;gap:16px;min-width:0}
 .adm-main h2{margin:0;font-size:22px}
+.adm-page{display:flex;flex-direction:column;gap:16px;min-width:0}
+.adm-card{display:flex;flex-direction:column;gap:14px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+.adm-kpi{display:flex;flex-direction:column;gap:8px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+.adm-kpi span{font-size:13px;color:var(--muted)}.adm-kpi strong{font-size:21px;overflow-wrap:anywhere}
+.adm-search{display:flex;align-items:center;gap:8px;min-height:42px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--muted)}
+.adm-search input{width:100%;min-width:0;border:0;outline:0;font:inherit;background:transparent;color:inherit}
+.adm-loading{padding:24px;text-align:center;color:var(--muted)}
+.adm-table td a{display:inline-flex;align-items:center;gap:4px;color:var(--color-primary);white-space:nowrap}
 .adm-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
 .adm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:start}
 .adm-table-wrap{overflow-x:auto;background:#fff;border:1px solid var(--line);border-radius:14px}
