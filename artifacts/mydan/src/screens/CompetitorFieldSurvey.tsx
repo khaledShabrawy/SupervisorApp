@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useScope } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { notify } from '@/lib/toast';
-import { LOCALE, t } from '@/i18n';
+import { t } from '@/i18n';
 import {
   listOfflineObservations, removeOfflineObservations, saveOfflineObservation,
   type OfflineCompetitorObservation,
@@ -119,7 +119,7 @@ export default function CompetitorFieldSurvey({ visitId, customerId, outletName 
         notify(t('تم رفع {count} ملاحظة إلى الشركة.', { count: uploaded }), 'success');
         void qc.invalidateQueries({ queryKey: [...sc.base, 'competitor-field-insights'] });
       }
-    } catch (error) {
+    } catch {
       await refreshQueue();
       notify(t('تعذر رفع بعض البيانات. بقيت محفوظة على الجهاز للمحاولة مرة أخرى.'), 'error');
     } finally { setUploading(false); }
