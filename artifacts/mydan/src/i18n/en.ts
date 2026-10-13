@@ -826,4 +826,5 @@ export const EN: Record<string, string> = {
   'عرض الموقع': 'View location',
   'تعرض أحدث 1000 ملاحظة خلال 30 يومًا.': 'Showing the latest 1,000 observations from the last 30 days.',
   'تحديث البيانات': 'Refresh data',
+  'أسعار مسجلة': 'Price records',
 };
