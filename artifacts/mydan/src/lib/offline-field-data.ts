@@ -55,9 +55,9 @@ function run<T>(storeName: string, mode: IDBTransactionMode,
   action: (store: IDBObjectStore, setResult: (value: T) => void) => void): Promise<T> {
   return openDb().then(db => new Promise<T>((resolve, reject) => {
     const tx = db.transaction(storeName, mode);
-    let result: T;
+    let result: T | undefined;
     action(tx.objectStore(storeName), value => { result = value; });
-    tx.oncomplete = () => resolve(result!);
+    tx.oncomplete = () => resolve(result as T);
     tx.onerror = () => reject(tx.error ?? new Error('Offline storage transaction failed.'));
     tx.onabort = () => reject(tx.error ?? new Error('Offline storage transaction was cancelled.'));
   }));
