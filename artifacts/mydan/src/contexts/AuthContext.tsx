@@ -14,6 +14,21 @@ interface AuthValue {
   signOut(): Promise<void>; retryProfile(): Promise<void>;
 }
 const Context = createContext<AuthValue | undefined>(undefined);
+const OFFLINE_PROFILE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+const profileCacheKey = (userId: string) => 'mydan:offline-profile:v1:' + userId;
+function readCachedSupervisor(userId: string): Supervisor | null {
+  try {
+    const raw = localStorage.getItem(profileCacheKey(userId));
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as { savedAt: number; supervisor: unknown };
+    if (!Number.isFinite(cached.savedAt) || Date.now() - cached.savedAt > OFFLINE_PROFILE_MAX_AGE) return null;
+    return isAuthorizedSupervisor(cached.supervisor, userId) ? cached.supervisor : null;
+  } catch { return null; }
+}
+function saveCachedSupervisor(supervisor: Supervisor): void {
+  try { localStorage.setItem(profileCacheKey(supervisor.user_id), JSON.stringify({ savedAt: Date.now(), supervisor })); }
+  catch { /* offline capture remains available for the current session */ }
+}
 export function AuthProvider({ children }: { children: ReactNode }) {
   const cache = useQueryClient();
   const [session, setSession] = useState<Session | null>(null);
@@ -38,11 +53,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error: failure } = await supabase.from('supervisors')
         .select('id,user_id,full_name,phone,role,branch_id,company_id,is_active')
         .eq('user_id', next.user.id).maybeSingle();
-      if (failure) throw new Error(t('تعذر تحميل حساب المشرف. تحقق من بنية الجدول وسياسات الوصول ثم أعد المحاولة.'));
+      if (failure) {
+        const cached = typeof navigator !== 'undefined' && !navigator.onLine ? readCachedSupervisor(next.user.id) : null;
+        if (cached && epoch === generation.current) { setSupervisor(cached); return; }
+        throw new Error(t('تعذر تحميل حساب المشرف. تحقق من بنية الجدول وسياسات الوصول ثم أعد المحاولة.'));
+      }
       if (!isAuthorizedSupervisor(data, next.user.id)) {
         throw new Error(t('حساب المشرف غير موجود أو غير نشط أو صلاحياته غير مكتملة.'));
       }
-      if (epoch === generation.current) setSupervisor(data);
+      if (epoch === generation.current) { saveCachedSupervisor(data); setSupervisor(data); }
     } catch (failure) {
       if (epoch === generation.current) setError(failure instanceof Error ? failure.message : t('تعذر تحميل الحساب.'));
     } finally {
@@ -89,11 +108,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [synchronize]);
   const signOut = useCallback(async () => {
     ++generation.current; currentUser.current = null;
+    if (session?.user.id) { try { localStorage.removeItem(profileCacheKey(session.user.id)); } catch { /* storage may be unavailable */ } }
     setSupervisor(null); setSession(null); setError(null); setLoading(false);
     await cache.cancelQueries(); cache.clear();
     const { error: failure } = await supabase.auth.signOut({ scope: 'local' });
     if (failure) throw new Error(t('تعذر إنهاء الجلسة. تحقق من الاتصال وأعد المحاولة.'));
-  }, [cache]);
+  }, [cache, session]);
   return <Context.Provider value={{
     session, user: session?.user ?? null, supervisor, isLoading,
     isAuthenticated: !!session && !!supervisor, error, signIn, signOut,
