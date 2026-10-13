@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     void supabase.auth.getSession().then(({ data, error: failure }) => {
       if (!alive || generation.current !== initialEpoch) return;
-      if (failure) { setLoading(false); setError(t('تعذر استعادة الجلسة. أعد تسجيل الدخول.')); }
+      if (failure && !data.session) { setLoading(false); setError(t('تعذر استعادة الجلسة. أعد تسجيل الدخول.')); }
       else void synchronize(data.session);
     });
     return () => {
