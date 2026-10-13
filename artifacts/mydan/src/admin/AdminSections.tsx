@@ -17,6 +17,7 @@ import EmptyState from '@/components/EmptyState';
 import type { Supervisor } from '@/types/database';
 import { AssetTypes, SettingsForm, TargetForm } from '@/screens/AdminPanel';
 import { useInput, useRefetch } from '@/screens/shared';
+import { useAdminProspects, useConvertProspect } from '@/lib/screen-survey';
 import { t } from '@/i18n';
 
 function Modal({ title, onClose, onSubmit, children }: { title: string; onClose: () => void; onSubmit: (e: FormEvent) => void; children: React.ReactNode }) {
@@ -433,5 +434,46 @@ export function AdminSettings() {
         <div className="muted" style={{ fontSize: 13 }}>{t('PNG أو JPG أو WEBP أو SVG · حتى 1 ميجابايت')}</div>
       </div>
     </div>
+  </>;
+}
+
+/* ---------- Prospects (from field survey) ---------- */
+export function AdminProspects() {
+  const q = useAdminProspects();
+  const convert = useConvertProspect();
+  const retry = useRefetch(q.refetch);
+  return <>
+    <div className="row between">
+      <h2>{t('العملاء المحتملون')}</h2>
+      {q.data && <span className="badge b-blue">{q.data.length}</span>}
+    </div>
+    <p className="muted" style={{ marginTop: 0 }}>{t('عملاء اكتُشفوا عبر المسح الميداني بالذكاء الاصطناعي. راجعهم وحوّلهم لعملاء نشطين.')}</p>
+    {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
+      : !q.data?.length ? <EmptyState icon={<Store />} title={t('لا يوجد عملاء محتملون')} description={t('استخدم المسح الميداني في التطبيق لاكتشاف عملاء جدد.')} />
+      : <div className="adm-table-wrap"><table className="adm-table">
+          <thead><tr><th>{t('الاسم')}</th><th>{t('النوع')}</th><th>{t('الموقع')}</th><th>{t('التاريخ')}</th><th /></tr></thead>
+          <tbody>{q.data.map((c) => (
+            <tr key={c.id}>
+              <td className="title">{c.name}</td>
+              <td>{c.customer_type ?? '—'}</td>
+              <td className="muted" style={{ fontSize: 12 }} dir="ltr">
+                {c.latitude && c.longitude ? `${c.latitude.toFixed(4)}, ${c.longitude.toFixed(4)}` : '—'}
+              </td>
+              <td className="muted" style={{ fontSize: 12 }}>{new Date(c.created_at).toLocaleDateString('ar-EG')}</td>
+              <td className="row gap-1">
+                <button
+                  className="btn sm success"
+                  disabled={convert.isPending}
+                  onClick={() => convert.mutate({ id: c.id, action: 'activate' })}
+                >{t('تفعيل')}</button>
+                <button
+                  className="btn sm ghost danger"
+                  disabled={convert.isPending}
+                  onClick={() => { if (confirm(t('رفض العميل المحتمل؟'))) convert.mutate({ id: c.id, action: 'reject' }); }}
+                >{t('رفض')}</button>
+              </td>
+            </tr>
+          ))}</tbody>
+        </table></div>}
   </>;
 }
