@@ -1,6 +1,6 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, MapPin, MapPinned, Route } from '@/components/Icons';
+import { ClipboardList, MapPin, MapPinned, RefreshCw, Route } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useBeatPlan, useBeatPlanDays, type BeatRow } from '@/lib/data';
@@ -50,15 +50,30 @@ export default function BeatPlanScreen() {
   const onDay = useCallback((v: string) => setDay(Number(v)), []);
   const open = useCallback((id: string) => nav(`/visits/new?customer=${id}`), [nav]);
   const toggleMap = useCallback(() => setShowMap((s) => !s), []);
+  const isFetching = q.isFetching || daysQ.isFetching;
+  const sync = useCallback(() => { void q.refetch(); void daysQ.refetch(); }, [q, daysQ]);
 
-  const mapAction = (
-    <button className="icon-btn" aria-label={showMap ? t('عرض القائمة') : t('عرض الخريطة')} onClick={toggleMap} data-testid="button-toggle-map">
-      {showMap ? <ClipboardList size={20} /> : <MapPinned size={20} />}
-    </button>
+  const titleAction = (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <button
+        className="btn sm ghost"
+        style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '6px 12px', fontSize: 13 }}
+        aria-label={t('تحديث')}
+        onClick={sync}
+        disabled={isFetching}
+        data-testid="button-sync-plan"
+      >
+        <RefreshCw size={15} style={isFetching ? { animation: 'spin 1s linear infinite' } : undefined} />
+        {t('تحديث')}
+      </button>
+      <button className="icon-btn" aria-label={showMap ? t('عرض القائمة') : t('عرض الخريطة')} onClick={toggleMap} data-testid="button-toggle-map">
+        {showMap ? <ClipboardList size={20} /> : <MapPinned size={20} />}
+      </button>
+    </div>
   );
 
   return <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
-    <PageTitle action={mapAction}>{t('خطة الزيارات')}</PageTitle>
+    <PageTitle action={titleAction}>{t('خطة الزيارات')}</PageTitle>
 
     {/* Tabs — تظهر فقط الأيام التي فيها زيارات مخططة لهذا المشرف */}
     {daysQ.isPending
