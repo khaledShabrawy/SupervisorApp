@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS public.competitor_field_observations (
   longitude      DOUBLE PRECISION,
   observed_at    TIMESTAMPTZ NOT NULL,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT competitor_observation_latitude CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
+  CONSTRAINT competitor_observation_longitude CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
   CONSTRAINT competitor_observation_visit_company CHECK (visit_id IS NULL OR customer_id IS NOT NULL)
 );
 
@@ -73,5 +75,7 @@ CREATE POLICY "competitor_field_observations_owner_insert"
         AND c.company_id = competitor_field_observations.company_id
     ))
   );
+
+GRANT SELECT, INSERT ON TABLE public.competitor_field_observations TO authenticated;
 
 COMMIT;
