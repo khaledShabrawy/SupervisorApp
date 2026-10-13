@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { ArrowRight, BarChart3, Bell, Building2, ClipboardList, Download, FileText, Home, LogOut, MapPin, Package, PieChart, ScanSearch, Settings2, ShieldCheck, Store, Target, Users } from '@/components/Icons';
+import { ArrowRight, BarChart3, Bell, Building2, ClipboardList, Download, FileText, Home, LogOut, MapPin, Package, PieChart, ScanSearch, Settings2, ShieldCheck, ShoppingBag, Store, Target, Users } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { canAdmin } from '@/lib/policy';
@@ -18,6 +18,7 @@ export const ADMIN_NAV = [
   { to: '/admin/branches', label: t('الفروع'), icon: MapPin },
   { to: '/admin/customers', label: t('العملاء'), icon: Store },
   { to: '/admin/products', label: t('المنتجات'), icon: Package },
+  { to: '/admin/orders', label: t('الطلبات'), icon: ShoppingBag },
   { to: '/admin/targets', label: t('الأهداف'), icon: Target },
   { to: '/admin/assets', label: t('الأصول'), icon: ShieldCheck },
   { to: '/admin/surveys', label: t('الاستبيانات'), icon: FileText },
