@@ -4,6 +4,8 @@
 -- company survey rows for oversight. Client-side writes remain owner-scoped.
 -- This replaces migration 09's company-wide FOR ALL policy.
 
+BEGIN;
+
 DROP POLICY IF EXISTS "field_surveys_tenant" ON public.field_surveys;
 DROP POLICY IF EXISTS "field_surveys_company_read" ON public.field_surveys;
 DROP POLICY IF EXISTS "field_surveys_owner_insert" ON public.field_surveys;
@@ -69,3 +71,5 @@ CREATE POLICY "field_surveys_owner_delete" ON public.field_surveys
         AND s.id = field_surveys.supervisor_id
     )
   );
+
+COMMIT;
