@@ -136,7 +136,6 @@ export function useSaveProspects() {
         company_id: sc.companyId,
         supervisor_id: sc.supervisorId,
         name: s.name.trim() || 'عميل غير محدد الاسم',
-        customer_type: s.type,
         type: s.type,
         latitude: survey.latitude,
         longitude: survey.longitude,
@@ -189,7 +188,9 @@ export function useConvertProspect() {
   return useMutation({
     mutationFn: async ({ id, action }: { id: string; action: 'activate' | 'reject' }) => {
       const status = action === 'activate' ? 'active' : 'rejected';
-      const { error } = await supabase.from('customers').update({ status }).eq('id', id).eq('company_id', sc.companyId);
+      const is_active = action === 'activate';
+      const { error } = await supabase.from('customers').update({ status, is_active })
+        .eq('id', id).eq('company_id', sc.companyId).eq('status', 'prospect');
       if (error) throw new Error('تعذر تحديث حالة العميل.');
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: [...sc.base, 'customers'] }),
