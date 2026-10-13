@@ -27,6 +27,7 @@ export const ADMIN_NAV = [
   { to: '/admin/bulk-import', label: t('استيراد جماعي'), icon: Download },
   { to: '/admin/reports', label: t('التقارير المخصصة'), icon: PieChart },
   { to: '/admin/prospects', label: t('العملاء المحتملون'), icon: ScanSearch },
+  { to: '/admin/competitor-insights', label: t('رصد المنافسين'), icon: ScanSearch },
 ] as const;
 
 /** Auth + role gate for /admin/*; renders the desktop admin shell instead of the mobile one. */
