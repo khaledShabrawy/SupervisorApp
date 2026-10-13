@@ -1,6 +1,6 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Eye, Plus, XCircle } from '@/components/Icons';
+import { Camera, Eye, Plus, XCircle } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useScope } from '@/lib/data';
@@ -14,7 +14,7 @@ import { useInput } from './shared';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { t } from '@/i18n';
 
-interface CompetitorProduct { id: string; brand_name: string; product_name: string | null; quantity: number | null; notes: string | null; created_at: string; }
+interface CompetitorProduct { id: string; brand_name: string; product_name: string | null; quantity: number | null; notes: string | null; photo_url: string | null; created_at: string; }
 
 function useCompetitorProducts(visitId: string) {
   const sc = useScope();
@@ -23,19 +23,34 @@ function useCompetitorProducts(visitId: string) {
     enabled: !!visitId,
     retry: 1,
     queryFn: async ({ signal }) => {
-      const { data, error } = await supabase.from('competitor_products').select('id,brand_name,product_name,quantity,notes,created_at').eq('company_id', sc.companyId).eq('visit_id', visitId).order('created_at', { ascending: false }).abortSignal(signal);
+      const { data, error } = await supabase.from('competitor_products').select('id,brand_name,product_name,quantity,notes,photo_url,created_at').eq('company_id', sc.companyId).eq('visit_id', visitId).order('created_at', { ascending: false }).abortSignal(signal);
       if (error) throw new Error(t('تعذر تحميل منتجات المنافسين.'));
       return (data ?? []) as CompetitorProduct[];
     },
   });
 }
 
+async function compressAndUpload(file: File, companyId: string): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const MAX = 1200;
+  const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise<Blob>((res) => canvas.toBlob((b) => res(b!), 'image/jpeg', 0.85));
+  const path = `${companyId}/competitors/${Date.now()}.jpg`;
+  const { error } = await supabase.storage.from('shelf-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+  if (error) throw new Error(error.message);
+  return supabase.storage.from('shelf-photos').getPublicUrl(path).data.publicUrl;
+}
+
 function useAddCompetitor() {
   const sc = useScope();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (v: { visitId: string; brandName: string; productName: string; quantity: number; notes: string; }) => {
-      const { error } = await supabase.from('competitor_products').insert({ visit_id: v.visitId, company_id: sc.companyId, brand_name: v.brandName.trim(), product_name: v.productName.trim() || null, quantity: v.quantity || null, notes: v.notes.trim() || null });
+    mutationFn: async (v: { visitId: string; brandName: string; productName: string; quantity: number; notes: string; photoUrl?: string }) => {
+      const { error } = await supabase.from('competitor_products').insert({ visit_id: v.visitId, company_id: sc.companyId, brand_name: v.brandName.trim(), product_name: v.productName.trim() || null, quantity: v.quantity || null, notes: v.notes.trim() || null, photo_url: v.photoUrl ?? null });
       if (error) throw new Error(t('تعذر الحفظ: {msg}', { msg: error.message }));
     },
     onSuccess: (_d, v) => {
@@ -78,13 +93,13 @@ const CompetitorItem = memo(function CompetitorItem({ item, onDelete }: { item: 
         </div>
         {item.notes && <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>{item.notes}</div>}
       </div>
+      {item.photo_url && <img src={item.photo_url} alt={item.brand_name} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} loading="lazy" />}
       <button className="icon-btn" aria-label={t('حذف')} onClick={del} style={{ color: 'var(--color-danger)', flexShrink: 0 }}><XCircle size={18} /></button>
     </div>
   );
 });
 
 export default function CompetitorScreen() {
-  const { supervisor } = useAuth();
   const settings = useAppSettings();
   const [params] = useSearchParams();
   const visitId = params.get('visit') ?? '';
@@ -97,15 +112,35 @@ export default function CompetitorScreen() {
   const [qty, setQty] = useState('');
   const [notes, setNotes] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { supervisor } = useAuth();
   const onBrand = useInput(setBrand);
   const onProduct = useInput(setProduct);
   const onQty = useInput(setQty);
   const onNotes = useInput(setNotes);
 
+  const onPhoto = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !supervisor?.company_id) return;
+    setPhotoUploading(true);
+    try {
+      const url = await compressAndUpload(file, supervisor.company_id);
+      setPhotoUrl(url);
+    } catch {
+      // silently skip photo on error
+    } finally {
+      setPhotoUploading(false);
+    }
+  }, [supervisor?.company_id]);
+
   const submit = useCallback(() => {
     if (!brand.trim() || !visitId) return;
-    add.mutate({ visitId, brandName: brand, productName: product, quantity: Number(qty) || 0, notes }, { onSuccess: () => { setBrand(''); setProduct(''); setQty(''); setNotes(''); setShowForm(false); } });
-  }, [add, visitId, brand, product, qty, notes]);
+    add.mutate({ visitId, brandName: brand, productName: product, quantity: Number(qty) || 0, notes, photoUrl: photoUrl ?? undefined }, {
+      onSuccess: () => { setBrand(''); setProduct(''); setQty(''); setNotes(''); setPhotoUrl(null); setShowForm(false); },
+    });
+  }, [add, visitId, brand, product, qty, notes, photoUrl]);
 
   const refetch = useCallback(() => { void list.refetch(); }, [list]);
   const onDelete = useCallback((id: string) => del.mutate(id), [del]);
@@ -128,6 +163,19 @@ export default function CompetitorScreen() {
           <label className="f">{t('اسم المنتج (اختياري)')}<input className="input" value={product} onChange={onProduct} placeholder={t('مثال: شوكولاتة حليب 100 جم')} /></label>
           <label className="f">{t('الكمية الملاحظة (اختياري)')}<input className="input" type="number" inputMode="numeric" value={qty} onChange={onQty} placeholder={t('عدد الوحدات')} min="0" /></label>
           <label className="f">{t('ملاحظات (اختياري)')}<textarea className="input" rows={2} value={notes} onChange={onNotes} placeholder={t('موضع العرض، التخفيضات، ملاحظات أخرى...')} /></label>
+          <div>
+            <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={onPhoto} />
+            {photoUrl
+              ? <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <img src={photoUrl} alt={t('صورة المنافس')} style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 8 }} />
+                  <button type="button" className="icon-btn" onClick={() => setPhotoUrl(null)} style={{ position: 'absolute', top: 4, insetInlineEnd: 4, background: 'rgba(0,0,0,.5)', color: '#fff', borderRadius: '50%' }}><XCircle size={18} /></button>
+                </div>
+              : <button type="button" className="btn ghost" style={{ gap: 8, width: '100%' }} disabled={photoUploading} onClick={() => fileRef.current?.click()}>
+                  <Camera size={18} />
+                  {photoUploading ? t('جاري رفع الصورة...') : t('إضافة صورة (اختياري)')}
+                </button>
+            }
+          </div>
           <div className="row" style={{ gap: 8 }}>
             <button className="btn success grow" disabled={!brand.trim() || add.isPending} onClick={submit}><Plus size={18} />{add.isPending ? t('جاري الحفظ...') : t('حفظ')}</button>
             <button className="btn ghost" onClick={() => { setShowForm(false); setBrand(''); setProduct(''); setQty(''); setNotes(''); }}>{t('إلغاء')}</button>

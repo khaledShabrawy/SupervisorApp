@@ -12,6 +12,7 @@ import { notify } from '@/lib/toast';
 import { BottomNav } from './BottomNav';
 import { LanguageToggle } from './LanguageToggle';
 import LoadingSpinner from './LoadingSpinner';
+import { OfflineUploadBanner } from './OfflineUploadBanner';
 import { TrialBanner } from './TrialBanner';
 import { t } from '@/i18n';
 
@@ -75,6 +76,7 @@ function Shell() {
       <button className="icon-btn logout-btn" aria-label={t('تسجيل الخروج')} data-testid="button-logout"
         onClick={logout}><LogOut /></button>
     </header>
+    <OfflineUploadBanner />
     <div style={{ padding: '8px 16px 0' }}><TrialBanner /></div>
     <Suspense fallback={<LoadingSpinner />}><Outlet /></Suspense>
     <BottomNav />

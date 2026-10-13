@@ -757,4 +757,16 @@ export const EN: Record<string, string> = {
   'استخدم المسح الميداني في التطبيق لاكتشاف عملاء جدد.': 'Use the field survey in the app to discover new customers.',
   'رفض هذا العميل المحتمل؟': 'Reject this prospect?',
   'رفض العميل المحتمل': 'Reject prospect',
+
+  // ---------- Sync & offline upload ----------
+  'تحديث': 'Sync',
+  'أنت غير متصل بالإنترنت': 'You are offline',
+  'عاد الاتصال بالإنترنت': 'Connection restored',
+  'رفع البيانات': 'Upload Data',
+  'جاري الرفع...': 'Uploading...',
+
+  // ---------- Competitor photo ----------
+  'إضافة صورة (اختياري)': 'Add photo (optional)',
+  'جاري رفع الصورة...': 'Uploading photo...',
+  'صورة المنافس': 'Competitor photo',
 };
