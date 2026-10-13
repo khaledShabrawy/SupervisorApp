@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS public.competitor_field_observations (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT competitor_observation_latitude CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
   CONSTRAINT competitor_observation_longitude CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
-  CONSTRAINT competitor_observation_visit_company CHECK (visit_id IS NULL OR customer_id IS NOT NULL)
 );
 
 CREATE INDEX IF NOT EXISTS idx_competitor_field_company_date
