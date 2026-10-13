@@ -369,7 +369,11 @@ export function useBeatPlan(day: number) {
         const plan = data as BeatRow[];
         const visited = new Map((visits.data as Visit[]).map((v) => [v.customer_id, v.status]));
         const savedAt = Date.now();
-        await saveOfflineCache(cacheKey, { plan, visited: [...visited.entries()], savedAt }).catch(() => undefined);
+        const offlinePlan = plan.map((row) => ({
+          id: row.id, supervisor_id: row.supervisor_id, day_of_week: row.day_of_week, customer_id: row.customer_id, company_id: row.company_id,
+          customers: row.customers ? { id: row.customers.id, name: row.customers.name, address: row.customers.address, latitude: row.customers.latitude, longitude: row.customers.longitude, customer_type: row.customers.customer_type } : null,
+        })) as BeatRow[];
+        await saveOfflineCache(cacheKey, { plan: offlinePlan, visited: [...visited.entries()], savedAt }).catch(() => undefined);
         return { plan, visited, offlineCopy: false, savedAt };
       } catch (error) {
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
