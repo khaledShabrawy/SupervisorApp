@@ -1,9 +1,10 @@
 import { memo, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, ClipboardList, MapPin, Plus, Route, ScanSearch, Target as TargetIcon } from '@/components/Icons';
+import { Camera, ClipboardList, Eye, MapPin, Plus, Route, ScanSearch, Target as TargetIcon } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useRealtime } from '@/hooks/useRealtime';
+import { useScreenAllowed } from '@/hooks/useScreenAllowed';
 import { canAdmin } from '@/lib/policy';
 import { useScreenDashboard } from '@/lib/screen-data';
 import type { VisitRow } from '@/lib/data';
@@ -26,6 +27,7 @@ const Recent = memo(function Recent({ v, onOpen }: { v: VisitRow; onOpen: (id: s
 export default function DashboardScreen() {
   const nav = useNavigate(); const { supervisor } = useAuth(); const settings = useAppSettings();
   const q = useScreenDashboard(); const d = q.data; const L = q.isPending;
+  const canScanCompetitors = useScreenAllowed('competitor_products');
   const admin = canAdmin(supervisor);
   const retry = useRefetch(q.refetch);
   useRealtime('visits', supervisor ? (admin ? `company_id=eq.${supervisor.company_id}` : `supervisor_id=eq.${supervisor.id}`) : undefined, retry);
@@ -46,6 +48,7 @@ export default function DashboardScreen() {
         <Act id="/shelf-audit" onAct={go} className="s-act s-blue"><Camera /> {t('مراجعة الرف')}</Act>
         <Act id="/beat-plan" onAct={go} className="s-act s-purple"><Route /> {t('خطة الزيارات')}</Act>
         <Act id="/field-survey" onAct={go} className="s-act" style={{ background: 'var(--color-success)', color: '#fff' }}><ScanSearch /> {t('مسح ميداني')}</Act>
+        {canScanCompetitors && <Act id="/competitors" onAct={go} className="s-act s-blue"><Eye /> {t('مسح المنافسين')}</Act>}
       </div>
       <PageTitle>{t('آخر الزيارات')}</PageTitle>
       {L ? <div className="skel" style={{ height: 70 }} /> : d!.recent.length === 0
