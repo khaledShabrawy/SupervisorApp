@@ -1,6 +1,6 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, MapPin, MapPinned, Route } from '@/components/Icons';
+import { ClipboardList, MapPin, MapPinned, RefreshCw, Route } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useBeatPlan, useBeatPlanDays, type BeatRow } from '@/lib/data';
@@ -12,6 +12,7 @@ import { ErrorState, SkeletonList } from '@/components/States';
 import { DAYS } from '@/lib/format';
 import { Chip, useRefetch } from './shared';
 import { t } from '@/i18n';
+import { notify } from '@/lib/toast';
 
 const BeatMap = lazy(() => import('@/components/BeatMap'));
 
@@ -38,6 +39,13 @@ export default function BeatPlanScreen() {
 
   const [day, setDay] = useState<number | null>(null);
   const [showMap, setShowMap] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [online, setOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine);
+  useEffect(() => {
+    const on = () => setOnline(true), off = () => setOnline(false);
+    window.addEventListener('online', on); window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, []);
   useEffect(() => {
     if (availableDays.length === 0) return;
     if (day === null || !availableDays.includes(day)) {
@@ -50,15 +58,31 @@ export default function BeatPlanScreen() {
   const onDay = useCallback((v: string) => setDay(Number(v)), []);
   const open = useCallback((id: string) => nav(`/visits/new?customer=${id}`), [nav]);
   const toggleMap = useCallback(() => setShowMap((s) => !s), []);
+  const syncPlan = useCallback(async () => {
+    if (!online) { notify(t('لا يوجد اتصال لتحديث الخطة.'), 'error'); return; }
+    setSyncing(true);
+    try {
+      await Promise.all([daysQ.refetch({ throwOnError: true }), q.refetch({ throwOnError: true })]);
+      notify(t('تم تحديث خطة الزيارات'), 'success');
+    } catch { notify(t('تعذر تحديث الخطة. تحقق من الاتصال.'), 'error'); }
+    finally { setSyncing(false); }
+  }, [online, daysQ, q]);
 
   const mapAction = (
     <button className="icon-btn" aria-label={showMap ? t('عرض القائمة') : t('عرض الخريطة')} onClick={toggleMap} data-testid="button-toggle-map">
       {showMap ? <ClipboardList size={20} /> : <MapPinned size={20} />}
     </button>
   );
+  const headerActions = <div className="row" style={{ gap: 6 }}>
+    <button className="btn sm ghost" type="button" aria-label={t('تحديث خطة المشرف')} onClick={() => void syncPlan()} disabled={!online || syncing} data-testid="button-sync-plan">
+      <RefreshCw size={16} className={syncing ? 's-spin' : ''} /> {syncing ? t('جاري التحديث...') : t('تحديث خطة المشرف')}
+    </button>
+    {mapAction}
+  </div>;
 
   return <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
-    <PageTitle action={mapAction}>{t('خطة الزيارات')}</PageTitle>
+    <PageTitle action={headerActions}>{t('خطة الزيارات')}</PageTitle>
+    {q.data?.offlineCopy && <div className="alert warn" role="status">{t('تعرض نسخة محفوظة على الجهاز من {date}', { date: new Date(q.data.savedAt).toLocaleString() })}</div>}
 
     {/* Tabs — تظهر فقط الأيام التي فيها زيارات مخططة لهذا المشرف */}
     {daysQ.isPending
