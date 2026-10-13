@@ -12,6 +12,7 @@ import { todayStr } from '@/lib/format';
 import type { Attendance, BeatPlan, Customer, Notification, ShelfAudit, Supervisor, Target, Visit } from '@/types/database';
 import type { VisitOutcome } from './visit-geo';
 import { t } from '@/i18n';
+import { readOfflineCache, saveOfflineCache } from './offline-field-data';
 import { AUDIT_COLUMNS, CUSTOMER_COLUMNS, NOTIFICATION_COLUMNS, TARGET_COLUMNS, VISIT_COLUMNS, VISIT_JOIN } from './columns';
 
 export const PAGE = 20;
@@ -331,36 +332,55 @@ export function useTargets(month: number, year: number) {
 /** الأيام التي فيها زيارات مخططة للمشرف الحالي — ديناميكية من DB */
 export function useBeatPlanDays() {
   const sc = useScope();
+  const cacheKey = 'beat-days:' + sc.companyId + ':' + sc.supervisorId;
   return useQuery({
     queryKey: [...sc.base, 'beat-days'],
     staleTime: 60_000,
     queryFn: async ({ signal }) => {
-      const { data, error } = await sc.scope(
-        supabase.from('beat_plans').select('day_of_week')
-      ).abortSignal(signal);
-      if (error) fail('تعذر تحميل أيام الخطة.', error);
-      const unique = [...new Set((data as { day_of_week: number }[]).map((r) => r.day_of_week))];
-      return unique.sort((a, b) => a - b); // 0=أحد → 6=سبت
+      try {
+        const { data, error } = await sc.scope(supabase.from('beat_plans').select('day_of_week')).abortSignal(signal);
+        if (error) fail('تعذر تحميل أيام الخطة.', error);
+        const days = [...new Set((data as { day_of_week: number }[]).map((r) => r.day_of_week))].sort((a, b) => a - b);
+        await saveOfflineCache(cacheKey, days).catch(() => undefined);
+        return days;
+      } catch (error) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          const cached = await readOfflineCache<number[]>(cacheKey).catch(() => null);
+          if (cached) return cached.data;
+        }
+        throw error;
+      }
     },
   });
 }
 
 export function useBeatPlan(day: number) {
   const sc = useScope();
+  const cacheKey = 'beat-plan:' + sc.companyId + ':' + sc.supervisorId + ':' + day;
   return useQuery({
     queryKey: [...sc.base, 'beat', day], retry: 1,
     queryFn: async ({ signal }) => {
-      const { data, error } = await sc.scope(supabase.from('beat_plans').select(`id,supervisor_id,day_of_week,customer_id,company_id,customers(${CUSTOMER_COLUMNS})`))
-        .eq('day_of_week', day).limit(300).abortSignal(signal);
-      if (error) fail('تعذر تحميل خطة الزيارات.', error);
-      const visits = await sc.scope(supabase.from('visits').select('customer_id,status')).eq('visit_date', todayStr()).limit(1000).abortSignal(signal);
-      if (visits.error) fail('تعذر تحميل زيارات اليوم.', visits.error);
-      return { plan: data as BeatRow[], visited: new Map((visits.data as Visit[]).map((v) => [v.customer_id, v.status])) };
+      try {
+        const { data, error } = await sc.scope(supabase.from('beat_plans').select('id,supervisor_id,day_of_week,customer_id,company_id,customers(' + CUSTOMER_COLUMNS + ')'))
+          .eq('day_of_week', day).limit(300).abortSignal(signal);
+        if (error) fail('تعذر تحميل خطة الزيارات.', error);
+        const visits = await sc.scope(supabase.from('visits').select('customer_id,status')).eq('visit_date', todayStr()).limit(1000).abortSignal(signal);
+        if (visits.error) fail('تعذر تحميل زيارات اليوم.', visits.error);
+        const plan = data as BeatRow[];
+        const visited = new Map((visits.data as Visit[]).map((v) => [v.customer_id, v.status]));
+        const savedAt = Date.now();
+        await saveOfflineCache(cacheKey, { plan, visited: [...visited.entries()], savedAt }).catch(() => undefined);
+        return { plan, visited, offlineCopy: false, savedAt };
+      } catch (error) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          const cached = await readOfflineCache<{ plan: BeatRow[]; visited: [string, Visit['status']][]; savedAt: number }>(cacheKey).catch(() => null);
+          if (cached) return { plan: cached.data.plan, visited: new Map(cached.data.visited), offlineCopy: true, savedAt: cached.savedAt };
+        }
+        throw error;
+      }
     },
   });
-}
-
-/* ---------- Notifications ---------- */
+}/* ---------- Notifications ---------- */
 export function useNotifications(unreadOnly: boolean) {
   const sc = useScope();
   return usePaged<Notification>(sc, 'notifications', ['list', unreadOnly], async (from, to, signal) => {
