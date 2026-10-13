@@ -6,6 +6,7 @@ import { isAuthorizedSupervisor } from '@/lib/policy';
 import { signInErrorMessage } from '@/lib/auth-errors';
 import type { Supervisor } from '@/types/database';
 import { t } from '@/i18n';
+import { clearOfflinePlanCache } from '@/lib/offline-field-data';
 
 interface AuthValue {
   session: Session | null; user: User | null; supervisor: Supervisor | null;
@@ -109,11 +110,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     ++generation.current; currentUser.current = null;
     if (session?.user.id) { try { localStorage.removeItem(profileCacheKey(session.user.id)); } catch { /* storage may be unavailable */ } }
+    if (supervisor) void clearOfflinePlanCache(supervisor.company_id, supervisor.id).catch(() => undefined);
     setSupervisor(null); setSession(null); setError(null); setLoading(false);
     await cache.cancelQueries(); cache.clear();
     const { error: failure } = await supabase.auth.signOut({ scope: 'local' });
     if (failure) throw new Error(t('تعذر إنهاء الجلسة. تحقق من الاتصال وأعد المحاولة.'));
-  }, [cache, session]);
+  }, [cache, session, supervisor]);
   return <Context.Provider value={{
     session, user: session?.user ?? null, supervisor, isLoading,
     isAuthenticated: !!session && !!supervisor, error, signIn, signOut,
