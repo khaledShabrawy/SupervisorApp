@@ -42,9 +42,8 @@ export default function AdminCompetitorInsights() {
       .some(value => value?.toLocaleLowerCase().includes(q)));
   }, [query.data, search]);
   const rows = query.data ?? [];
-  const prices = rows.map(row => Number(row.price)).filter(value => Number.isFinite(value) && value >= 0);
-  const average = prices.length ? prices.reduce((sum, value) => sum + value, 0) / prices.length : null;
-  const competitors = new Set(rows.map(row => row.competitor_name)).size;
+  const priceRecords = rows.filter(row => row.price != null && Number.isFinite(Number(row.price))).length;
+  const competitors = new Set(rows.map(row => row.competitor_name.trim().toLocaleLowerCase())).size;
   const promos = rows.filter(row => !!row.promotion?.trim()).length;
   const outOfStock = rows.filter(row => row.availability === 'out_of_stock').length;
   const money = (value: number | null) => value == null ? '—' : new Intl.NumberFormat(LOCALE, { style: 'currency', currency: 'EGP', maximumFractionDigits: 2 }).format(value);
@@ -55,7 +54,7 @@ export default function AdminCompetitorInsights() {
     <div className="adm-kpis">
       <div className="adm-kpi"><span>{t('المسوح الميدانية')}</span><strong>{query.isPending ? '—' : num(rows.length)}</strong></div>
       <div className="adm-kpi"><span>{t('المنافسون')}</span><strong>{query.isPending ? '—' : num(competitors)}</strong></div>
-      <div className="adm-kpi"><span>{t('متوسط السعر المرصود')}</span><strong>{query.isPending ? '—' : money(average)}</strong></div>
+      <div className="adm-kpi"><span>{t('أسعار مسجلة')}</span><strong>{query.isPending ? '—' : num(priceRecords)}</strong></div>
       <div className="adm-kpi"><span>{t('عروض مسجلة')}</span><strong>{query.isPending ? '—' : num(promos)}</strong></div>
       <div className="adm-kpi"><span>{t('حالات غير متوفر')}</span><strong>{query.isPending ? '—' : num(outOfStock)}</strong></div>
     </div>
