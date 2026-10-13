@@ -19,7 +19,7 @@ export type OrderKpis = { total: number; delivered: number; completion: number }
 
 function countOrders(sc: Scope, signal: AbortSignal, status?: OrderStatus) {
   return readExactCount((head) => {
-    let q = head(supabase.from('orders').select('id', { count: 'exact', head }).eq('company_id', sc.companyId).eq('supervisor_id', sc.supervisorId));
+    let q = supabase.from('orders').select('id', { count: 'exact', head }).eq('company_id', sc.companyId).eq('supervisor_id', sc.supervisorId);
     if (status) q = q.eq('status', status);
     return q;
   }, signal, t('تعذر تحميل مؤشرات الطلبات.'));
