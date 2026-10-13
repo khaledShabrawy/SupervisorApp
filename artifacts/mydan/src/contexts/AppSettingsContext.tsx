@@ -17,6 +17,21 @@ const publicDefaults: AppSettings = {
   geofence_radius_m: 100, target_brand_name: '', competitor_brands: [], ai_audit_enabled: false,
 };
 const properties = ['--color-primary', '--color-success', '--color-danger', '--color-bg', '--primary-foreground'];
+const OFFLINE_SETTINGS_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+const settingsCacheKey = (companyId: string) => 'mydan:offline-settings:v1:' + companyId;
+function readCachedSettings(companyId: string): AppSettings | null {
+  try {
+    const raw = localStorage.getItem(settingsCacheKey(companyId));
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as { savedAt: number; settings: AppSettings };
+    if (!Number.isFinite(cached.savedAt) || Date.now() - cached.savedAt > OFFLINE_SETTINGS_MAX_AGE) return null;
+    return validateSettings(cached.settings, companyId);
+  } catch { return null; }
+}
+function saveCachedSettings(settings: AppSettings): void {
+  try { localStorage.setItem(settingsCacheKey(settings.company_id), JSON.stringify({ savedAt: Date.now(), settings })); }
+  catch { /* settings remain usable for this session */ }
+}
 export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const { supervisor, isAuthenticated, signOut } = useAuth();
   const companyId = supervisor?.company_id;
@@ -40,8 +55,14 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     queryFn: async ({ signal }) => {
       const { data, error } = await supabase.from('app_settings').select(SETTINGS_COLUMNS)
         .eq('company_id', companyId!).abortSignal(signal).single();
-      if (error) throw new Error(t('تعذر تحميل إعدادات الشركة. تحقق من وجود إعداد واحد للشركة وسياسات Supabase.'));
-      return validateSettings(data as AppSettings, companyId!);
+      if (error) {
+        const cached = typeof navigator !== 'undefined' && !navigator.onLine ? readCachedSettings(companyId!) : null;
+        if (cached) return cached;
+        throw new Error(t('تعذر تحميل إعدادات الشركة. تحقق من وجود إعداد واحد للشركة وسياسات Supabase.'));
+      }
+      const validated = validateSettings(data as AppSettings, companyId!);
+      saveCachedSettings(validated);
+      return validated;
     },
     staleTime: 300_000, retry: 1,
   });
