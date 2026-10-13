@@ -4,7 +4,7 @@ import { Camera, ClipboardList, Eye, MapPin, Plus, Route, ScanSearch, Target as 
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useRealtime } from '@/hooks/useRealtime';
-import { useScreenAllowed } from '@/hooks/useScreenAllowed';
+import { useScreenAllowed } from '@/lib/permissions';
 import { canAdmin } from '@/lib/policy';
 import { useScreenDashboard } from '@/lib/screen-data';
 import type { VisitRow } from '@/lib/data';
