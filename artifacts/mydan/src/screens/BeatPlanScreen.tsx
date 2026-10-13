@@ -11,7 +11,7 @@ import StatusBadge from '@/components/StatusBadge';
 import { ErrorState, SkeletonList } from '@/components/States';
 import { DAYS } from '@/lib/format';
 import { Chip, useRefetch } from './shared';
-import { t } from '@/i18n';
+import { LANG, t } from '@/i18n';
 import { notify } from '@/lib/toast';
 
 const BeatMap = lazy(() => import('@/components/BeatMap'));
@@ -68,14 +68,15 @@ export default function BeatPlanScreen() {
     finally { setSyncing(false); }
   }, [online, daysQ, q]);
 
+  const syncLabel = LANG === 'ar' ? t('تحديث') : t('تحديث خطة المشرف');
   const mapAction = (
     <button className="icon-btn" aria-label={showMap ? t('عرض القائمة') : t('عرض الخريطة')} onClick={toggleMap} data-testid="button-toggle-map">
       {showMap ? <ClipboardList size={20} /> : <MapPinned size={20} />}
     </button>
   );
   const headerActions = <div className="row" style={{ gap: 6 }}>
-    <button className="btn sm ghost" type="button" aria-label={t('تحديث خطة المشرف')} onClick={() => void syncPlan()} disabled={!online || syncing} data-testid="button-sync-plan">
-      <RefreshCw size={16} className={syncing ? 's-spin' : ''} /> {syncing ? t('جاري التحديث...') : t('تحديث خطة المشرف')}
+    <button className="btn sm ghost" type="button" aria-label={syncLabel} onClick={() => void syncPlan()} disabled={!online || syncing} data-testid="button-sync-plan">
+      <RefreshCw size={16} className={syncing ? 's-spin' : ''} /> {syncing ? t('جاري التحديث...') : syncLabel}
     </button>
     {mapAction}
   </div>;
