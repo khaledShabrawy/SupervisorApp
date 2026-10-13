@@ -22,6 +22,11 @@ export interface ShelfAudit {
   ai_detailed_report: any; status: 'pending' | 'processing' | 'completed' | 'failed';
   audited_at: string | null; company_id: ID;
 }
+export type OrderStatus = 'pending' | 'confirmed' | 'delivered' | 'cancelled';
+export interface Order {
+  id: ID; visit_id: ID; supervisor_id: ID; customer_id: ID; product_id: ID;
+  quantity: number; status: OrderStatus; company_id: ID; created_at: string;
+}
 export interface Notification {
   id: ID; supervisor_id: ID; type: string; title_ar: string; body_ar: string;
   is_read: boolean; created_at: string;
@@ -45,7 +50,7 @@ export interface Attendance {
   check_out: string | null; company_id: ID;
 }
 export interface TableMap {
-  supervisors: Supervisor; customers: Customer; visits: Visit; shelf_audit: ShelfAudit;
+  supervisors: Supervisor; customers: Customer; visits: Visit; shelf_audit: ShelfAudit; orders: Order;
   notifications: Notification; app_settings: AppSettings;
   targets: Target; beat_plans: BeatPlan; attendance: Attendance;
 }
