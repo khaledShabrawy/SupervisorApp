@@ -29,7 +29,7 @@ export type FieldSurvey = {
 async function currentSession(userId: string) {
   const { data, error } = await supabase.auth.getSession();
   if (error || !data.session || data.session.user.id !== userId) {
-    throw new Error('Ø¬ÙØ³Ø© Ø§ÙØ¯Ø®ÙÙ ØºÙØ± ØµØ§ÙØ­Ø©. Ø£Ø¹Ø¯ ØªØ³Ø¬ÙÙ Ø§ÙØ¯Ø®ÙÙ.');
+    throw new Error('جلسة الدخول غير صالحة. أعد تسجيل الدخول.');
   }
   return data.session;
 }
@@ -43,8 +43,8 @@ export function useUploadSurveyPhoto() {
       longitude,
     }: { file: File; latitude: number | null; longitude: number | null }): Promise<FieldSurvey> => {
       await currentSession(sc.supervisor.user_id);
-      if (!file.type.startsWith('image/')) throw new Error('Ø§Ø®ØªØ± ØµÙØ±Ø© ØµØ§ÙØ­Ø©.');
-      if (file.size > 10 * 1024 * 1024) throw new Error('Ø­Ø¬Ù Ø§ÙØµÙØ±Ø© Ø£ÙØ¨Ø± ÙÙ 10 ÙÙØ¬Ø§Ø¨Ø§ÙØª.');
+      if (!file.type.startsWith('image/')) throw new Error('اختر صورة صالحة.');
+      if (file.size > 10 * 1024 * 1024) throw new Error('حجم الصورة أكبر من 10 ميجابايت.');
 
       const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
       const uid = typeof crypto.randomUUID === 'function'
@@ -54,7 +54,7 @@ export function useUploadSurveyPhoto() {
 
       const { error: uploadError } = await supabase.storage
         .from(SURVEY_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
-      if (uploadError) throw new Error('ØªØ¹Ø°Ø± Ø±ÙØ¹ ØµÙØ±Ø© Ø§ÙÙØ³Ø­ Ø§ÙÙÙØ¯Ø§ÙÙ. ØªØ­ÙÙ ÙÙ ÙØ¬ÙØ¯ bucket "survey-photos".');
+      if (uploadError) throw new Error('تعذر رفع صورة المسح الميداني. تحقق من وجود bucket "survey-photos".');
 
       const { data, error: insertError } = await supabase.from('field_surveys').insert({
         company_id: sc.companyId,
@@ -67,7 +67,7 @@ export function useUploadSurveyPhoto() {
 
       if (insertError || !data) {
         await supabase.storage.from(SURVEY_BUCKET).remove([path]);
-        throw new Error('ØªØ¹Ø°Ø± Ø¥ÙØ´Ø§Ø¡ Ø³Ø¬Ù Ø§ÙÙØ³Ø­ Ø§ÙÙÙØ¯Ø§ÙÙ.');
+        throw new Error('تعذر إنشاء سجل المسح الميداني.');
       }
       return data as FieldSurvey;
     },
@@ -81,7 +81,7 @@ export function useRequestSurveyAnalysis() {
   return useMutation({
     mutationFn: async (survey: FieldSurvey) => {
       if (new URL(SUPABASE_URL).origin !== new URL(DISCOVER_ENDPOINT).origin) {
-        throw new Error('Ø¹ÙÙØ§Ù Ø®Ø¯ÙØ© Ø§ÙØªØ­ÙÙÙ ØºÙØ± ÙØªØ·Ø§Ø¨Ù ÙØ¹ ÙØ´Ø±ÙØ¹ Supabase.');
+        throw new Error('عنوان خدمة التحليل غير متطابق مع مشروع Supabase.');
       }
       const session = await currentSession(sc.supervisor.user_id);
       const controller = new AbortController();
@@ -93,12 +93,12 @@ export function useRequestSurveyAnalysis() {
           body: JSON.stringify({ survey_id: survey.id }),
           signal: controller.signal,
         });
-        if (!res.ok) throw new Error('ØªØ¹Ø°Ø± Ø¥Ø±Ø³Ø§Ù Ø§ÙØµÙØ±Ø© ÙØ®Ø¯ÙØ© Ø§ÙØ§ÙØªØ´Ø§Ù. ØªØ­ÙÙ ÙÙ ÙØ´Ø± ÙØ¸ÙÙØ© discover-customers.');
+        if (!res.ok) throw new Error('تعذر إرسال الصورة لخدمة الاكتشاف. تحقق من نشر وظيفة discover-customers.');
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError')
-          throw new Error('Ø§ÙØªÙØª ÙÙÙØ© Ø§ÙØ·ÙØ¨. ÙØ¯ ÙØ³ØªÙØ± Ø§ÙØªØ­ÙÙÙØ Ø§ÙØªØ¸Ø± Ø«Ù Ø£Ø¹Ø¯ Ø§ÙÙØ­Ø§ÙÙØ©.');
+          throw new Error('انتهت مهلة الطلب. قد يستمر التحليل؛ انتظر ثم أعد المحاولة.');
         if (error instanceof TypeError)
-          throw new Error('ØªØ¹Ø°Ø± Ø§ÙØ§ØªØµØ§Ù Ø¨Ø®Ø¯ÙØ© Ø§ÙØ§ÙØªØ´Ø§Ù. ØªØ­ÙÙ ÙÙ Ø§ÙØ§ØªØµØ§Ù Ø¨Ø§ÙØ¥ÙØªØ±ÙØª.');
+          throw new Error('تعذر الاتصال بخدمة الاكتشاف. تحقق من الاتصال بالإنترنت.');
         throw error;
       } finally { clearTimeout(timer); }
     },
@@ -116,7 +116,7 @@ export function useSurveyResult(id: string | null) {
     queryFn: async ({ signal }) => {
       const { data, error } = await supabase.from('field_surveys')
         .select('*').eq('id', id!).eq('company_id', sc.companyId).abortSignal(signal).single();
-      if (error || !data) throw new Error('ØªØ¹Ø°Ø± ØªØ­ÙÙÙ ÙØªÙØ¬Ø© Ø§ÙÙØ³Ø­.');
+      if (error || !data) throw new Error('تعذر تحميل نتيجة المسح.');
       return data as FieldSurvey;
     },
     refetchInterval: q =>
@@ -131,11 +131,11 @@ export function useSaveProspects() {
       survey,
       stores,
     }: { survey: FieldSurvey; stores: { name: string; type: string }[] }) => {
-      if (!stores.length) throw new Error('ÙØ§ ØªÙØ¬Ø¯ Ø¹ÙÙØ§Ø¡ ÙØ­ÙØ¸ÙÙ.');
+      if (!stores.length) throw new Error('لا توجد عملاء لحفظهم.');
       const rows = stores.map(s => ({
         company_id: sc.companyId,
         supervisor_id: sc.supervisorId,
-        name: s.name.trim() || 'Ø¹ÙÙÙ ØºÙØ± ÙØ­Ø¯Ø¯ Ø§ÙØ§Ø³Ù',
+        name: s.name.trim() || 'عميل غير محدد الاسم',
         type: s.type,
         latitude: survey.latitude,
         longitude: survey.longitude,
@@ -145,11 +145,11 @@ export function useSaveProspects() {
         survey_id: survey.id,
       }));
       const { error } = await supabase.from('customers').insert(rows);
-      if (error) throw new Error('ØªØ¹Ø°Ø± Ø­ÙØ¸ Ø§ÙØ¹ÙÙØ§Ø¡ Ø§ÙÙØ­ØªÙÙÙÙ: ' + error.message);
+      if (error) throw new Error('تعذر حفظ العملاء المحتملين: ' + error.message);
       return rows.length;
     },
     onSuccess: count => {
-      notify(`ØªÙ Ø­ÙØ¸ ${count} Ø¹ÙÙÙ ÙØ­ØªÙÙ Ø¨ÙØ¬Ø§Ø­`, 'success');
+      notify(`تم حفظ ${count} عميل محتمل بنجاح`, 'success');
       void qc.invalidateQueries({ queryKey: [...sc.base, 'customers'] });
       void qc.invalidateQueries({ queryKey: [...sc.base, 'dashboard'] });
     },
@@ -172,7 +172,7 @@ export function useAdminProspects() {
         .order('created_at', { ascending: false })
         .limit(200)
         .abortSignal(signal);
-      if (error) throw new Error('ØªØ¹Ø°Ø± ØªØ­ÙÙÙ Ø§ÙØ¹ÙÙØ§Ø¡ Ø§ÙÙØ­ØªÙÙÙÙ.');
+      if (error) throw new Error('تعذر تحميل العملاء المحتملين.');
       return data as {
         id: string; name: string; customer_type: string | null;
         latitude: number | null; longitude: number | null;
@@ -191,7 +191,7 @@ export function useConvertProspect() {
       const is_active = action === 'activate';
       const { error } = await supabase.from('customers').update({ status, is_active })
         .eq('id', id).eq('company_id', sc.companyId).eq('status', 'prospect');
-      if (error) throw new Error('ØªØ¹Ø°Ø± ØªØ­Ø¯ÙØ« Ø­Ø§ÙØ© Ø§ÙØ¹ÙÙÙ.');
+      if (error) throw new Error('تعذر تحديث حالة العميل.');
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: [...sc.base, 'customers'] }),
     onError: (e: Error) => notify(e.message, 'error'),
