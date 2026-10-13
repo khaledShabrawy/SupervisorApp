@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useMemo, useState } from 'react';
 import { Search, ScanSearch, MapPin, RefreshCw } from '@/components/Icons';
 import { useQuery } from '@tanstack/react-query';
 import { useScope } from '@/lib/data';
