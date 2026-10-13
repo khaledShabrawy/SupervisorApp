@@ -23,7 +23,7 @@ const errorMessage = (message: string, error: { message: string } | null) => {
 };
 async function countRows(sc: Scope, table: string, signal: AbortSignal, build: (q: any) => any) {
   return readExactCount(head => build(sc.scope(supabase.from(table).select('id', { count: 'exact', head }))),
-    signal, 'تعذر حساب الإحصائيات. تحقق من الاتصال والصلاحيات.');
+    signal, 'ØªØ¹Ø°Ø± Ø­Ø³Ø§Ø¨ Ø§ÙØ¥Ø­ØµØ§Ø¦ÙØ§Øª. ØªØ­ÙÙ ÙÙ Ø§ÙØ§ØªØµØ§Ù ÙØ§ÙØµÙØ§Ø­ÙØ§Øª.');
 }
 function monthRange(year: number, month: number) {
   const start = new Date(year, month - 1, 1), end = new Date(year, month, 1);
@@ -34,7 +34,7 @@ const targetSum = (rows: TargetValues[], field: keyof TargetValues) =>
   rows.reduce((sum, row) => sum + Number(row[field]), 0);
 function targetsFor(sc: Scope, month: number, year: number, signal: AbortSignal) {
   return readAllRows<TargetValues & { id: string }>(() => sc.scope(supabase.from('targets').select('id,visits_target,audit_target'))
-    .eq('month', month).eq('year', year), signal, 'تعذر تحميل الأهداف. تحقق من الاتصال والصلاحيات.');
+    .eq('month', month).eq('year', year), signal, 'ØªØ¹Ø°Ø± ØªØ­ÙÙÙ Ø§ÙØ£ÙØ¯Ø§Ù. ØªØ­ÙÙ ÙÙ Ø§ÙØ§ØªØµØ§Ù ÙØ§ÙØµÙØ§Ø­ÙØ§Øª.');
 }
 
 export function useScreenDashboard() {
@@ -51,7 +51,7 @@ export function useScreenDashboard() {
         sc.scope(supabase.from('visits').select(VISIT_JOIN)).order('visit_date', { ascending: false })
           .order('check_in_time', { ascending: false, nullsFirst: false }).order('id').limit(5).abortSignal(signal),
       ]);
-      errorMessage('تعذر تحميل أحدث الزيارات.', recent.error);
+      errorMessage('ØªØ¹Ø°Ø± ØªØ­ÙÙÙ Ø£Ø­Ø¯Ø« Ø§ÙØ²ÙØ§Ø±Ø§Øª.', recent.error);
       return { visits, audits, visitsProgress: progressPercent(actualVisits, targetSum(targets, 'visits_target')),
         recent: recent.data as VisitRow[] };
     },
@@ -64,22 +64,23 @@ export function useVisitsRange(period: 'today' | 'week' | 'month') {
       .gte('visit_date', dates.start).lt('visit_date', dates.end)
       .order('visit_date', { ascending: false }).order('check_in_time', { ascending: false, nullsFirst: false })
       .order('id').range(from, to).abortSignal(signal);
-    errorMessage('تعذر تحميل الزيارات.', r.error);
+    errorMessage('ØªØ¹Ø°Ø± ØªØ­ÙÙÙ Ø§ÙØ²ÙØ§Ø±Ø§Øª.', r.error);
     return r.data as VisitRow[];
   });
 }
 export function useCustomerCards(search: string, type: string) {
   const sc = useScope(), term = search.trim().replace(/[%,()]/g, ' ');
   return usePaged<CustomerCardRow>(sc, 'customers', ['cards', term, type], async (from, to, signal) => {
-    let q: ReturnType<typeof sc.scope> = supabase.from('customers').select(`${CUSTOMER_COLUMNS},visits(check_in_time)`).eq('company_id', sc.companyId);
+    let q: ReturnType<typeof sc.scope> = supabase.from('customers').select(`${CUSTOMER_COLUMNS},visits(check_in_time)`).eq('company_id', sc.companyId)
+      .eq('is_active', true).eq('status', 'active');
     if (term) q = q.or(`name.ilike.%${term}%,address.ilike.%${term}%`);
-    if (type === 'أخرى') {
-      const known = Object.entries(CUSTOMER_TYPES).filter(([key]) => key !== 'أخرى').flatMap(([, values]) => values);
+    if (type === 'Ø£Ø®Ø±Ù') {
+      const known = Object.entries(CUSTOMER_TYPES).filter(([key]) => key !== 'Ø£Ø®Ø±Ù').flatMap(([, values]) => values);
       q = q.not('customer_type', 'in', `(${known.map(value => `"${value}"`).join(',')})`);
     } else if (type && type !== 'all') q = q.in('customer_type', CUSTOMER_TYPES[type] ?? [type]);
     const r = await q.order('name').order('id').order('check_in_time', { referencedTable: 'visits', ascending: false })
       .limit(1, { referencedTable: 'visits' }).range(from, to).abortSignal(signal);
-    errorMessage('تعذر تحميل العملاء.', r.error);
+    errorMessage('ØªØ¹Ø°Ø± ØªØ­ÙÙÙ Ø§ÙØ¹ÙÙØ§Ø¡.', r.error);
     return (r.data as (Customer & { visits: { check_in_time: string }[] })[])
       .map(({ visits, ...c }) => ({ ...c, last_visit: visits?.[0]?.check_in_time ?? null }));
   });
@@ -89,7 +90,7 @@ export function useCustomerHistory(id: string | null) {
   return usePaged<VisitRow>(sc, 'visits', ['customer-history', id], async (from, to, signal) => {
     const r = await sc.scope(supabase.from('visits').select(VISIT_JOIN)).eq('customer_id', id!)
       .order('visit_date', { ascending: false }).order('id').range(from, to).abortSignal(signal);
-    errorMessage('تعذر تحميل سجل زيارات العميل.', r.error);
+    errorMessage('ØªØ¹Ø°Ø± ØªØ­ÙÙÙ Ø³Ø¬Ù Ø²ÙØ§Ø±Ø§Øª Ø§ÙØ¹ÙÙÙ.', r.error);
     return r.data as VisitRow[];
   }, !!id);
 }
@@ -98,8 +99,8 @@ export function useCustomerById(id: string | null) {
   return useQuery({ queryKey: [...sc.base, 'customers', 'selected', id], enabled: !!id, retry: 1,
     queryFn: async ({ signal }) => {
       const r = await supabase.from('customers').select(CUSTOMER_COLUMNS).eq('company_id', sc.companyId).eq('id', id!)
-        .eq('is_active', true).abortSignal(signal).single();
-      errorMessage('تعذر تحميل العميل المحدد.', r.error);
+        .eq('is_active', true).eq('status', 'active').abortSignal(signal).single();
+      errorMessage('ØªØ¹Ø°Ø± ØªØ­ÙÙÙ Ø§ÙØ¹ÙÙÙ Ø§ÙÙØ­Ø¯Ø¯.', r.error);
       return r.data as Customer;
     } });
 }
@@ -124,7 +125,7 @@ export function useAdminProducts() {
   return usePaged<CatalogProduct>(sc, 'products', [false], async (from, to, signal) => {
     const r = await supabase.from('products').select('id,name,category,sku:sku_code,is_active').eq('company_id', sc.companyId)
       .order('name').order('id').range(from, to).abortSignal(signal);
-    errorMessage('تعذر تحميل المنتجات. تحقق من جدول المنتجات وصلاحياته.', r.error);
+    errorMessage('ØªØ¹Ø°Ø± ØªØ­ÙÙÙ Ø§ÙÙÙØªØ¬Ø§Øª. ØªØ­ÙÙ ÙÙ Ø¬Ø¯ÙÙ Ø§ÙÙÙØªØ¬Ø§Øª ÙØµÙØ§Ø­ÙØ§ØªÙ.', r.error);
     return r.data as CatalogProduct[];
   });
 }
@@ -132,16 +133,16 @@ export function useSaveSettings() {
   const sc = useScope(), settings = useAppSettings(), qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: SettingsInput) => {
-      if (!canAdmin(sc.supervisor)) throw new Error('تعديل الإعدادات للمدراء فقط.');
+      if (!canAdmin(sc.supervisor)) throw new Error('ØªØ¹Ø¯ÙÙ Ø§ÙØ¥Ø¹Ø¯Ø§Ø¯Ø§Øª ÙÙÙØ¯Ø±Ø§Ø¡ ÙÙØ·.');
       const clean = { ...input, app_name: input.app_name.trim(), target_brand_name: input.target_brand_name.trim(),
         competitor_brands: [...new Set(input.competitor_brands.map(v => v.trim()).filter(Boolean))] };
       validateSettings({ ...settings, ...clean }, sc.companyId);
       const r = await supabase.from('app_settings').update(clean).eq('id', settings.id).eq('company_id', sc.companyId)
         .select(SETTINGS_COLUMNS).single();
-      errorMessage('تعذر حفظ إعدادات الشركة. تحقق من صلاحيات الإدارة.', r.error);
+      errorMessage('ØªØ¹Ø°Ø± Ø­ÙØ¸ Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§ÙØ´Ø±ÙØ©. ØªØ­ÙÙ ÙÙ ØµÙØ§Ø­ÙØ§Øª Ø§ÙØ¥Ø¯Ø§Ø±Ø©.', r.error);
       return validateSettings(r.data as AppSettings, sc.companyId);
     },
-    onSuccess: data => { qc.setQueryData(['company-settings', sc.companyId], data); notify('تم حفظ إعدادات الشركة', 'success'); },
+    onSuccess: data => { qc.setQueryData(['company-settings', sc.companyId], data); notify('ØªÙ Ø­ÙØ¸ Ø¥Ø¹Ø¯Ø§Ø¯Ø§Øª Ø§ÙØ´Ø±ÙØ©', 'success'); },
     onError: (e: Error) => notify(e.message, 'error'),
   });
 }
@@ -150,15 +151,15 @@ export function useSaveMonthlyTarget() {
   return useMutation({
     mutationFn: async (input: MonthlyTargetInput) => {
       const values = countTargetRecord(input);
-      if (!sc.isAdmin) throw new Error('تحديد الأهداف للمدراء فقط.');
+      if (!sc.isAdmin) throw new Error('ØªØ­Ø¯ÙØ¯ Ø§ÙØ£ÙØ¯Ø§Ù ÙÙÙØ¯Ø±Ø§Ø¡ ÙÙØ·.');
       if (!Number.isInteger(input.month) || input.month < 1 || input.month > 12
         || !Number.isInteger(input.year) || input.year < 2000 || input.year > 2100
-        || ![input.visits_target, input.audit_target].every(n => Number.isSafeInteger(n) && n >= 0)) throw new Error('قيم الأهداف غير صالحة.');
+        || ![input.visits_target, input.audit_target].every(n => Number.isSafeInteger(n) && n >= 0)) throw new Error('ÙÙÙ Ø§ÙØ£ÙØ¯Ø§Ù ØºÙØ± ØµØ§ÙØ­Ø©.');
       const member = await supabase.from('supervisors').select('id').eq('id', input.supervisor_id).eq('company_id', sc.companyId).single();
-      errorMessage('المشرف المحدد لا ينتمي لشركتك أو غير متاح.', member.error);
+      errorMessage('Ø§ÙÙØ´Ø±Ù Ø§ÙÙØ­Ø¯Ø¯ ÙØ§ ÙÙØªÙÙ ÙØ´Ø±ÙØªÙ Ø£Ù ØºÙØ± ÙØªØ§Ø­.', member.error);
       const existing = await supabase.from('targets').select('id').eq('company_id', sc.companyId)
         .eq('supervisor_id', input.supervisor_id).eq('month', input.month).eq('year', input.year).maybeSingle();
-      errorMessage('تعذر التحقق من الهدف الشهري الحالي.', existing.error);
+      errorMessage('ØªØ¹Ø°Ø± Ø§ÙØªØ­ÙÙ ÙÙ Ø§ÙÙØ¯Ù Ø§ÙØ´ÙØ±Ù Ø§ÙØ­Ø§ÙÙ.', existing.error);
       let actuals: Pick<Target, 'actual_visits' | 'actual_audits'> | undefined;
       if (!existing.data) {
         const signal = new AbortController().signal, range = monthRange(input.year, input.month);
@@ -175,9 +176,9 @@ export function useSaveMonthlyTarget() {
         : await supabase.from('targets').insert({ ...values, company_id: sc.companyId, ...actuals,
           // target_date is NOT NULL in the table; monthly targets anchor to the 1st.
           target_date: `${input.year}-${String(input.month).padStart(2, '0')}-01` }).select('id').single();
-      errorMessage('تعذر حفظ الهدف الشهري.', r.error);
+      errorMessage('ØªØ¹Ø°Ø± Ø­ÙØ¸ Ø§ÙÙØ¯Ù Ø§ÙØ´ÙØ±Ù.', r.error);
     },
-    onSuccess: () => { notify('تم حفظ الأهداف الشهرية', 'success');
+    onSuccess: () => { notify('ØªÙ Ø­ÙØ¸ Ø§ÙØ£ÙØ¯Ø§Ù Ø§ÙØ´ÙØ±ÙØ©', 'success');
       void qc.invalidateQueries({ queryKey: [...sc.base, 'targets'] });
       void qc.invalidateQueries({ queryKey: [...sc.base, 'dashboard'] }); },
     onError: (e: Error) => notify(e.message, 'error'),
