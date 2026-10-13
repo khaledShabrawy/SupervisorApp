@@ -2,7 +2,7 @@ import { useCallback, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
-import { Bell, FileText, MapPin, Package, Plus, Store, Trash2, X } from '@/components/Icons';
+import { Bell, CheckCircle2, FileText, MapPin, Package, Plus, ShoppingBag, Store, Trash2, X } from '@/components/Icons';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useCustomerSearch, useSupervisors } from '@/lib/data';
 import { useAdminProducts, useSaveSettings, type CatalogProduct } from '@/lib/screen-data';
@@ -19,6 +19,9 @@ import { AssetTypes, SettingsForm, TargetForm } from '@/screens/AdminPanel';
 import { useInput, useRefetch } from '@/screens/shared';
 import { useAdminProspects, useConvertProspect } from '@/lib/screen-survey';
 import { t } from '@/i18n';
+import { fmtDateTime, num } from '@/lib/format';
+import StatusBadge from '@/components/StatusBadge';
+import { useAdminOrders, useMarkOrderDelivered, type OrderAdminRow } from '@/lib/screen-orders';
 
 function Modal({ title, onClose, onSubmit, children }: { title: string; onClose: () => void; onSubmit: (e: FormEvent) => void; children: React.ReactNode }) {
   return <div className="adm-modal-bg" onClick={onClose}>
@@ -475,5 +478,30 @@ export function AdminProspects() {
             </tr>
           ))}</tbody>
         </table></div>}
+  </>;
+}
+
+
+/* ---------- Orders ---------- */
+export function AdminOrders() {
+  const q = useAdminOrders(); const deliver = useMarkOrderDelivered(); const retry = useRefetch(q.refetch);
+  const rows = q.items as OrderAdminRow[];
+  return <>
+    <div className="row between"><h2>{t('الطلبات')}</h2></div>
+    <p className="muted" style={{ marginTop: 0 }}>{t('طلبات الشركة حسب صلاحيات حساب الإدارة في Supabase.')}</p>
+    {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
+      : rows.length === 0 ? <EmptyState icon={<ShoppingBag />} title={t('لا توجد طلبات')} description={t('قد تكون القائمة فارغة أو أن سياسة Supabase لا تتيح طلبات الشركة لهذا الحساب.')} />
+      : <><div className="adm-table-wrap"><table className="adm-table">
+          <thead><tr><th>{t('العميل')}</th><th>{t('المنتج')}</th><th>{t('المشرف')}</th><th>{t('الكمية')}</th><th>{t('التاريخ')}</th><th>{t('الحالة')}</th><th /></tr></thead>
+          <tbody>{rows.map((o) => <tr key={o.id}>
+            <td className="title">{o.customers?.name ?? '—'}</td><td>{o.products?.name ?? '—'}</td>
+            <td>{o.supervisors?.full_name ?? '—'}</td><td>{num(o.quantity)}</td><td>{fmtDateTime(o.created_at)}</td>
+            <td><StatusBadge status={o.status} /></td><td>{o.status !== 'delivered' && o.status !== 'cancelled' &&
+              <button className="btn sm success" disabled={deliver.isPending} data-testid={'button-deliver-order-' + o.id}
+                onClick={() => { if (confirm(t('هل تؤكد تغيير حالة الطلب إلى تم التسليم؟'))) deliver.mutate({ id: o.id, expectedStatus: o.status }); }}>
+                <CheckCircle2 size={15} /> {t('تم التسليم')}
+              </button>}</td>
+          </tr>)}</tbody>
+        </table></div><LoadMore q={q} /></>}
   </>;
 }
