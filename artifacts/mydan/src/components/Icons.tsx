@@ -54,3 +54,4 @@ export const Building2 = icon([["path",{"d":"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2
 export const Trash2 = icon([["path",{"d":"M3 6h18 M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6 M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2 M10 11v6 M14 11v6"}]]);
 export const PieChart = icon([["path",{"d":"M21.21 15.89A10 10 0 1 1 8 2.83"}],["path",{"d":"M22 12A10 10 0 0 0 12 2v10z"}]]);
 // Geometry adapted from Lucide under the ISC license; see THIRD_PARTY_NOTICES.
+export const ShoppingBag = icon([["path",{"d":"M6 8h12l1 13H5L6 8z"}],["path",{"d":"M9 8V5a3 3 0 0 1 6 0v3"}]]);
