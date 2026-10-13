@@ -380,7 +380,9 @@ export function useBeatPlan(day: number) {
       }
     },
   });
-}/* ---------- Notifications ---------- */
+}
+
+/* ---------- Notifications ---------- */
 export function useNotifications(unreadOnly: boolean) {
   const sc = useScope();
   return usePaged<Notification>(sc, 'notifications', ['list', unreadOnly], async (from, to, signal) => {
