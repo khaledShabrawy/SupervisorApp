@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, ClipboardList, Eye, MapPin, Plus, Route, ScanSearch, Target as TargetIcon } from '@/components/Icons';
+import { Camera, ClipboardList, Eye, MapPin, Plus, Route, ScanSearch, ShoppingBag, Target as TargetIcon } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useRealtime } from '@/hooks/useRealtime';
@@ -49,6 +49,7 @@ export default function DashboardScreen() {
         <Act id="/beat-plan" onAct={go} className="s-act s-purple"><Route /> {t('خطة الزيارات')}</Act>
         <Act id="/field-survey" onAct={go} className="s-act" style={{ background: 'var(--color-success)', color: '#fff' }}><ScanSearch /> {t('مسح ميداني')}</Act>
         {canScanCompetitors && <Act id="/competitors" onAct={go} className="s-act s-blue"><Eye /> {t('مسح المنافسين')}</Act>}
+        <Act id="/orders" onAct={go} className="s-act s-purple"><ShoppingBag /> {t('الطلبات')}</Act>
       </div>
       <PageTitle>{t('آخر الزيارات')}</PageTitle>
       {L ? <div className="skel" style={{ height: 70 }} /> : d!.recent.length === 0
