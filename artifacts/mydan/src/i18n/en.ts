@@ -840,4 +840,18 @@ export const EN: Record<string, string> = {
   'تعذر تحديث حالة الأوردر': 'Could not update order status',
   'تم تسجيل الأوردر بنجاح — الإجمالي:': 'Order registered successfully — Total:',
   'ج.م': 'EGP',
+
+  // ---------- WhatsApp Opportunity & Geofence ----------
+  'واتساب للمندوب': 'WhatsApp to Rep',
+  'إرسال تفاصيل الفرصة للمندوب عبر واتساب': 'Send Opportunity to Rep via WhatsApp',
+  'إرسال تفاصيل الفرصة للمندوب الآن:': 'Send opportunity details to rep now:',
+  'إرسال للمندوب عبر واتساب': 'Send to Rep via WhatsApp',
+  'واتساب': 'WhatsApp',
+  'داخل النطاق': 'On-Beat',
+  'خارج النطاق (OOR)': 'Out of Geofence (OOR)',
+  'الالتزام بالنطاق الجغرافي': 'Geofence Compliance',
+  '{n} داخل النطاق · {oor} خارج النطاق': '{n} on-beat · {oor} out of geofence',
+  'م': 'm',
+  'الأصناف': 'Items',
+  'إخفاء': 'Hide',
 };

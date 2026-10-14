@@ -9,7 +9,7 @@ import EmptyState from '@/components/EmptyState';
 import { fmtDate, fmtTime, num } from '@/lib/format';
 import { t } from '@/i18n';
 import { Chip, useRefetch } from './shared';
-import { useSupervisorOrders, type OrderRecord } from '@/lib/screen-orders';
+import { useSupervisorOrders, formatOrderWhatsAppMessage, openWhatsAppShare, type OrderRecord } from '@/lib/screen-orders';
 
 type Period = 'today' | 'week' | 'month' | 'all';
 const TABS: [Period, string][] = [
@@ -60,18 +60,50 @@ const OrderCard = memo(function OrderCard({ order }: { order: OrderRecord }) {
         </div>
       </div>
 
-      <div className="row between" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--line)', fontSize: 13 }}>
+      <div className="row between" style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--line)', fontSize: 13, gap: 6, flexWrap: 'wrap' }}>
         <span className="muted">
           {t('{n} صنف', { n: num(order.items.length) })} · {t('{n} وحدة', { n: num(totalUnits) })}
         </span>
-        <button
-          type="button"
-          className="btn sm ghost"
-          onClick={() => setExpanded((x) => !x)}
-          style={{ fontSize: 12, padding: '2px 8px', minHeight: 28 }}
-        >
-          {expanded ? t('إخفاء التفاصيل') : t('عرض الأصناف')}
-        </button>
+        <div className="row" style={{ gap: 6 }}>
+          <button
+            type="button"
+            className="btn sm"
+            style={{
+              background: '#25D366',
+              color: '#fff',
+              border: 'none',
+              padding: '2px 10px',
+              fontSize: 12,
+              minHeight: 28,
+              borderRadius: 6,
+              fontWeight: 600,
+            }}
+            onClick={() => {
+              const msg = formatOrderWhatsAppMessage({
+                customerName: order.customers?.name,
+                customerAddress: order.customers?.address,
+                orderDate: order.order_date || order.created_at,
+                items: order.items,
+                totalAmount: order.total_amount,
+                notes: order.notes,
+                latitude: order.customers?.latitude,
+                longitude: order.customers?.longitude,
+              });
+              openWhatsAppShare(msg);
+            }}
+            title={t('إرسال تفاصيل الفرصة للمندوب عبر واتساب')}
+          >
+            💬 {t('واتساب للمندوب')}
+          </button>
+          <button
+            type="button"
+            className="btn sm ghost"
+            onClick={() => setExpanded((x) => !x)}
+            style={{ fontSize: 12, padding: '2px 8px', minHeight: 28 }}
+          >
+            {expanded ? t('إخفاء') : t('الأصناف')}
+          </button>
+        </div>
       </div>
 
       {expanded && (

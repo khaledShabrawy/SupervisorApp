@@ -8,7 +8,7 @@ import { ErrorState, SkeletonList } from '@/components/States';
 import EmptyState from '@/components/EmptyState';
 import { fmtDate, num } from '@/lib/format';
 import { t } from '@/i18n';
-import { useProductsWithPrices, useSaveOrder, type OrderLineItem, type PricedProduct } from '@/lib/screen-orders';
+import { useProductsWithPrices, useSaveOrder, formatOrderWhatsAppMessage, openWhatsAppShare, type OrderLineItem, type PricedProduct } from '@/lib/screen-orders';
 
 const ProductRow = memo(function ProductRow({
   product,
@@ -148,6 +148,42 @@ export default function OrderEntryScreen() {
             <div className="row between"><span className="muted">{t('العميل')}:</span><strong>{customerName}</strong></div>
             <div className="row between"><span className="muted">{t('عدد الأصناف')}:</span><strong>{num(lines.length)} {t('صنف')} ({num(totalUnits)} {t('وحدة')})</strong></div>
             <div className="row between"><span className="muted">{t('الإجمالي')}:</span><strong style={{ color: 'var(--color-primary)', fontSize: 18 }}>{num(total)} {t('ج.م')}</strong></div>
+          </div>
+          <div className="card col" style={{ width: '100%', padding: 14, background: '#F0FDF4', border: '1px solid #BBF7D0', gap: 10, borderRadius: 12 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#166534' }}>
+              💬 {t('إرسال تفاصيل الفرصة للمندوب الآن:')}
+            </div>
+            <button
+              type="button"
+              className="btn block"
+              style={{
+                background: '#25D366',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: 15,
+                padding: '12px 16px',
+                borderRadius: 10,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                cursor: 'pointer',
+              }}
+              onClick={() => {
+                const msg = formatOrderWhatsAppMessage({
+                  customerName,
+                  supervisorName: supervisor?.full_name,
+                  supervisorPhone: supervisor?.phone,
+                  items: lines,
+                  totalAmount: total,
+                  notes,
+                }, settings.app_name);
+                openWhatsAppShare(msg);
+              }}
+            >
+              <span style={{ fontSize: 18 }}>💬</span> {t('إرسال تفاصيل الفرصة للمندوب عبر واتساب')}
+            </button>
           </div>
           <div className="alert ok" style={{ fontSize: 13, width: '100%' }}>
             💡 {t('بعد تسليم المندوب للبضاعة، يتم تأكيد التسليم في لوحة التحكم لتصل إنتاجيتك إلى 100%')}

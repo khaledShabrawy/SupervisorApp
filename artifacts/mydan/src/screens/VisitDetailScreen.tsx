@@ -4,7 +4,7 @@ import { Camera, CheckCheck, ClipboardList, Plus, ShoppingCart } from '@/compone
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useScope, useSetVisitOutcome, useUpdateVisitStatus } from '@/lib/data';
-import { useVisitOrders } from '@/lib/screen-orders';
+import { useVisitOrders, formatOrderWhatsAppMessage, openWhatsAppShare } from '@/lib/screen-orders';
 import { isVisitOutcome, mapsDirectionsUrl, VISIT_OUTCOMES, type VisitOutcome } from '@/lib/visit-geo';
 import { num } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
@@ -253,9 +253,43 @@ export default function VisitDetailScreen() {
                     <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--color-primary)' }}>{num(ord.total_amount)} {t('ج.م')}</div>
                     <div className="muted" style={{ fontSize: 12 }}>{t('{n} صنف', { n: num(ord.items.length) })}</div>
                   </div>
-                  <span className={`badge ${ord.status === 'delivered' ? 'b-green' : 'b-amber'}`} style={{ fontSize: 11 }}>
-                    {ord.status === 'delivered' ? `✅ ${t('تم التسليم')}` : `⏳ ${t('قيد المتابعة')}`}
-                  </span>
+                  <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      className="btn sm"
+                      style={{
+                        background: '#25D366',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '2px 8px',
+                        fontSize: 12,
+                        minHeight: 26,
+                        borderRadius: 6,
+                        fontWeight: 600,
+                      }}
+                      onClick={() => {
+                        const msg = formatOrderWhatsAppMessage({
+                          customerName: detail.data?.customers?.name,
+                          customerAddress: detail.data?.customers?.address,
+                          supervisorName: supervisor?.full_name,
+                          supervisorPhone: supervisor?.phone,
+                          orderDate: ord.order_date || ord.created_at,
+                          items: ord.items,
+                          totalAmount: ord.total_amount,
+                          notes: ord.notes,
+                          latitude: detail.data?.customers?.latitude,
+                          longitude: detail.data?.customers?.longitude,
+                        }, settings.app_name);
+                        openWhatsAppShare(msg);
+                      }}
+                      title={t('إرسال تفاصيل الفرصة للمندوب عبر واتساب')}
+                    >
+                      💬 {t('واتساب')}
+                    </button>
+                    <span className={`badge ${ord.status === 'delivered' ? 'b-green' : 'b-amber'}`} style={{ fontSize: 11 }}>
+                      {ord.status === 'delivered' ? `✅ ${t('تم التسليم')}` : `⏳ ${t('قيد المتابعة')}`}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
