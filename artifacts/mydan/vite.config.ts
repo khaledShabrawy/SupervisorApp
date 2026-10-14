@@ -24,8 +24,31 @@ return ({
   },
   preview: { host: '0.0.0.0', port: Number(process.env.PORT || 4173), allowedHosts: true },
   css: { postcss: { plugins: [tailwindcss({ config: path.resolve(root, 'tailwind.config.ts') })] } },
-  build: { outDir: 'dist/public', emptyOutDir: true },
-  plugins: [
+  build: {
+    outDir: 'dist/public',
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('@supabase')) {
+              return 'vendor-supabase';
+            }
+            if (id.includes('@tanstack/react-query')) {
+              return 'vendor-query';
+            }
+            if (id.includes('leaflet')) {
+              return 'vendor-leaflet';
+            }
+          }
+        },
+      },
+    },
+    chunkSizeWarningLimit: 800,
+  },
     !isAndroid && VitePWA({
       strategies: 'injectManifest',
       srcDir: 'public',

@@ -45,7 +45,14 @@ const AdminCompanies = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminCo
 const AdminReports = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminReports'));
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { gcTime: 0, staleTime: 15_000, refetchOnWindowFocus: true } },
+  defaultOptions: {
+    queries: {
+      gcTime: 10 * 60 * 1000,       // Keep unused query data in memory for 10 minutes
+      staleTime: 60 * 1000,         // Treat data as fresh for 60 seconds (prevents refetch spam)
+      refetchOnWindowFocus: false,  // Avoid annoying refetches when switching tabs or apps
+      retry: 1,
+    },
+  },
 });
 
 function App() {
