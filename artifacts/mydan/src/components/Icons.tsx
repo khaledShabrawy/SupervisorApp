@@ -55,4 +55,6 @@ export const Trash2 = icon([["path",{"d":"M3 6h18 M19 6v14c0 1-1 2-2 2H7c-1 0-2-
 export const PieChart = icon([["path",{"d":"M21.21 15.89A10 10 0 1 1 8 2.83"}],["path",{"d":"M22 12A10 10 0 0 0 12 2v10z"}]]);
 export const Upload = icon([["path",{"d":"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12"}]]);
 export const WifiOff = icon([["path",{"d":"M12 20h.01 M8.5 16.429a5 5 0 0 1 7 0 M5 12.859a10 10 0 0 1 5.17-2.69 M1.42 9A16 16 0 0 1 9.133 5.5 M21.17 9a16 16 0 0 0-11.17-4 M2 2l20 20"}]]);
+export const ShoppingCart = icon([["circle",{"cx":"8","cy":"21","r":"1"}],["circle",{"cx":"19","cy":"21","r":"1"}],["path",{"d":"M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"}]]);
+export const PackageCheck = icon([["path",{"d":"m16 16 2 2 4-4"}],["path",{"d":"M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"}],["path",{"d":"m7.5 4.27 9 5.15"}],["polyline",{"points":"3.29 7 12 12 20.71 7"}],["line",{"x1":"12","x2":"12","y1":"22","y2":"12"}]]);
 // Geometry adapted from Lucide under the ISC license; see THIRD_PARTY_NOTICES.

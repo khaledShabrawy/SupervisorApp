@@ -77,8 +77,8 @@ function useDeleteCompetitor() {
   });
 }
 
-// Stored as brand_name and read by the competitor heatmap: keep one spelling in every language.
-const KNOWN_BRANDS = ['كادبوري', 'جالكسي', 'كيندر', 'فريرو', 'سنيكرز', 'ماكنتوش', 'ريكس', 'أخرى'];
+// Fallback competitor brands when company settings do not specify competitor_brands
+const DEFAULT_COMPETITOR_BRANDS = ['فاين', 'بابيا', 'وايت', 'زيزينيا', 'كلينكس', 'فلورا', 'أخرى'];
 
 const CompetitorItem = memo(function CompetitorItem({ item, onDelete }: { item: CompetitorProduct; onDelete: (id: string) => void; }) {
   const del = useCallback(() => { if (!window.confirm(t('حذف هذا المنتج؟'))) return; onDelete(item.id); }, [onDelete, item.id]);
@@ -157,10 +157,12 @@ export default function CompetitorScreen() {
         <div className="card col" style={{ gap: 12 }}>
           <div className="title">{t('إضافة منتج منافس')}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {KNOWN_BRANDS.map((b) => <button key={b} className={`chip${brand === b ? ' on' : ''}`} style={{ minHeight: 36, fontSize: 13 }} onClick={() => setBrand(b)}>{t(b)}</button>)}
+            {((settings.competitor_brands && settings.competitor_brands.length > 0) ? settings.competitor_brands : DEFAULT_COMPETITOR_BRANDS).map((b) => (
+              <button key={b} className={`chip${brand === b ? ' on' : ''}`} style={{ minHeight: 36, fontSize: 13 }} onClick={() => setBrand(b)}>{t(b)}</button>
+            ))}
           </div>
-          <label className="f">{t('العلامة التجارية *')}<input className="input" value={brand} onChange={onBrand} placeholder={t('مثال: كادبوري، جالكسي...')} /></label>
-          <label className="f">{t('اسم المنتج (اختياري)')}<input className="input" value={product} onChange={onProduct} placeholder={t('مثال: شوكولاتة حليب 100 جم')} /></label>
+          <label className="f">{t('العلامة التجارية *')}<input className="input" value={brand} onChange={onBrand} placeholder={t('مثال: فاين، بابيا...')} /></label>
+          <label className="f">{t('اسم المنتج (اختياري)')}<input className="input" value={product} onChange={onProduct} placeholder={t('مثال: مناديل فلافي 550 منديل')} /></label>
           <label className="f">{t('الكمية الملاحظة (اختياري)')}<input className="input" type="number" inputMode="numeric" value={qty} onChange={onQty} placeholder={t('عدد الوحدات')} min="0" /></label>
           <label className="f">{t('ملاحظات (اختياري)')}<textarea className="input" rows={2} value={notes} onChange={onNotes} placeholder={t('موضع العرض، التخفيضات، ملاحظات أخرى...')} /></label>
           <div>

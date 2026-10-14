@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, ClipboardList, MapPin, Plus, Route, ScanSearch, Target as TargetIcon } from '@/components/Icons';
+import { Camera, ClipboardList, MapPin, Plus, Route, ScanSearch, ShoppingCart, Target as TargetIcon } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useRealtime } from '@/hooks/useRealtime';
@@ -44,6 +44,7 @@ export default function DashboardScreen() {
       <div className="s-acts">
         <Act id="/visits/new" onAct={go} className="s-act s-green" testId="button-new-visit"><Plus /> {t('زيارة جديدة')}</Act>
         <Act id="/shelf-audit" onAct={go} className="s-act s-blue"><Camera /> {t('مراجعة الرف')}</Act>
+        <Act id="/orders" onAct={go} className="s-act" style={{ background: '#0F1B2D', color: '#fff' }}><ShoppingCart /> {t('الأوردرات')}</Act>
         <Act id="/beat-plan" onAct={go} className="s-act s-purple"><Route /> {t('خطة الزيارات')}</Act>
         <Act id="/field-survey" onAct={go} className="s-act" style={{ background: 'var(--color-success)', color: '#fff' }}><ScanSearch /> {t('مسح ميداني')}</Act>
       </div>
