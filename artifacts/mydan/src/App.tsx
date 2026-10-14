@@ -43,6 +43,7 @@ const AdminBranches = section('AdminBranches'), AdminCustomers = section('AdminC
 const BulkImport = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/BulkTemplates').then(m => ({ default: m.BulkTemplates })));
 const AdminCompanies = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminCompanies'));
 const AdminReports = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminReports'));
+const AdminLiveMap = lazy(() => import('@/admin/AdminLiveMap'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +70,7 @@ function App() {
                   {!IS_ANDROID && (
                     <Route path="/admin" element={<AdminLayout />}>
                       <Route index element={<AdminDashboard />} />
+                      <Route path="live-map" element={<AdminLiveMap />} />
                       <Route path="orders" element={<AdminOrders />} />
                       <Route path="users" element={<AdminUsers />} />
                       <Route path="branches" element={<AdminBranches />} />
@@ -100,6 +102,7 @@ function App() {
                     <Route path="beat-plan" element={<RequireScreen screen="beat_plan"><BeatPlan /></RequireScreen>} />
                     <Route path="notifications" element={<RequireScreen screen="notifications"><Notifications /></RequireScreen>} />
                     <Route path="field-survey" element={<FieldSurvey />} />
+                    <Route path="live-map" element={<AdminLiveMap />} />
                     <Route path="*" element={<NotFound />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
