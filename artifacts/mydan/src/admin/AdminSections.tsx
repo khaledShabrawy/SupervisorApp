@@ -2,7 +2,9 @@ import { useCallback, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
-import { Bell, FileText, MapPin, Package, Plus, Store, Trash2, X } from '@/components/Icons';
+import { Bell, CheckCheck, FileText, MapPin, Package, Plus, ShoppingCart, Store, Trash2, X } from '@/components/Icons';
+import { useAdminOrders, useUpdateOrderStatus, type OrderRecord } from '@/lib/screen-orders';
+import { fmtDate, fmtTime, num } from '@/lib/format';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useCustomerSearch, useSupervisors } from '@/lib/data';
 import { useAdminProducts, useSaveSettings, type CatalogProduct } from '@/lib/screen-data';
@@ -477,3 +479,265 @@ export function AdminProspects() {
         </table></div>}
   </>;
 }
+
+/* ---------- Orders (Opportunity / Sales Leads) ---------- */
+export function AdminOrders() {
+  const sups = useSupervisors();
+  const [status, setStatus] = useState<string>('all');
+  const [supId, setSupId] = useState<string>('all');
+  const [search, setSearch] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<OrderRecord | null>(null);
+
+  const q = useAdminOrders({ status, supervisorId: supId, search });
+  const updateStatus = useUpdateOrderStatus();
+  const retry = useRefetch(q.refetch);
+
+  const kpi = q.kpi;
+
+  return <>
+    <div className="row between">
+      <div>
+        <h2>{t('أوردرات الشركة والفرص البيعية')}</h2>
+        <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
+          {t('الأوردرات التي يلتقطها المشرفون أثناء جولاتهم الميدانية لعرضها على المناديب. بمجرد تأكيد التسليم تصبح إنتاجية المشرف 100%.')}
+        </p>
+      </div>
+      {q.data && <span className="badge b-blue" style={{ fontSize: 14 }}>{num(q.data.length)} {t('أوردر')}</span>}
+    </div>
+
+    {/* KPI Summary Cards */}
+    <div className="adm-kpis" style={{ marginTop: 12 }}>
+      <div className="card col" style={{ padding: 14, gap: 4 }}>
+        <span className="muted" style={{ fontSize: 12 }}>{t('إجمالي الأوردرات')}</span>
+        <strong style={{ fontSize: 22 }}>{num(kpi.totalOrders)}</strong>
+        <span className="muted" style={{ fontSize: 12 }}>{num(kpi.totalAmount)} {t('ج.م')}</span>
+      </div>
+
+      <div className="card col" style={{ padding: 14, gap: 4, borderRight: '4px solid #10B981' }}>
+        <span style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>{t('تم التسليم')}</span>
+        <strong style={{ fontSize: 22, color: '#10B981' }}>{num(kpi.deliveredOrders)}</strong>
+        <span className="muted" style={{ fontSize: 12 }}>{num(kpi.deliveredAmount)} {t('ج.م')}</span>
+      </div>
+
+      <div className="card col" style={{ padding: 14, gap: 4, borderRight: '4px solid #F59E0B' }}>
+        <span style={{ fontSize: 12, color: '#F59E0B', fontWeight: 600 }}>{t('قيد المتابعة')}</span>
+        <strong style={{ fontSize: 22, color: '#F59E0B' }}>{num(kpi.pendingOrders)}</strong>
+        <span className="muted" style={{ fontSize: 12 }}>{num(kpi.pendingAmount)} {t('ج.م')}</span>
+      </div>
+
+      <div className="card col" style={{ padding: 14, gap: 4, borderRight: '4px solid var(--color-primary)' }}>
+        <span className="muted" style={{ fontSize: 12 }}>{t('نسبة التسليم (الإنتاجية)')}</span>
+        <strong style={{ fontSize: 22, color: kpi.deliveryRate === 100 ? '#10B981' : 'var(--color-primary)' }}>
+          {num(kpi.deliveryRate)}%
+        </strong>
+        <div style={{ width: '100%', height: 6, background: '#E2E8F0', borderRadius: 3, overflow: 'hidden', marginTop: 4 }}>
+          <div style={{ width: `${kpi.deliveryRate}%`, height: '100%', background: kpi.deliveryRate === 100 ? '#10B981' : 'var(--color-primary)' }} />
+        </div>
+      </div>
+    </div>
+
+    {/* Filters Row */}
+    <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
+      <select className="input" style={{ width: 160 }} value={status} onChange={(e) => setStatus(e.target.value)}>
+        <option value="all">{t('كل الحالات')}</option>
+        <option value="pending">{t('قيد المتابعة')}</option>
+        <option value="delivered">{t('تم التسليم')}</option>
+      </select>
+
+      <select className="input" style={{ width: 180 }} value={supId} onChange={(e) => setSupId(e.target.value)}>
+        <option value="all">{t('كل المشرفين')}</option>
+        {sups.items.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+      </select>
+
+      <input
+        className="input grow"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={t('بحث باسم العميل أو المشرف أو الملاحظات...')}
+      />
+
+      {(status !== 'all' || supId !== 'all' || search) && (
+        <button className="btn sm ghost" onClick={() => { setStatus('all'); setSupId('all'); setSearch(''); }}>
+          {t('إعادة ضبط')}
+        </button>
+      )}
+    </div>
+
+    {/* Table */}
+    {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} /> : !q.data?.length ? (
+      <EmptyState
+        icon={<ShoppingCart />}
+        title={t('لا توجد أوردرات')}
+        text={search || status !== 'all' || supId !== 'all' ? t('لا توجد نتائج مطابقة لخيارات التصفية.') : t('لم يسجل أي مشرف أوردرات أو فرص بيعية بعد.')}
+      />
+    ) : (
+      <div className="adm-table-wrap">
+        <table className="adm-table">
+          <thead>
+            <tr>
+              <th>{t('التاريخ')}</th>
+              <th>{t('المشرف')}</th>
+              <th>{t('العميل')}</th>
+              <th>{t('الأصناف والكميات')}</th>
+              <th>{t('الإجمالي')}</th>
+              <th>{t('الحالة')}</th>
+              <th>{t('تاريخ التسليم')}</th>
+              <th>{t('الإجراء')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {q.data.map((o) => {
+              const isDelivered = o.status === 'delivered';
+              const totalUnits = o.items.reduce((s, it) => s + it.quantity, 0);
+
+              return (
+                <tr key={o.id} data-testid={`admin-order-row-${o.id}`}>
+                  <td className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+                    {fmtDate(o.order_date || o.created_at)}
+                  </td>
+                  <td style={{ fontWeight: 600 }}>{o.supervisors?.full_name ?? '—'}</td>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{o.customers?.name ?? t('عميل غير معروف')}</div>
+                    {o.customers?.address && <div className="muted" style={{ fontSize: 11 }}>{o.customers.address}</div>}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn sm ghost"
+                      style={{ fontSize: 12, padding: '2px 8px' }}
+                      onClick={() => setSelectedOrder(o)}
+                    >
+                      {t('{n} صنف', { n: num(o.items.length) })} ({num(totalUnits)} {t('وحدة')}) 🔍
+                    </button>
+                  </td>
+                  <td style={{ fontWeight: 700, color: 'var(--color-primary)', whiteSpace: 'nowrap' }}>
+                    {num(o.total_amount)} {t('ج.م')}
+                  </td>
+                  <td>
+                    <span className={`badge ${isDelivered ? 'b-green' : 'b-amber'}`} style={{ whiteSpace: 'nowrap' }}>
+                      {isDelivered ? `✅ ${t('تم التسليم')}` : `⏳ ${t('قيد المتابعة')}`}
+                    </span>
+                  </td>
+                  <td className="muted" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                    {o.delivered_at ? fmtDate(o.delivered_at) : '—'}
+                  </td>
+                  <td>
+                    {!isDelivered ? (
+                      <button
+                        className="btn sm success"
+                        style={{ whiteSpace: 'nowrap', gap: 4 }}
+                        disabled={updateStatus.isPending}
+                        onClick={() => {
+                          if (window.confirm(t('تأكيد تسليم الأوردر؟ سيتم رفع إنتاجية المشرف إلى 100%.'))) {
+                            updateStatus.mutate({ id: o.id, status: 'delivered' });
+                          }
+                        }}
+                        data-testid={`btn-deliver-order-${o.id}`}
+                      >
+                        <CheckCheck size={14} /> {t('تأكيد التسليم')}
+                      </button>
+                    ) : (
+                      <button
+                        className="btn sm ghost"
+                        style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                        disabled={updateStatus.isPending}
+                        onClick={() => {
+                          if (window.confirm(t('إلغاء حالة التسليم وإعادة الأوردر لقيد المتابعة؟'))) {
+                            updateStatus.mutate({ id: o.id, status: 'pending' });
+                          }
+                        }}
+                      >
+                        {t('إعادة للمتابعة')}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    )}
+
+    {/* Order Items Modal */}
+    {selectedOrder && (
+      <div className="adm-modal-bg" onClick={() => setSelectedOrder(null)}>
+        <div className="adm-modal col" onClick={(e) => e.stopPropagation()} style={{ gap: 14 }}>
+          <div className="row between">
+            <h3 style={{ margin: 0 }}>📦 {t('تفاصيل الأوردر')}</h3>
+            <button className="icon-btn" onClick={() => setSelectedOrder(null)}><X size={18} /></button>
+          </div>
+
+          <div className="card col" style={{ background: '#F8FAFC', padding: 12, gap: 4 }}>
+            <div className="row between"><span>{t('العميل')}:</span><strong>{selectedOrder.customers?.name}</strong></div>
+            <div className="row between"><span>{t('المشرف')}:</span><strong>{selectedOrder.supervisors?.full_name}</strong></div>
+            <div className="row between"><span>{t('التاريخ')}:</span><span>{fmtDate(selectedOrder.order_date || selectedOrder.created_at)}</span></div>
+            <div className="row between">
+              <span>{t('الحالة')}:</span>
+              <span className={`badge ${selectedOrder.status === 'delivered' ? 'b-green' : 'b-amber'}`}>
+                {selectedOrder.status === 'delivered' ? t('تم التسليم') : t('قيد المتابعة')}
+              </span>
+            </div>
+            {selectedOrder.delivered_at && (
+              <div className="row between"><span>{t('تاريخ التسليم')}:</span><span>{fmtDate(selectedOrder.delivered_at)}</span></div>
+            )}
+            {selectedOrder.notes && (
+              <div style={{ marginTop: 4, borderTop: '1px dashed var(--line)', paddingTop: 4 }}>
+                <span className="muted">{t('ملاحظات المندوب')}:</span> {selectedOrder.notes}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>{t('قائمة الأصناف المطلوبة')}:</div>
+            <div className="adm-table-wrap">
+              <table className="adm-table" style={{ fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th>{t('الصنف')}</th>
+                    <th>{t('الكمية')}</th>
+                    <th>{t('سعر الوحدة')}</th>
+                    <th>{t('الإجمالي')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedOrder.items.map((it, idx) => (
+                    <tr key={idx}>
+                      <td style={{ fontWeight: 600 }}>{it.name}</td>
+                      <td>{num(it.quantity)}</td>
+                      <td>{num(it.unit_price)} {t('ج.م')}</td>
+                      <td style={{ fontWeight: 700 }}>{num(it.unit_price * it.quantity)} {t('ج.م')}</td>
+                    </tr>
+                  ))}
+                  <tr style={{ background: '#F8FAFC', fontWeight: 800 }}>
+                    <td colSpan={3}>{t('الإجمالي النهائي')}</td>
+                    <td style={{ color: 'var(--color-primary)', fontSize: 15 }}>
+                      {num(selectedOrder.total_amount)} {t('ج.م')}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="row between" style={{ marginTop: 8 }}>
+            {selectedOrder.status !== 'delivered' && (
+              <button
+                className="btn success"
+                disabled={updateStatus.isPending}
+                onClick={() => {
+                  updateStatus.mutate({ id: selectedOrder.id, status: 'delivered' });
+                  setSelectedOrder(null);
+                }}
+              >
+                <CheckCheck size={16} /> {t('تأكيد التسليم الآن')}
+              </button>
+            )}
+            <button className="btn ghost" onClick={() => setSelectedOrder(null)}>{t('إغلاق')}</button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>;
+}
+
