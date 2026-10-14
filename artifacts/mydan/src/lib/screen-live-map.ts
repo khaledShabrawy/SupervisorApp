@@ -72,6 +72,11 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
       const { data: sups, error: supErr } = await supQuery.order('full_name');
       if (supErr) throw new Error(t('تعذر تحميل بيانات المشرفين.'));
 
+      const supIds = (sups ?? []).map((s) => s.id);
+      if (supIds.length === 0) {
+        return { tracks: [], branches: [] };
+      }
+
       // 2. Fetch branches for lookup
       const { data: branches } = await supabase
         .from('branches')
@@ -81,7 +86,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
       const branchMap = new Map((branches ?? []).map((b) => [b.id, b.name]));
 
       // 3. Fetch visits for the specified date
-      const { data: visitsData, error: visitsErr } = await supabase
+      let visitsQ = supabase
         .from('visits')
         .select(`
           id, supervisor_id, customer_id, visit_date, check_in_time, check_out_time,
@@ -91,6 +96,13 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
         .eq('company_id', sc.companyId)
         .eq('visit_date', date)
         .order('check_in_time', { ascending: true });
+
+      // If scoped to a specific branch or branch manager, restrict to their supervisors only
+      if (branchFilter !== 'all' || (sc.supervisor.role === 'branch_manager' && sc.supervisor.branch_id)) {
+        visitsQ = visitsQ.in('supervisor_id', supIds);
+      }
+
+      const { data: visitsData, error: visitsErr } = await visitsQ;
 
       if (visitsErr) throw new Error(t('تعذر تحميل بيانات زيارات اليوم.'));
 

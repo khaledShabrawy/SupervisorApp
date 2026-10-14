@@ -267,7 +267,7 @@ export function useVisitOrders(visitId: string) {
 export function useAdminOrders(filter?: { status?: string; supervisorId?: string; search?: string }) {
   const sc = useScope();
   const query = useQuery({
-    queryKey: [...sc.base, 'admin-orders', filter?.status ?? 'all', filter?.supervisorId ?? 'all', filter?.search ?? ''],
+    queryKey: [...sc.base, 'admin-orders', filter?.status ?? 'all', filter?.supervisorId ?? 'all'],
     queryFn: async () => {
       let q = supabase
         .from('orders')
@@ -295,28 +295,28 @@ export function useAdminOrders(filter?: { status?: string; supervisorId?: string
         throw new Error(error.message || t('تعذر تحميل جدول أوردرات الشركة.'));
       }
 
-      let list = (data ?? []).map((row: any) => ({
+      return (data ?? []).map((row: any) => ({
         ...row,
         total_amount: Number(row.total_amount) || 0,
         items: parseOrderItems(row.items, row.total_amount),
       })) as OrderRecord[];
-
-      if (filter?.search && filter.search.trim()) {
-        const queryTerm = filter.search.trim().toLowerCase();
-        list = list.filter((o) =>
-          o.customers?.name?.toLowerCase().includes(queryTerm) ||
-          o.supervisors?.full_name?.toLowerCase().includes(queryTerm) ||
-          o.notes?.toLowerCase().includes(queryTerm)
-        );
-      }
-
-      return list;
     },
   });
 
-  const kpi = useMemo(() => computeOrdersKPI(query.data ?? []), [query.data]);
+  const filteredData = useMemo(() => {
+    const list = query.data ?? [];
+    if (!filter?.search || !filter.search.trim()) return list;
+    const term = filter.search.trim().toLowerCase();
+    return list.filter((o) =>
+      o.customers?.name?.toLowerCase().includes(term) ||
+      o.supervisors?.full_name?.toLowerCase().includes(term) ||
+      o.notes?.toLowerCase().includes(term)
+    );
+  }, [query.data, filter?.search]);
 
-  return { ...query, kpi };
+  const kpi = useMemo(() => computeOrdersKPI(filteredData), [filteredData]);
+
+  return { ...query, data: filteredData, allOrders: query.data ?? [], kpi };
 }
 
 export function useSaveOrder() {

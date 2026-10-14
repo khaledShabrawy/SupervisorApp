@@ -125,6 +125,17 @@ function injectMapStyles() {
   }
 }
 
+/** Sanitize dynamic data before embedding into Leaflet DOM/HTML popups to prevent XSS */
+function escapeHtml(value: unknown): string {
+  if (value == null) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export default function AdminLiveMap() {
   const { supervisor } = useAuth();
   const settings = useAppSettings();
@@ -224,13 +235,16 @@ export default function AdminLiveMap() {
             popupAnchor: [0, -16],
           });
 
+          const safeCustName = escapeHtml(pt.customerName);
+          const safeCustAddr = pt.customerAddress ? escapeHtml(pt.customerAddress) : '';
+
           const popupContent = `
             <div style="direction:rtl;text-align:right;font-family:inherit;min-width:200px">
-              <div style="font-weight:800;font-size:14px;color:#1E293B">#${pt.seq} · ${pt.customerName}</div>
-              ${pt.customerAddress ? `<div style="font-size:12px;color:#64748B;margin-top:2px">📍 ${pt.customerAddress}</div>` : ''}
+              <div style="font-weight:800;font-size:14px;color:#1E293B">#${escapeHtml(pt.seq)} · ${safeCustName}</div>
+              ${safeCustAddr ? `<div style="font-size:12px;color:#64748B;margin-top:2px">📍 ${safeCustAddr}</div>` : ''}
               <div style="font-size:12px;color:#475569;margin-top:4px">
-                🕒 دخول: ${pt.checkInTime ? fmtTime(pt.checkInTime) : '—'}
-                ${pt.checkOutTime ? ` · خروج: ${fmtTime(pt.checkOutTime)}` : ''}
+                🕒 دخول: ${pt.checkInTime ? escapeHtml(fmtTime(pt.checkInTime)) : '—'}
+                ${pt.checkOutTime ? ` · خروج: ${escapeHtml(fmtTime(pt.checkOutTime))}` : ''}
               </div>
               <div style="margin-top:6px;font-size:11px">
                 ${pt.status === 'in_progress' ? '<span style="background:#DCFCE7;color:#166534;padding:2px 6px;border-radius:4px;font-weight:700">🟢 في زيارة الآن</span>' : '<span style="background:#E2E8F0;color:#334155;padding:2px 6px;border-radius:4px">✅ زيارة مكتملة</span>'}
@@ -258,9 +272,16 @@ export default function AdminLiveMap() {
           const ll: [number, number] = [t.currentLocation.latitude, t.currentLocation.longitude];
           allPoints.push(ll);
 
+          const safeSupName = escapeHtml(t.supervisorName);
+          const safeBranch = t.branchName ? escapeHtml(t.branchName) : '';
+          const safeCustName = escapeHtml(t.currentCustomerName || 'عميل');
+          const safeCustAddr = t.currentCustomerAddress ? escapeHtml(t.currentCustomerAddress) : '';
+          const cleanPhone = (t.phone || '').replace(/[^0-9+]/g, '');
+          const waPhone = (t.phone || '').replace(/[^0-9]/g, '');
+
           const isLive = t.liveStatus === 'in_progress';
           const icon = L.divIcon({
-            html: `<div class="${isLive ? 'sup-pulse-marker' : 'sup-idle-marker'}" title="${t.supervisorName}">
+            html: `<div class="${isLive ? 'sup-pulse-marker' : 'sup-idle-marker'}" title="${safeSupName}">
                     ${isLive ? '🟢' : '👤'}
                    </div>`,
             className: '',
@@ -271,19 +292,19 @@ export default function AdminLiveMap() {
 
           const popupContent = `
             <div style="direction:rtl;text-align:right;font-family:inherit;min-width:210px">
-              <div style="font-weight:800;font-size:15px;color:#0F172A">👤 ${t.supervisorName}</div>
-              ${t.branchName ? `<div style="font-size:12px;color:#64748B">🏢 فرع ${t.branchName}</div>` : ''}
+              <div style="font-weight:800;font-size:15px;color:#0F172A">👤 ${safeSupName}</div>
+              ${safeBranch ? `<div style="font-size:12px;color:#64748B">🏢 فرع ${safeBranch}</div>` : ''}
               <div style="margin-top:6px;padding:6px 8px;background:#F8FAFC;border-radius:6px;border:1px solid #E2E8F0">
                 <div style="font-size:12px;font-weight:700;color:${isLive ? '#166534' : '#1E40AF'}">
                   ${isLive ? '🟢 في زيارة حالياً لدى:' : '🔵 آخر تواجد مسجل لدى:'}
                 </div>
-                <div style="font-size:13px;font-weight:700;margin-top:2px">${t.currentCustomerName || 'عميل'}</div>
-                ${t.currentCustomerAddress ? `<div style="font-size:11px;color:#64748B">${t.currentCustomerAddress}</div>` : ''}
-                ${t.lastActiveTime ? `<div style="font-size:11px;color:#64748B;margin-top:3px">🕒 ${fmtTime(t.lastActiveTime)}</div>` : ''}
+                <div style="font-size:13px;font-weight:700;margin-top:2px">${safeCustName}</div>
+                ${safeCustAddr ? `<div style="font-size:11px;color:#64748B">${safeCustAddr}</div>` : ''}
+                ${t.lastActiveTime ? `<div style="font-size:11px;color:#64748B;margin-top:3px">🕒 ${escapeHtml(fmtTime(t.lastActiveTime))}</div>` : ''}
               </div>
               <div style="display:flex;gap:6px;margin-top:8px">
-                ${t.phone ? `<a href="tel:${t.phone}" style="flex:1;background:#E2E8F0;text-align:center;padding:4px 0;border-radius:6px;font-size:12px;text-decoration:none;color:#0F172A;font-weight:700">📞 اتصال</a>` : ''}
-                ${t.phone ? `<a href="https://api.whatsapp.com/send?phone=${t.phone.replace(/[^0-9]/g, '')}" target="_blank" style="flex:1;background:#25D366;text-align:center;padding:4px 0;border-radius:6px;font-size:12px;text-decoration:none;color:#fff;font-weight:700">💬 واتساب</a>` : ''}
+                ${cleanPhone ? `<a href="tel:${cleanPhone}" style="flex:1;background:#E2E8F0;text-align:center;padding:4px 0;border-radius:6px;font-size:12px;text-decoration:none;color:#0F172A;font-weight:700">📞 اتصال</a>` : ''}
+                ${waPhone ? `<a href="https://api.whatsapp.com/send?phone=${waPhone}" target="_blank" rel="noopener noreferrer" style="flex:1;background:#25D366;text-align:center;padding:4px 0;border-radius:6px;font-size:12px;text-decoration:none;color:#fff;font-weight:700">💬 واتساب</a>` : ''}
               </div>
             </div>
           `;
