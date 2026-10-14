@@ -5,6 +5,7 @@ dist
 tmp
 out-tsc
 *.tsbuildinfo
+*.apk
 .expo
 .expo-shared
 
