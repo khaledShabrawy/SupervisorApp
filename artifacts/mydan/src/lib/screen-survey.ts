@@ -173,7 +173,12 @@ export function useAdminProspects() {
         .order('created_at', { ascending: false })
         .limit(200)
         .abortSignal(signal);
-      if (error) throw new Error('تعذر تحميل العملاء المحتملين.');
+      if (error) {
+        if (error.code === '42703' || error.message?.includes('status') || error.message?.includes('survey_id')) {
+          throw new Error('يرجى تطبيق ملف التحديث (09_field_survey.sql) في Supabase SQL Editor لإضافة حقول العملاء المحتملين.');
+        }
+        throw new Error(error.message || 'تعذر تحميل العملاء المحتملين.');
+      }
       return data as {
         id: string; name: string; customer_type: string | null;
         latitude: number | null; longitude: number | null;

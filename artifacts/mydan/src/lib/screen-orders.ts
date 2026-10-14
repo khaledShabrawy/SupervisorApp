@@ -227,7 +227,12 @@ export function useAdminOrders(filter?: { status?: string; supervisorId?: string
       }
 
       const { data, error } = await q;
-      if (error) throw new Error(t('تعذر تحميل جدول أوردرات الشركة.'));
+      if (error) {
+        if (error.code === '42703' || error.message?.includes('items') || error.message?.includes('total_amount')) {
+          throw new Error('يرجى تطبيق ملف التحديث (10_orders_opportunity.sql) في Supabase SQL Editor لتفعيل حقول الأوردرات.');
+        }
+        throw new Error(error.message || t('تعذر تحميل جدول أوردرات الشركة.'));
+      }
 
       let list = (data ?? []).map((row: any) => ({
         ...row,
