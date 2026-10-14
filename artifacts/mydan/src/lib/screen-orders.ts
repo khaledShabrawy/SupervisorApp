@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
 import { notify } from '@/lib/toast';
-import { num } from '@/lib/format';
+import { fmtDate, num } from '@/lib/format';
 import { t } from '@/i18n';
 
 export interface OrderLineItem {
@@ -26,7 +26,14 @@ export interface OrderRecord {
   order_date: string;
   delivered_at: string | null;
   created_at: string;
-  customers?: { id: string; name: string; address?: string | null; customer_type?: string | null } | null;
+  customers?: {
+    id: string;
+    name: string;
+    address?: string | null;
+    customer_type?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+  } | null;
   supervisors?: { id: string; full_name: string; phone?: string | null } | null;
 }
 
@@ -83,6 +90,59 @@ export function computeOrdersKPI(orders: OrderRecord[]): OrdersKPI {
     pendingAmount,
     deliveryRate,
   };
+}
+
+/** Formats a rich, professional Arabic WhatsApp dispatch message for sales opportunities */
+export function formatOrderWhatsAppMessage(
+  order: {
+    customerName?: string;
+    customerAddress?: string | null;
+    supervisorName?: string;
+    supervisorPhone?: string | null;
+    orderDate?: string;
+    items: OrderLineItem[];
+    totalAmount: number;
+    notes?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+  },
+  appName = 'ميدان'
+): string {
+  const itemsText = order.items
+    .map((it, idx) => `  ${idx + 1}. *${it.name}* : ${num(it.quantity)} وحدة × ${num(it.unit_price)} ج.م = ${num(it.quantity * it.unit_price)} ج.م`)
+    .join('\n');
+
+  const mapsLink =
+    order.latitude != null && order.longitude != null
+      ? `\n📍 *موقع العميل:* https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`
+      : '';
+
+  const address = order.customerAddress ? `\n🏢 *العنوان:* ${order.customerAddress}` : '';
+  const supInfo = order.supervisorName
+    ? `\n👤 *المشرف الراصد:* ${order.supervisorName}${order.supervisorPhone ? ` (${order.supervisorPhone})` : ''}`
+    : '';
+  const notesText = order.notes?.trim() ? `\n📝 *ملاحظات المشرف:* ${order.notes}` : '';
+
+  return `🎯 *فرصة بيعية ميدانية (${appName})*
+----------------------------------------
+🏪 *العميل:* ${order.customerName || 'عميل'}${address}${mapsLink}${supInfo}
+📅 *التاريخ:* ${order.orderDate ? fmtDate(order.orderDate) : fmtDate(new Date().toISOString())}
+
+🛒 *الأصناف والكميات المطلوبة:*
+${itemsText}
+
+💰 *إجمالي القيمة التقديرية:* ${num(order.totalAmount)} ج.م${notesText}
+----------------------------------------
+⚡ *تنبيه للمندوب:* يرجى سرعة التواصل مع العميل وتوريد الطلب.`;
+}
+
+/** Opens WhatsApp Web or native app with pre-filled message */
+export function openWhatsAppShare(text: string, phone?: string) {
+  const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
+  const url = cleanPhone
+    ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`
+    : `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 export function useProductsWithPrices(customerType: string | null) {
@@ -143,7 +203,7 @@ export function useSupervisorOrders(period: 'today' | 'week' | 'month' | 'all' =
         .select(`
           id, visit_id, supervisor_id, customer_id, company_id,
           items, total_amount, status, notes, order_date, delivered_at, created_at,
-          customers (id, name, address, customer_type)
+          customers (id, name, address, customer_type, latitude, longitude)
         `)
         .eq('company_id', sc.companyId)
         .eq('supervisor_id', sc.supervisorId)
@@ -187,7 +247,8 @@ export function useVisitOrders(visitId: string) {
         .from('orders')
         .select(`
           id, visit_id, supervisor_id, customer_id, company_id,
-          items, total_amount, status, notes, order_date, delivered_at, created_at
+          items, total_amount, status, notes, order_date, delivered_at, created_at,
+          customers!customer_id (id, name, address, customer_type, latitude, longitude)
         `)
         .eq('visit_id', visitId)
         .order('created_at', { ascending: false });
@@ -213,7 +274,7 @@ export function useAdminOrders(filter?: { status?: string; supervisorId?: string
         .select(`
           id, visit_id, supervisor_id, customer_id, company_id,
           items, total_amount, status, notes, order_date, delivered_at, created_at,
-          customers!customer_id (id, name, address, customer_type),
+          customers!customer_id (id, name, address, customer_type, latitude, longitude),
           supervisors!supervisor_id (id, full_name, phone)
         `)
         .eq('company_id', sc.companyId)

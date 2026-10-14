@@ -26,18 +26,37 @@ export function useAdminKpis() {
         readExactCount((head) => build(supabase.from(table).select('id', { count: 'exact', head }).eq('company_id', sc.companyId)),
           signal, 'تعذر حساب مؤشرات الإدارة.');
       const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
-      const [supervisors, visitsToday, assets, openTickets, scores] = await Promise.all([
+      const [supervisors, visitsToday, assets, openTickets, scores, geofenceStats] = await Promise.all([
         count('supervisors', (q) => q.eq('is_active', true)),
         count('visits', (q) => q.gte('visit_date', todayStr())),
         count('assets', (q) => q.eq('is_active', true)),
         count('asset_tickets', (q) => q.in('status', ['open', 'dispatched', 'in_progress'])),
         supabase.from('shelf_audit').select('audit_score').eq('company_id', sc.companyId).eq('status', 'completed')
           .gte('created_at', since).not('audit_score', 'is', null).limit(1000).abortSignal(signal),
+        supabase.from('visits').select('on_beat,geo_distance').eq('company_id', sc.companyId)
+          .gte('visit_date', since).not('on_beat', 'is', null).limit(1000).abortSignal(signal),
       ]);
       if (scores.error) fail('تعذر حساب متوسط PSS.', scores.error);
       const list = (scores.data ?? []).map((r) => Number(r.audit_score));
       const avgPss = list.length ? Math.round(list.reduce((a, b) => a + b, 0) / list.length) : null;
-      return { supervisors, visitsToday, assets, openTickets, avgPss, audits30d: list.length };
+
+      const geoList = (geofenceStats.data ?? []).filter((r: any) => r.on_beat != null);
+      const onBeatCount = geoList.filter((r: any) => r.on_beat === true).length;
+      const geofenceRate = geoList.length ? Math.round((onBeatCount / geoList.length) * 100) : null;
+      const oorCount = geoList.length - onBeatCount;
+
+      return {
+        supervisors,
+        visitsToday,
+        assets,
+        openTickets,
+        avgPss,
+        audits30d: list.length,
+        geofenceRate,
+        onBeatVisits: onBeatCount,
+        oorVisits: oorCount,
+        totalGeoVisits: geoList.length,
+      };
     },
   });
 }

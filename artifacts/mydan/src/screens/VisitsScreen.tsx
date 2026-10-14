@@ -32,7 +32,24 @@ const Item = memo(function Item({ v, onStart, onStatus }: { v: Row; onStart: (id
       if (event.target !== event.currentTarget) return;
       if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); }
     }} role="button" tabIndex={0}>
-    <div className="row between"><div className="title grow">{c?.name ?? t('عميل غير معروف')}</div><StatusBadge status={v.status} /></div>
+    <div className="row between" style={{ alignItems: 'flex-start' }}>
+      <div className="grow">
+        <div className="title">{c?.name ?? t('عميل غير معروف')}</div>
+        {v.on_beat != null ? (
+          <div style={{ marginTop: 4 }}>
+            <span className={`badge ${v.on_beat ? 'b-green' : 'b-red'}`} style={{ fontSize: 11, padding: '2px 8px', fontWeight: 600 }}>
+              {v.on_beat ? `✅ ${t('داخل النطاق')}` : `⚠️ ${t('خارج النطاق (OOR)')}`}
+              {v.geo_distance != null ? ` · ${num(Math.round(v.geo_distance))} ${t('م')}` : ''}
+            </span>
+          </div>
+        ) : dist ? (
+          <div style={{ marginTop: 4 }}>
+            <span className="badge b-gray" style={{ fontSize: 11, padding: '2px 8px' }}>📍 {dist}</span>
+          </div>
+        ) : null}
+      </div>
+      <StatusBadge status={v.status} />
+    </div>
     <div className="muted">{fmtDate(v.visit_date)} · {t('دخول')} {fmtTime(v.check_in_time)} · {t('خروج')} {fmtTime(v.check_out_time)}{dist ? ` · ${dist}` : ''}</div>
     {minutes != null && minutes > 0 && <div className="muted" style={{ fontSize: 12 }}>{t('مدة الزيارة: {n} دقيقة', { n: num(minutes) })}</div>}
     {v.notes && <div style={{ fontSize: 14 }}>{v.notes}</div>}

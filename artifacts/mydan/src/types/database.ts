@@ -15,6 +15,7 @@ export interface Visit {
   check_in_time: string | null; check_out_time: string | null;
   status: VisitStatus; latitude: number | null; longitude: number | null;
   notes: string | null; company_id: ID;
+  on_beat?: boolean | null; geo_distance?: number | null;
 }
 export interface ShelfAudit {
   id: ID; visit_id: ID; supervisor_id: ID; photo_url: string | null;
