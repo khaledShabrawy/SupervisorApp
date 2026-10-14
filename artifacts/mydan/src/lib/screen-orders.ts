@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
 import { notify } from '@/lib/toast';
 import { fmtDate, num } from '@/lib/format';
+import { enqueueOfflineAction } from './offline-sync';
 import { t } from '@/i18n';
 
 export interface OrderLineItem {
@@ -355,12 +356,33 @@ export function useSaveOrder() {
         payload.quantity = totalQty;
       }
 
+      if (!navigator.onLine) {
+        enqueueOfflineAction({
+          type: 'save_order',
+          companyId: sc.companyId,
+          supervisorId: sc.supervisorId,
+          payload,
+        });
+        return total;
+      }
+
       const { error } = await supabase.from('orders').insert(payload);
-      if (error) throw new Error(`${t('تعذر حفظ الأوردر')}: ${error.message}`);
+      if (error) {
+        enqueueOfflineAction({
+          type: 'save_order',
+          companyId: sc.companyId,
+          supervisorId: sc.supervisorId,
+          payload,
+        });
+        return total;
+      }
       return total;
     },
     onSuccess: (total) => {
-      notify(`✅ ${t('تم تسجيل الأوردر بنجاح — الإجمالي:')} ${num(total)} ${t('ج.م')}`, 'success');
+      const msg = navigator.onLine
+        ? `✅ ${t('تم تسجيل الأوردر بنجاح — الإجمالي:')} ${num(total)} ${t('ج.م')}`
+        : `📶 ${t('تم حفظ الأوردر محلياً دون اتصال — الإجمالي:')} ${num(total)} ${t('ج.م. اضغط "رفع البيانات" عند توفر الشبكة')}`;
+      notify(msg, 'success');
       qc.invalidateQueries({ queryKey: [...sc.base, 'supervisor-orders'] });
       qc.invalidateQueries({ queryKey: [...sc.base, 'admin-orders'] });
       qc.invalidateQueries({ queryKey: [...sc.base, 'visit-orders'] });

@@ -11,6 +11,7 @@ import { notify } from '@/lib/toast';
 import { todayStr } from '@/lib/format';
 import type { Attendance, BeatPlan, Customer, Notification, ShelfAudit, Supervisor, Target, Visit } from '@/types/database';
 import type { VisitOutcome } from './visit-geo';
+import { enqueueOfflineAction } from './offline-sync';
 import { t } from '@/i18n';
 import { AUDIT_COLUMNS, CUSTOMER_COLUMNS, NOTIFICATION_COLUMNS, TARGET_COLUMNS, VISIT_COLUMNS, VISIT_JOIN } from './columns';
 
@@ -133,13 +134,36 @@ export function useUpdateVisitStatus() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: 'completed' | 'skipped' }) => {
+      const checkOut = status === 'completed' ? nowIso() : null;
+      if (!navigator.onLine) {
+        enqueueOfflineAction({
+          type: 'update_visit_status',
+          companyId: sc.companyId,
+          supervisorId: sc.supervisorId,
+          payload: { id, status, check_out_time: checkOut },
+        });
+        return;
+      }
       const patch: Partial<Visit> = { status };
-      if (status === 'completed') patch.check_out_time = nowIso();
+      if (checkOut) patch.check_out_time = checkOut;
       const { data, error } = await sc.scope(supabase.from('visits').update(patch).eq('id', id)).select('id');
-      if (error) fail('تعذر تحديث الزيارة.', error);
+      if (error) {
+        // Fallback to offline queue on unexpected network drop
+        enqueueOfflineAction({
+          type: 'update_visit_status',
+          companyId: sc.companyId,
+          supervisorId: sc.supervisorId,
+          payload: { id, status, check_out_time: checkOut },
+        });
+        return;
+      }
       if (!data?.length) throw new Error('لم يتم تحديث الزيارة. قد لا تملك الصلاحية.');
     },
-    onSuccess: () => { notify('تم تحديث حالة الزيارة', 'success'); void inv(qc, sc, 'visits', 'visit-options', 'customers', 'dashboard', 'targets'); },
+    onSuccess: () => {
+      const msg = navigator.onLine ? t('تم تحديث حالة الزيارة') : t('📶 تم حفظ حالة الزيارة دون اتصال. اضغط "رفع البيانات" عند توفر الشبكة');
+      notify(msg, 'success');
+      void inv(qc, sc, 'visits', 'visit-options', 'customers', 'dashboard', 'targets');
+    },
     onError: (e: Error) => notify(e.message, 'error'),
   });
 }
@@ -150,23 +174,52 @@ export function useCreateVisit() {
       geo_distance: number | null; on_beat: boolean }) => {
       // geo_distance/on_beat feed the OOR (out-of-route) KPIs in the reporting views.
       const geo = { geo_distance: v.geo_distance, on_beat: v.on_beat };
+      if (!navigator.onLine) {
+        enqueueOfflineAction({
+          type: 'create_visit',
+          companyId: sc.companyId,
+          supervisorId: sc.supervisorId,
+          payload: { ...v, ...geo, check_in_time: nowIso(), visit_date: todayStr() },
+        });
+        return { id: v.existingId || `offline-${Date.now()}` };
+      }
       if (v.existingId) {
         const { data, error } = await sc.scope(supabase.from('visits').update({
           status: 'in_progress', check_in_time: nowIso(), latitude: v.latitude,
           longitude: v.longitude, notes: v.notes.trim() || null, ...geo,
         }).eq('id', v.existingId).eq('customer_id', v.customer_id).eq('status', 'pending'))
           .select('id').single();
-        if (error || !data) fail('تعذر بدء الزيارة. ربما تغيّرت حالتها أو صلاحياتها.', error);
+        if (error || !data) {
+          enqueueOfflineAction({
+            type: 'create_visit',
+            companyId: sc.companyId,
+            supervisorId: sc.supervisorId,
+            payload: { ...v, ...geo, check_in_time: nowIso(), visit_date: todayStr() },
+          });
+          return { id: v.existingId };
+        }
         return data as { id: string };
       }
       const { data, error } = await supabase.from('visits').insert({
         supervisor_id: sc.supervisorId, company_id: sc.companyId, customer_id: v.customer_id, visit_date: todayStr(),
         status: 'in_progress', check_in_time: nowIso(), latitude: v.latitude, longitude: v.longitude, notes: v.notes.trim() || null, ...geo,
       }).select('id').single();
-      if (error) fail('تعذر إنشاء الزيارة.', error);
+      if (error) {
+        enqueueOfflineAction({
+          type: 'create_visit',
+          companyId: sc.companyId,
+          supervisorId: sc.supervisorId,
+          payload: { ...v, ...geo, check_in_time: nowIso(), visit_date: todayStr() },
+        });
+        return { id: `offline-${Date.now()}` };
+      }
       return data as { id: string };
     },
-    onSuccess: () => { notify('تم بدء الزيارة وتسجيل الدخول', 'success'); void inv(qc, sc, 'visits', 'visit-options', 'customers', 'dashboard', 'beat'); },
+    onSuccess: () => {
+      const msg = navigator.onLine ? t('تم بدء الزيارة وتسجيل الدخول') : t('📶 تم بدء الزيارة دون اتصال. اضغط "رفع البيانات" عند توفر الشبكة');
+      notify(msg, 'success');
+      void inv(qc, sc, 'visits', 'visit-options', 'customers', 'dashboard', 'beat');
+    },
     onError: (e: Error) => notify(e.message, 'error'),
   });
 }
@@ -175,11 +228,32 @@ export function useSetVisitOutcome() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, outcome }: { id: string; outcome: VisitOutcome }) => {
+      if (!navigator.onLine) {
+        enqueueOfflineAction({
+          type: 'set_visit_outcome',
+          companyId: sc.companyId,
+          supervisorId: sc.supervisorId,
+          payload: { id, outcome },
+        });
+        return;
+      }
       const { data, error } = await sc.scope(supabase.from('visits').update({ visit_outcome: outcome }).eq('id', id)).select('id');
-      if (error) fail('تعذر حفظ نتيجة الزيارة.', error);
+      if (error) {
+        enqueueOfflineAction({
+          type: 'set_visit_outcome',
+          companyId: sc.companyId,
+          supervisorId: sc.supervisorId,
+          payload: { id, outcome },
+        });
+        return;
+      }
       if (!data?.length) throw new Error('لم يتم حفظ النتيجة. قد لا تملك الصلاحية.');
     },
-    onSuccess: () => { notify('تم حفظ نتيجة الزيارة', 'success'); void inv(qc, sc, 'visit-detail', 'visits', 'dashboard'); },
+    onSuccess: () => {
+      const msg = navigator.onLine ? t('تم حفظ نتيجة الزيارة') : t('📶 تم حفظ نتيجة الزيارة دون اتصال. اضغط "رفع البيانات" عند توفر الشبكة');
+      notify(msg, 'success');
+      void inv(qc, sc, 'visit-detail', 'visits', 'dashboard');
+    },
     onError: (e: Error) => notify(e.message, 'error'),
   });
 }
