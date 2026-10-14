@@ -26,18 +26,20 @@ const Targets = lazy(() => import('@/screens/TargetsScreen'));
 const BeatPlan = lazy(() => import('@/screens/BeatPlanScreen'));
 const Notifications = lazy(() => import('@/screens/NotificationsScreen'));
 const FieldSurvey = lazy(() => import('@/screens/FieldSurveyScreen'));
+const Orders = lazy(() => import('@/screens/OrdersScreen'));
+const OrderEntry = lazy(() => import('@/screens/OrderEntryScreen'));
 const SetPassword = lazy(() => import('@/screens/SetPasswordScreen'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
 const AdminLayout = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminLayout'));
 const AdminDashboard = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminDashboard'));
 const AdminUsers = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminUsers'));
-const section = (name: 'AdminBranches' | 'AdminCustomers' | 'AdminProducts' | 'AdminTargets' | 'AdminAssets' | 'AdminSurveys' | 'AdminNotifications' | 'AdminSettings' | 'AdminAuditLogs' | 'AdminProspects') =>
+const section = (name: 'AdminBranches' | 'AdminCustomers' | 'AdminProducts' | 'AdminTargets' | 'AdminAssets' | 'AdminSurveys' | 'AdminNotifications' | 'AdminSettings' | 'AdminAuditLogs' | 'AdminProspects' | 'AdminOrders') =>
   lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminSections').then((m) => ({ default: m[name] })));
 const AdminBranches = section('AdminBranches'), AdminCustomers = section('AdminCustomers'), AdminProducts = section('AdminProducts'),
   AdminTargets = section('AdminTargets'), AdminAssets = section('AdminAssets'), AdminSurveys = section('AdminSurveys'),
   AdminNotifications = section('AdminNotifications'), AdminSettings = section('AdminSettings'), AdminAuditLogs = section('AdminAuditLogs'),
-  AdminProspects = section('AdminProspects');
+  AdminProspects = section('AdminProspects'), AdminOrders = section('AdminOrders');
 const BulkImport = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/BulkTemplates').then(m => ({ default: m.BulkTemplates })));
 const AdminCompanies = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminCompanies'));
 const AdminReports = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminReports'));
@@ -60,6 +62,7 @@ function App() {
                   {!IS_ANDROID && (
                     <Route path="/admin" element={<AdminLayout />}>
                       <Route index element={<AdminDashboard />} />
+                      <Route path="orders" element={<AdminOrders />} />
                       <Route path="users" element={<AdminUsers />} />
                       <Route path="branches" element={<AdminBranches />} />
                       <Route path="customers" element={<AdminCustomers />} />
@@ -78,6 +81,8 @@ function App() {
                   )}
                   <Route element={<RequireAuth />}>
                     <Route index element={<Dashboard />} />
+                    <Route path="orders" element={<Orders />} />
+                    <Route path="orders/new" element={<OrderEntry />} />
                     <Route path="visits" element={<Visits />} />
                     <Route path="visits/new" element={<RequireScreen screen="new_visit"><NewVisit /></RequireScreen>} />
                     <Route path="visits/:id" element={<VisitDetail />} />
