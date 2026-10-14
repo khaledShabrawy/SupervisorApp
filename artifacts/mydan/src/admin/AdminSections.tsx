@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
 import { Bell, CheckCheck, FileText, MapPin, Package, Plus, ShoppingCart, Store, Trash2, X } from '@/components/Icons';
-import { useAdminOrders, useUpdateOrderStatus, type OrderRecord } from '@/lib/screen-orders';
+import { useAdminOrders, useUpdateOrderStatus, formatOrderWhatsAppMessage, openWhatsAppShare, type OrderRecord } from '@/lib/screen-orders';
 import { fmtDate, fmtTime, num } from '@/lib/format';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useCustomerSearch, useSupervisors } from '@/lib/data';
@@ -622,34 +622,69 @@ export function AdminOrders() {
                     {o.delivered_at ? fmtDate(o.delivered_at) : '—'}
                   </td>
                   <td>
-                    {!isDelivered ? (
+                    <div className="row" style={{ gap: 6, alignItems: 'center' }}>
                       <button
-                        className="btn sm success"
-                        style={{ whiteSpace: 'nowrap', gap: 4 }}
-                        disabled={updateStatus.isPending}
-                        onClick={() => {
-                          if (window.confirm(t('تأكيد تسليم الأوردر؟ سيتم رفع إنتاجية المشرف إلى 100%.'))) {
-                            updateStatus.mutate({ id: o.id, status: 'delivered' });
-                          }
+                        type="button"
+                        className="btn sm"
+                        style={{
+                          background: '#25D366',
+                          color: '#fff',
+                          border: 'none',
+                          padding: '3px 8px',
+                          fontSize: 12,
+                          borderRadius: 6,
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                          gap: 4,
                         }}
-                        data-testid={`btn-deliver-order-${o.id}`}
-                      >
-                        <CheckCheck size={14} /> {t('تأكيد التسليم')}
-                      </button>
-                    ) : (
-                      <button
-                        className="btn sm ghost"
-                        style={{ fontSize: 12, whiteSpace: 'nowrap' }}
-                        disabled={updateStatus.isPending}
                         onClick={() => {
-                          if (window.confirm(t('إلغاء حالة التسليم وإعادة الأوردر لقيد المتابعة؟'))) {
-                            updateStatus.mutate({ id: o.id, status: 'pending' });
-                          }
+                          const msg = formatOrderWhatsAppMessage({
+                            customerName: o.customers?.name,
+                            customerAddress: o.customers?.address,
+                            supervisorName: o.supervisors?.full_name,
+                            supervisorPhone: o.supervisors?.phone,
+                            orderDate: o.order_date || o.created_at,
+                            items: o.items,
+                            totalAmount: o.total_amount,
+                            notes: o.notes,
+                            latitude: o.customers?.latitude,
+                            longitude: o.customers?.longitude,
+                          });
+                          openWhatsAppShare(msg);
                         }}
+                        title={t('إرسال تفاصيل الفرصة للمندوب عبر واتساب')}
                       >
-                        {t('إعادة للمتابعة')}
+                        💬 {t('واتساب')}
                       </button>
-                    )}
+                      {!isDelivered ? (
+                        <button
+                          className="btn sm success"
+                          style={{ whiteSpace: 'nowrap', gap: 4 }}
+                          disabled={updateStatus.isPending}
+                          onClick={() => {
+                            if (window.confirm(t('تأكيد تسليم الأوردر؟ سيتم رفع إنتاجية المشرف إلى 100%.'))) {
+                              updateStatus.mutate({ id: o.id, status: 'delivered' });
+                            }
+                          }}
+                          data-testid={`btn-deliver-order-${o.id}`}
+                        >
+                          <CheckCheck size={14} /> {t('تأكيد التسليم')}
+                        </button>
+                      ) : (
+                        <button
+                          className="btn sm ghost"
+                          style={{ fontSize: 12, whiteSpace: 'nowrap' }}
+                          disabled={updateStatus.isPending}
+                          onClick={() => {
+                            if (window.confirm(t('إلغاء حالة التسليم وإعادة الأوردر لقيد المتابعة؟'))) {
+                              updateStatus.mutate({ id: o.id, status: 'pending' });
+                            }
+                          }}
+                        >
+                          {t('إعادة للمتابعة')}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -720,19 +755,53 @@ export function AdminOrders() {
             </div>
           </div>
 
-          <div className="row between" style={{ marginTop: 8 }}>
-            {selectedOrder.status !== 'delivered' && (
+          <div className="row between" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
+            <div className="row" style={{ gap: 8 }}>
               <button
-                className="btn success"
-                disabled={updateStatus.isPending}
+                type="button"
+                className="btn"
+                style={{
+                  background: '#25D366',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  gap: 6,
+                }}
                 onClick={() => {
-                  updateStatus.mutate({ id: selectedOrder.id, status: 'delivered' });
-                  setSelectedOrder(null);
+                  const msg = formatOrderWhatsAppMessage({
+                    customerName: selectedOrder.customers?.name,
+                    customerAddress: selectedOrder.customers?.address,
+                    supervisorName: selectedOrder.supervisors?.full_name,
+                    supervisorPhone: selectedOrder.supervisors?.phone,
+                    orderDate: selectedOrder.order_date || selectedOrder.created_at,
+                    items: selectedOrder.items,
+                    totalAmount: selectedOrder.total_amount,
+                    notes: selectedOrder.notes,
+                    latitude: selectedOrder.customers?.latitude,
+                    longitude: selectedOrder.customers?.longitude,
+                  });
+                  openWhatsAppShare(msg);
                 }}
               >
-                <CheckCheck size={16} /> {t('تأكيد التسليم الآن')}
+                💬 {t('إرسال للمندوب عبر واتساب')}
               </button>
-            )}
+
+              {selectedOrder.status !== 'delivered' && (
+                <button
+                  className="btn success"
+                  disabled={updateStatus.isPending}
+                  onClick={() => {
+                    updateStatus.mutate({ id: selectedOrder.id, status: 'delivered' });
+                    setSelectedOrder(null);
+                  }}
+                >
+                  <CheckCheck size={16} /> {t('تأكيد التسليم الآن')}
+                </button>
+              )}
+            </div>
             <button className="btn ghost" onClick={() => setSelectedOrder(null)}>{t('إغلاق')}</button>
           </div>
         </div>
