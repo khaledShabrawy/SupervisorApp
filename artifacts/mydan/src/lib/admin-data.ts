@@ -102,12 +102,19 @@ export function useInviteSupervisor() {
     mutationFn: async (input: { email: string; full_name: string; phone: string; role: InviteRole; branch_id: string;
       permissions: Record<ScreenKey, boolean> }) => {
       requireAdmin(sc);
+      if (sc.supervisor.role === 'branch_manager' && input.role === 'admin') {
+        throw new Error(t('مدير الفرع لا يملك صلاحية دعوة رتبة مدير.'));
+      }
+      const effectiveBranchId = sc.supervisor.role === 'branch_manager' && sc.supervisor.branch_id
+        ? sc.supervisor.branch_id
+        : (input.branch_id || null);
+
       const email = input.email.trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('البريد الإلكتروني غير صالح.');
       if (!input.full_name.trim()) throw new Error('الاسم مطلوب.');
       const { data, error } = await supabase.functions.invoke('invite-supervisor', {
         body: { ...input, email, full_name: input.full_name.trim(), phone: input.phone.trim() || null,
-          branch_id: input.branch_id || null, redirect_to: `${window.location.origin}${import.meta.env.BASE_URL}set-password` },
+          branch_id: effectiveBranchId, redirect_to: `${window.location.origin}${import.meta.env.BASE_URL}set-password` },
       });
       if (error) {
         // FunctionsHttpError carries the function's JSON body in context.
@@ -430,9 +437,21 @@ export function useEditSupervisorProfile() {
   return useMutation({
     mutationFn: async ({ id, full_name, phone, role, branch_id }: { id: string; full_name: string; phone: string; role: InviteRole; branch_id: string }) => {
       requireAdmin(sc);
-      const { data: existing } = await supabase.from('supervisors').select('role').eq('id', id).eq('company_id', sc.companyId).single();
+      const { data: existing } = await supabase.from('supervisors').select('role,branch_id').eq('id', id).eq('company_id', sc.companyId).single();
       if (existing?.role === 'super_admin') throw new Error(t('لا يمكن تعديل المدير الأعلى.'));
-      const patch = { full_name: full_name.trim(), phone: phone.trim() || null, role, branch_id: branch_id || null };
+      if (sc.supervisor.role === 'branch_manager') {
+        if (role === 'admin' || role === 'super_admin') {
+          throw new Error(t('مدير الفرع لا يملك صلاحية تعيين رتبة مدير.'));
+        }
+        if (existing?.branch_id && existing.branch_id !== sc.supervisor.branch_id) {
+          throw new Error(t('لا يمكنك تعديل مشرفين تابعين لفروع أخرى.'));
+        }
+      }
+      const effectiveBranchId = sc.supervisor.role === 'branch_manager' && sc.supervisor.branch_id
+        ? sc.supervisor.branch_id
+        : (branch_id || null);
+
+      const patch = { full_name: full_name.trim(), phone: phone.trim() || null, role, branch_id: effectiveBranchId };
       if (!patch.full_name) throw new Error(t('الاسم مطلوب.'));
       const { error } = await supabase.from('supervisors').update(patch).eq('id', id).eq('company_id', sc.companyId);
       if (error) fail(t('تعذر تعديل بيانات المشرف.'), error);

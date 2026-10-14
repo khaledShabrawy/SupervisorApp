@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, SUPABASE_URL } from './supabase';
 import { useScope } from './data';
 import { notify } from './toast';
+import { compressImage } from './image-compression';
 
 const SURVEY_BUCKET = 'survey-photos';
 const DISCOVER_ENDPOINT = `${SUPABASE_URL}/functions/v1/discover-customers`;
@@ -38,13 +39,16 @@ export function useUploadSurveyPhoto() {
   const sc = useScope(), qc = useQueryClient();
   return useMutation({
     mutationFn: async ({
-      file,
+      file: rawFile,
       latitude,
       longitude,
     }: { file: File; latitude: number | null; longitude: number | null }): Promise<FieldSurvey> => {
       await currentSession(sc.supervisor.user_id);
-      if (!file.type.startsWith('image/')) throw new Error('اختر صورة صالحة.');
-      if (file.size > 10 * 1024 * 1024) throw new Error('حجم الصورة أكبر من 10 ميجابايت.');
+      if (!rawFile.type.startsWith('image/')) throw new Error('اختر صورة صالحة.');
+      if (rawFile.size > 15 * 1024 * 1024) throw new Error('حجم الصورة أكبر من 15 ميجابايت.');
+
+      // Compress photo client-side (reduces 10MB to ~300KB)
+      const file = await compressImage(rawFile, { maxDimension: 1600, quality: 0.85 });
 
       const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
       const uid = typeof crypto.randomUUID === 'function'

@@ -12,6 +12,7 @@ import { ErrorState, SkeletonList } from '@/components/States';
 import { num, fmtDate } from '@/lib/format';
 import { useInput } from './shared';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { compressImage } from '@/lib/image-compression';
 import { t } from '@/i18n';
 
 interface CompetitorProduct { id: string; brand_name: string; product_name: string | null; quantity: number | null; notes: string | null; photo_url: string | null; created_at: string; }
@@ -31,16 +32,9 @@ function useCompetitorProducts(visitId: string) {
 }
 
 async function compressAndUpload(file: File, companyId: string): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const MAX = 1200;
-  const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  const blob = await new Promise<Blob>((res) => canvas.toBlob((b) => res(b!), 'image/jpeg', 0.85));
+  const compressed = await compressImage(file, { maxDimension: 1200, quality: 0.85 });
   const path = `${companyId}/competitors/${Date.now()}.jpg`;
-  const { error } = await supabase.storage.from('shelf-photos').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+  const { error } = await supabase.storage.from('shelf-photos').upload(path, compressed, { contentType: 'image/jpeg', upsert: false });
   if (error) throw new Error(error.message);
   return supabase.storage.from('shelf-photos').getPublicUrl(path).data.publicUrl;
 }

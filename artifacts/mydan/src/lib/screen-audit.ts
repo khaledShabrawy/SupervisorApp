@@ -4,6 +4,7 @@ import { supabase, SUPABASE_URL } from './supabase';
 import { useScope, PHOTO_BUCKET, type VisitRow } from './data';
 import { AUDIT_COLUMNS } from './columns';
 import { notify } from './toast';
+import { compressImage } from './image-compression';
 import type { ShelfAudit } from '@/types/database';
 
 export const ANALYZE_ENDPOINT = import.meta.env.VITE_SHELF_AUDIT_FUNCTION ||
@@ -22,13 +23,17 @@ async function withSignedPhoto(audit: ShelfAudit): Promise<ShelfAudit> {
 export function useUploadAudit() {
   const sc = useScope(), qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ visit, file }: { visit: VisitRow; file: File }): Promise<ShelfAudit> => {
+    mutationFn: async ({ visit, file: rawFile }: { visit: VisitRow; file: File }): Promise<ShelfAudit> => {
       await currentSession(sc.supervisor.user_id);
       if (visit.company_id !== sc.companyId || (!sc.isAdmin && visit.supervisor_id !== sc.supervisorId)) {
         throw new Error('الزيارة لا تخص حسابك أو شركتك.');
       }
-      if (!file.type.startsWith('image/')) throw new Error('اختر صورة صالحة للرف.');
-      if (file.size > 10 * 1024 * 1024) throw new Error('حجم الصورة أكبر من 10 ميجابايت.');
+      if (!rawFile.type.startsWith('image/')) throw new Error('اختر صورة صالحة للرف.');
+      if (rawFile.size > 15 * 1024 * 1024) throw new Error('حجم الصورة أكبر من 15 ميجابايت.');
+
+      // Compress photo client-side before uploading (reduces 8MB to ~300KB)
+      const file = await compressImage(rawFile, { maxDimension: 1600, quality: 0.85 });
+
       const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
       const uid = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
       const path = `${sc.companyId}/${sc.supervisorId}/${visit.id}-${uid}.${ext}`;
