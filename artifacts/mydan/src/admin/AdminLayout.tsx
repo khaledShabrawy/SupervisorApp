@@ -13,6 +13,7 @@ import { TrialBanner } from '@/components/TrialBanner';
 
 export const ADMIN_NAV = [
   { to: '/admin', label: t('لوحة المؤشرات'), icon: BarChart3, end: true },
+  { to: '/admin/live-map', label: t('تتبع المشرفين 🗺️'), icon: MapPin },
   { to: '/admin/orders', label: t('الأوردرات'), icon: ShoppingCart },
   { to: '/admin/users', label: t('المشرفون'), icon: Users },
   { to: '/admin/companies', label: t('الشركات'), icon: Building2, superAdminOnly: true },
