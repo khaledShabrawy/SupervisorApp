@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { BarChart3, Bell, Building2, ClipboardList, Download, FileText, Home, LogOut, MapPin, Package, PieChart, ScanSearch, Settings2, ShieldCheck, ShoppingCart, Store, Target, Users } from '@/components/Icons';
+import { BarChart3, Bell, Building2, ClipboardList, Download, FileText, GraduationCap, Home, LogOut, MapPin, Package, PieChart, ScanSearch, Settings2, ShieldCheck, ShoppingCart, Store, Target, Users } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { canAdmin } from '@/lib/policy';
@@ -14,6 +14,7 @@ import { TrialBanner } from '@/components/TrialBanner';
 export const ADMIN_NAV = [
   { to: '/admin', label: t('لوحة المؤشرات'), icon: BarChart3, end: true },
   { to: '/admin/live-map', label: t('تتبع المشرفين 🗺️'), icon: MapPin },
+  { to: '/admin/training', label: t('أكاديمية التدريب 🎓'), icon: GraduationCap },
   { to: '/admin/orders', label: t('الأوردرات'), icon: ShoppingCart },
   { to: '/admin/users', label: t('المشرفون'), icon: Users },
   { to: '/admin/companies', label: t('الشركات'), icon: Building2, superAdminOnly: true },
