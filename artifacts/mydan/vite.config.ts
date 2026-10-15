@@ -49,6 +49,7 @@ return ({
     },
     chunkSizeWarningLimit: 800,
   },
+  plugins: [
     !isAndroid && VitePWA({
       strategies: 'injectManifest',
       srcDir: 'public',
