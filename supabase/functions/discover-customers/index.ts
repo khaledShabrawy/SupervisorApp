@@ -1,8 +1,10 @@
-// discover-customers v1 — Claude Vision field survey (AI customer discovery).
+// discover-customers v2 — Google Gemini Flash API (Primary & Free) with Claude Vision Fallback.
 //
-// Secrets (Dashboard → Edge Functions → Secrets), never in code:
-//   ANTHROPIC_API_KEY   required
-//   CLAUDE_MODEL        optional, defaults to claude-sonnet-4-6
+// Secrets (Dashboard → Edge Functions → Secrets):
+//   GEMINI_API_KEY      recommended (Free tier at https://aistudio.google.com/)
+//   GEMINI_MODEL        optional, defaults to gemini-2.5-flash
+//   ANTHROPIC_API_KEY   optional fallback
+//   CLAUDE_MODEL        optional fallback, defaults to claude-sonnet-4-6
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are injected by Supabase.
 //
 // Body: { survey_id }
@@ -16,8 +18,9 @@ import { zodOutputFormat } from "npm:@anthropic-ai/sdk/helpers/zod";
 import { z } from "npm:zod@3";
 
 const SURVEY_BUCKET = "survey-photos";
-const MODEL = Deno.env.get("CLAUDE_MODEL") ?? "claude-sonnet-4-6";
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
+const CLAUDE_MODEL = Deno.env.get("CLAUDE_MODEL") ?? "claude-sonnet-4-6";
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
 type MediaType = typeof MEDIA_TYPES[number];
 
@@ -42,6 +45,8 @@ const SurveySchema = z.object({
   })),
 });
 
+type SurveyResult = z.infer<typeof SurveySchema>;
+
 const SYSTEM = `أنت خبير في تحليل الشوارع التجارية ورسم خرائط نقاط البيع في السوق المصري.
 مهمتك: تحليل صورة أو فيديو يُظهر صفاً من المحلات التجارية، واكتشاف أكبر عدد ممكن من العملاء المحتملين.
 
@@ -54,12 +59,93 @@ const SYSTEM = `أنت خبير في تحليل الشوارع التجارية 
 - اكتب كل النصوص بالعربية.
 - إذا لم تظهر أي محلات في الصورة، أعطِ stores_found = 0 ومصفوفة فارغة.`;
 
+/** Call Google Gemini Flash API */
+async function callGemini(apiKey: string, base64Data: string, mediaType: string): Promise<SurveyResult> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+
+  const prompt = `${SYSTEM}
+
+حلل الصورة المرفقة واكتشف جميع المحلات التجارية ونقاط البيع المرئية.
+
+يجب أن يكون الرد كائن JSON صالح فقط دون أي نص إضافي أو علامات markdown، ومطابق تماماً للهيكل التالي:
+{
+  "summary_ar": "ملخص تحليلي للمحلات المكتشفة بالعربية",
+  "stores_found": 3,
+  "stores": [
+    {
+      "name": "اسم المحل من اللافتة",
+      "type": "سوبرماركت",
+      "estimated_size": "medium",
+      "position_note": "أول يمين الشارع"
+    }
+  ]
+}`;
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: mediaType, data: base64Data } },
+          { text: prompt }
+        ]
+      }],
+      generationConfig: {
+        response_mime_type: "application/json",
+        temperature: 0.1
+      }
+    })
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`Gemini API HTTP ${resp.status}: ${errText}`);
+  }
+
+  const jsonResp = await resp.json();
+  const rawText = jsonResp?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawText) throw new Error("Gemini returned empty or blocked output");
+
+  const cleanJson = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '');
+  const parsed = JSON.parse(cleanJson);
+  return SurveySchema.parse(parsed);
+}
+
+/** Fallback to Anthropic Claude Vision */
+async function callAnthropic(apiKey: string, base64Data: string, mediaType: MediaType): Promise<SurveyResult> {
+  const client = new Anthropic({ apiKey });
+  const response = await client.messages.parse({
+    model: CLAUDE_MODEL,
+    max_tokens: 4000,
+    system: SYSTEM,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
+        { type: "text", text: "حلل الصورة واكتشف جميع المحلات التجارية المرئية." },
+      ],
+    }],
+    output_config: { format: zodOutputFormat(SurveySchema) },
+  });
+
+  if (response.stop_reason === "refusal") throw new Error("model declined to analyze this photo");
+  if (!response.parsed_output) throw new Error("model returned unparseable output");
+  return response.parsed_output;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json(405, { error: "method not allowed" });
 
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!apiKey) return json(500, { error: "ANTHROPIC_API_KEY secret is not set" });
+  const geminiKey = Deno.env.get("GEMINI_API_KEY");
+  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+
+  if (!geminiKey && !anthropicKey) {
+    return json(500, {
+      error: "لم يتم ضبط مفتاح الذكاء الاصطناعي. يرجى إضافة GEMINI_API_KEY (مجاني من https://aistudio.google.com/) في Supabase Secrets."
+    });
+  }
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -101,33 +187,35 @@ Deno.serve(async (req) => {
     // 3) Download photo from private bucket
     const { data: blob, error: dlError } = await admin.storage.from(SURVEY_BUCKET).download(survey.photo_url);
     if (dlError || !blob) return await fail(404, "photo not found in storage");
-    if (blob.size > MAX_IMAGE_BYTES) return await fail(413, "photo larger than 5MB");
+    if (blob.size > MAX_IMAGE_BYTES) return await fail(413, "photo larger than 10MB");
     const mediaType = (MEDIA_TYPES as readonly string[]).includes(blob.type) ? blob.type as MediaType : "image/jpeg";
-    const data = encodeBase64(new Uint8Array(await blob.arrayBuffer()));
+    const base64Data = encodeBase64(new Uint8Array(await blob.arrayBuffer()));
 
-    // 4) Ask Claude Vision
-    const client = new Anthropic({ apiKey });
-    const response = await client.messages.parse({
-      model: MODEL,
-      max_tokens: 4000,
-      system: SYSTEM,
-      messages: [{
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: mediaType, data } },
-          { type: "text", text: "حلل الصورة واكتشف جميع المحلات التجارية المرئية." },
-        ],
-      }],
-      output_config: { format: zodOutputFormat(SurveySchema) },
-    });
+    // 4) Execute AI Discovery: Primary is Gemini Flash, Fallback is Anthropic
+    let result: SurveyResult;
+    let modelUsed: string;
 
-    if (response.stop_reason === "refusal") return await fail(422, "model declined to analyze this photo");
-    const result = response.parsed_output;
-    if (!result) return await fail(502, "model returned an unparseable result");
+    if (geminiKey) {
+      try {
+        result = await callGemini(geminiKey, base64Data, mediaType);
+        modelUsed = GEMINI_MODEL;
+      } catch (geminiErr) {
+        console.warn("Gemini Flash survey failed, trying fallback:", geminiErr);
+        if (anthropicKey) {
+          result = await callAnthropic(anthropicKey, base64Data, mediaType);
+          modelUsed = CLAUDE_MODEL;
+        } else {
+          throw geminiErr;
+        }
+      }
+    } else {
+      result = await callAnthropic(anthropicKey!, base64Data, mediaType);
+      modelUsed = CLAUDE_MODEL;
+    }
 
     await admin.from("field_surveys").update({
       stores_found: result.stores_found,
-      ai_raw_result: result,
+      ai_raw_result: { ...result, model: modelUsed, engine: geminiKey ? "google-gemini" : "anthropic" },
       status: "completed",
     }).eq("id", survey.id);
 
@@ -137,14 +225,10 @@ Deno.serve(async (req) => {
       stores_found: result.stores_found,
       stores: result.stores,
       summary_ar: result.summary_ar,
+      model: modelUsed,
     });
-  } catch (err) {
-    if (err instanceof Anthropic.RateLimitError) return await fail(429, "AI service busy, retry shortly");
-    if (err instanceof Anthropic.APIError) {
-      console.error("anthropic error", err.status, err.message);
-      return await fail(502, "AI service error");
-    }
-    console.error("discover-customers error", err);
-    return await fail(500, "internal error");
+  } catch (err: any) {
+    console.error("discover-customers error:", err);
+    return await fail(500, err?.message || "internal error");
   }
 });
