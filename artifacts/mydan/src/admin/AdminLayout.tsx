@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { ArrowRight, BarChart3, Bell, Building2, ClipboardList, Download, FileText, Home, LogOut, MapPin, Package, PieChart, ScanSearch, Settings2, ShieldCheck, ShoppingCart, Store, Target, Users } from '@/components/Icons';
+import { BarChart3, Bell, Building2, ClipboardList, Download, FileText, Home, LogOut, MapPin, Package, PieChart, ScanSearch, Settings2, ShieldCheck, ShoppingCart, Store, Target, Users } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { canAdmin } from '@/lib/policy';
@@ -64,7 +64,6 @@ export default function AdminLayout() {
       </div>
       <div className="adm-foot">
         <LanguageToggle className="lang-toggle" />
-        <NavLink to="/" className="adm-foot-back"><ArrowRight size={18} className="flip-ltr" />{t('العودة للتطبيق')}</NavLink>
         <button className="logout-btn" onClick={logout}><LogOut size={18} />{t('تسجيل الخروج')}</button>
       </div>
     </aside>
