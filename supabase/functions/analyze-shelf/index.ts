@@ -1,8 +1,10 @@
-// analyze-shelf v3 — Claude Vision shelf audit (PSS score).
+// analyze-shelf v4 — Google Gemini Flash API (Primary & Free) with Claude Vision Fallback.
 //
-// Secrets (Dashboard → Edge Functions → Secrets), never in code:
-//   ANTHROPIC_API_KEY   required
-//   CLAUDE_MODEL        optional, defaults to claude-sonnet-4-6
+// Secrets (Dashboard → Edge Functions → Secrets):
+//   GEMINI_API_KEY      recommended (Free tier: 15 RPM / 1,500 RPD at https://aistudio.google.com/)
+//   GEMINI_MODEL        optional, defaults to gemini-2.5-flash (or gemini-1.5-flash / gemini-2.0-flash)
+//   ANTHROPIC_API_KEY   optional fallback
+//   CLAUDE_MODEL        optional fallback, defaults to claude-sonnet-4-6
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are injected by Supabase.
 //
 // Body: { audit_id }. Everything else (photo, brands, ownership) is read
@@ -16,8 +18,9 @@ import { zodOutputFormat } from "npm:@anthropic-ai/sdk/helpers/zod";
 import { z } from "npm:zod@3";
 
 const PHOTO_BUCKET = "shelf-photos";
-const MODEL = Deno.env.get("CLAUDE_MODEL") ?? "claude-sonnet-4-6";
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // API limit per image
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
+const CLAUDE_MODEL = Deno.env.get("CLAUDE_MODEL") ?? "claude-sonnet-4-6";
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB limit
 const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
 type MediaType = typeof MEDIA_TYPES[number];
 
@@ -29,7 +32,7 @@ const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
 // Field names under target_brand_metrics / competitor_metrics are read by the
-// Power BI views (vw_perfect_store_index) — keep them stable.
+// Power BI views (vw_perfect_store_index) and frontend — keep them stable.
 const AuditSchema = z.object({
   audit_summary_ar: z.string(),
   score: z.number(),
@@ -57,24 +60,122 @@ const AuditSchema = z.object({
   }),
 });
 
+type AuditResult = z.infer<typeof AuditSchema>;
+
 const SYSTEM = `أنت خبير مراجعة رفوف متاجر FMCG في السوق المصري. تحلل صورة الرف وتقيّم التوزيع والعرض التجاري.
 اكتب كل النصوص بالعربية وبمصطلحات تجارية احترافية (Facings, Share of Shelf, OOS, POSM).
 score هو Perfect Store Score من 0 إلى 100. النسب المئوية من 0 إلى 100.
 إذا لم تكن الصورة لرف متجر، أعطِ score = 0 واذكر ذلك في الملخص.`;
 
 function storagePath(photoUrl: string): string {
-  // Older rows stored a full public URL; current rows store the object path.
   const marker = `/${PHOTO_BUCKET}/`;
   const i = photoUrl.indexOf(marker);
   return decodeURIComponent(i >= 0 ? photoUrl.slice(i + marker.length).split("?")[0] : photoUrl);
+}
+
+/** Analyze shelf using Google Gemini Flash API (Free Tier available) */
+async function callGemini(apiKey: string, base64Data: string, mediaType: string, brand: string, competitors: string): Promise<AuditResult> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+
+  const prompt = `${SYSTEM}
+
+العلامة المستهدفة: ${brand}
+المنافسون المتوقعون: ${competitors}
+حلل الرف بدقة شديدة واستخرج مقاييس التواجد والحصة والواجهات (Facings).
+
+يجب أن يكون الرد كائن JSON صالح فقط دون أي نص إضافي أو علامات markdown، ومطابق تماماً للهيكل التالي:
+{
+  "audit_summary_ar": "ملخص شامل لحالة الرف بالعربية",
+  "score": 85,
+  "target_brand_metrics": {
+    "brand_present": true,
+    "facings": 12,
+    "share_of_shelf_percentage": 40.0,
+    "out_of_stock": false,
+    "oos_items": []
+  },
+  "competitor_metrics": {
+    "competitor_presence_detected": true,
+    "competitor_share_pct": 60.0,
+    "brands_detected": ["منافس 1", "منافس 2"]
+  },
+  "posm_present": true,
+  "price_tag_visible": true,
+  "issues": ["ملاحظة 1"],
+  "recommendations": ["توصية 1"],
+  "detailed_report": {
+    "brand_analysis": "تحليل تفصيلي لمظهر وتواجد العلامة",
+    "competitor_analysis": "تحليل هجوم وتواجد المنافسين",
+    "display_quality": "تقييم جودة وترتيب العرض",
+    "action_priority": "عالية / متوسطة / منخفضة"
+  }
+}`;
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: mediaType, data: base64Data } },
+          { text: prompt }
+        ]
+      }],
+      generationConfig: {
+        response_mime_type: "application/json",
+        temperature: 0.1
+      }
+    })
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`Gemini API HTTP ${resp.status}: ${errText}`);
+  }
+
+  const jsonResp = await resp.json();
+  const rawText = jsonResp?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawText) throw new Error("Gemini returned empty or blocked output");
+
+  const cleanJson = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '');
+  const parsed = JSON.parse(cleanJson);
+  return AuditSchema.parse(parsed);
+}
+
+/** Fallback to Anthropic Claude Vision if ANTHROPIC_API_KEY is configured */
+async function callAnthropic(apiKey: string, base64Data: string, mediaType: MediaType, brand: string, competitors: string): Promise<AuditResult> {
+  const client = new Anthropic({ apiKey });
+  const response = await client.messages.parse({
+    model: CLAUDE_MODEL,
+    max_tokens: 4000,
+    system: SYSTEM,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
+        { type: "text", text: `العلامة المستهدفة: ${brand}\nالمنافسون المتوقعون: ${competitors}\nحلل الرف.` },
+      ],
+    }],
+    output_config: { format: zodOutputFormat(AuditSchema) },
+  });
+
+  if (response.stop_reason === "refusal") throw new Error("model declined to analyze this photo");
+  if (!response.parsed_output) throw new Error("model returned unparseable output");
+  return response.parsed_output;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json(405, { error: "method not allowed" });
 
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!apiKey) return json(500, { error: "ANTHROPIC_API_KEY secret is not set" });
+  const geminiKey = Deno.env.get("GEMINI_API_KEY");
+  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+
+  if (!geminiKey && !anthropicKey) {
+    return json(500, {
+      error: "لم يتم ضبط مفتاح الذكاء الاصطناعي. يرجى إضافة GEMINI_API_KEY (مجاني من https://aistudio.google.com/) في Supabase Secrets."
+    });
+  }
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -118,50 +219,56 @@ Deno.serve(async (req) => {
     const brand = settings?.target_brand_name || "العلامة المستهدفة";
     const competitors = (settings?.competitor_brands ?? []).join("، ") || "المنافسون";
 
-    // 4) Private bucket → download and send inline (Claude cannot fetch it by URL).
+    // 4) Download photo from private storage
     const { data: blob, error: dlError } = await admin.storage.from(PHOTO_BUCKET).download(path);
     if (dlError || !blob) return await fail(404, "photo not found in storage");
-    if (blob.size > MAX_IMAGE_BYTES) return await fail(413, "photo larger than 5MB");
+    if (blob.size > MAX_IMAGE_BYTES) return await fail(413, "photo larger than 10MB");
     const mediaType = (MEDIA_TYPES as readonly string[]).includes(blob.type) ? blob.type as MediaType : "image/jpeg";
-    const data = encodeBase64(new Uint8Array(await blob.arrayBuffer()));
+    const base64Data = encodeBase64(new Uint8Array(await blob.arrayBuffer()));
 
-    const client = new Anthropic({ apiKey });
-    const response = await client.messages.parse({
-      model: MODEL,
-      max_tokens: 4000,
-      system: SYSTEM,
-      messages: [{
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: mediaType, data } },
-          { type: "text", text: `العلامة المستهدفة: ${brand}\nالمنافسون المتوقعون: ${competitors}\nحلل الرف.` },
-        ],
-      }],
-      output_config: { format: zodOutputFormat(AuditSchema) },
-    });
+    // 5) Execute analysis: Primary is Gemini Flash (Free), fallback is Anthropic
+    let result: AuditResult;
+    let modelUsed: string;
 
-    if (response.stop_reason === "refusal") return await fail(422, "model declined to analyze this photo");
-    const result = response.parsed_output;
-    if (!result) return await fail(502, "model returned an unparseable result");
+    if (geminiKey) {
+      try {
+        result = await callGemini(geminiKey, base64Data, mediaType, brand, competitors);
+        modelUsed = GEMINI_MODEL;
+      } catch (geminiErr) {
+        console.warn("Gemini Flash failed, attempting fallback if available:", geminiErr);
+        if (anthropicKey) {
+          result = await callAnthropic(anthropicKey, base64Data, mediaType, brand, competitors);
+          modelUsed = CLAUDE_MODEL;
+        } else {
+          throw geminiErr;
+        }
+      }
+    } else {
+      result = await callAnthropic(anthropicKey!, base64Data, mediaType, brand, competitors);
+      modelUsed = CLAUDE_MODEL;
+    }
 
-    const score = Math.max(0, Math.min(100, Math.round(result.score))); // table CHECK 0..100
+    const score = Math.max(0, Math.min(100, Math.round(result.score)));
     const { error: updateError } = await admin.from("shelf_audit").update({
       audit_summary_ar: result.audit_summary_ar,
       audit_score: score,
-      ai_detailed_report: { ...result, score, model: MODEL },
+      ai_detailed_report: { ...result, score, model: modelUsed, engine: geminiKey ? "google-gemini" : "anthropic" },
       status: "completed",
       audited_at: new Date().toISOString(),
     }).eq("id", audit.id);
-    if (updateError) return await fail(500, "could not save result");
 
-    return json(200, { success: true, audit_id: audit.id, score, summary: result.audit_summary_ar });
-  } catch (err) {
-    if (err instanceof Anthropic.RateLimitError) return await fail(429, "AI service busy, retry shortly");
-    if (err instanceof Anthropic.APIError) {
-      console.error("anthropic error", err.status, err.message);
-      return await fail(502, "AI service error");
-    }
-    console.error("analyze-shelf error", err);
-    return await fail(500, "internal error");
+    if (updateError) return await fail(500, "could not save result to database");
+
+    return json(200, {
+      success: true,
+      audit_id: audit.id,
+      score,
+      summary: result.audit_summary_ar,
+      model: modelUsed
+    });
+  } catch (err: any) {
+    console.error("analyze-shelf error:", err);
+    const msg = err?.message || "internal error";
+    return await fail(500, msg);
   }
 });
