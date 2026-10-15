@@ -24,13 +24,16 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     queryKey: ['public-login-brand', publicCompanyId],
     enabled: !isAuthenticated && !!publicCompanyId,
     queryFn: async ({ signal }) => {
-      const { data, error } = await supabase.from('app_settings').select('company_id,app_name,logo_url')
-        .eq('company_id', publicCompanyId!).abortSignal(signal).single();
-      if (error || !data || data.company_id !== publicCompanyId || !data.app_name?.trim()
-        || (data.logo_url && !/^https:\/\/[^\s]+$/.test(data.logo_url))) {
-        throw new Error(t('تعذر تحميل هوية صفحة الدخول. تحقق من إعداد الشركة وصلاحية قراءة الاسم والشعار.'));
+      try {
+        const { data, error } = await supabase.from('app_settings').select('company_id,app_name,logo_url')
+          .eq('company_id', publicCompanyId!).abortSignal(signal).single();
+        if (error || !data || data.company_id !== publicCompanyId || !data.app_name?.trim()) {
+          return publicDefaults;
+        }
+        return { ...publicDefaults, company_id: data.company_id, app_name: data.app_name, logo_url: data.logo_url };
+      } catch {
+        return publicDefaults;
       }
-      return { ...publicDefaults, company_id: data.company_id, app_name: data.app_name, logo_url: data.logo_url };
     },
     staleTime: 300_000, retry: 1,
   });
@@ -61,7 +64,6 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     };
   }, [settings.data, isAuthenticated]);
   if (!isAuthenticated) return <Context.Provider value={publicBrand.data ?? publicDefaults}>
-    {publicBrand.isError && <div className="alert err" role="alert">{t(publicBrand.error.message)}</div>}
     {children}
   </Context.Provider>;
   if (settings.isPending) return <LoadingSpinner />;
