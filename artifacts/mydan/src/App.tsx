@@ -29,10 +29,12 @@ const FieldSurvey = lazy(() => import('@/screens/FieldSurveyScreen'));
 const Orders = lazy(() => import('@/screens/OrdersScreen'));
 const OrderEntry = lazy(() => import('@/screens/OrderEntryScreen'));
 const SetPassword = lazy(() => import('@/screens/SetPasswordScreen'));
+const TrainingAcademy = lazy(() => import('@/screens/TrainingAcademyScreen'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
 const AdminLayout = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminLayout'));
 const AdminDashboard = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminDashboard'));
+const AdminTraining = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminTraining'));
 const AdminUsers = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminUsers'));
 const section = (name: 'AdminBranches' | 'AdminCustomers' | 'AdminProducts' | 'AdminTargets' | 'AdminAssets' | 'AdminSurveys' | 'AdminNotifications' | 'AdminSettings' | 'AdminAuditLogs' | 'AdminProspects' | 'AdminOrders') =>
   lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminSections').then((m) => ({ default: m[name] })));
@@ -84,12 +86,14 @@ function App() {
                       <Route path="audit" element={<AdminAuditLogs />} />
                       <Route path="bulk-import" element={<BulkImport />} />
                       <Route path="companies" element={<AdminCompanies />} />
+                      <Route path="training" element={<AdminTraining />} />
                       <Route path="reports" element={<AdminReports />} />
                       <Route path="prospects" element={<AdminProspects />} />
                     </Route>
                   )}
                   <Route element={<RequireAuth />}>
                     <Route index element={<Dashboard />} />
+                    <Route path="training" element={<TrainingAcademy />} />
                     <Route path="orders" element={<Orders />} />
                     <Route path="orders/new" element={<OrderEntry />} />
                     <Route path="visits" element={<Visits />} />
