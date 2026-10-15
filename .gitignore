@@ -53,3 +53,7 @@ Thumbs.db
 .env
 .env.*.local
 .env.local
+
+# Local CLI tools & caches
+bin/
+supabase/.temp/

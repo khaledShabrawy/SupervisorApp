@@ -45,8 +45,25 @@ export interface Attendance {
   id: ID; supervisor_id: ID; date: string; check_in: string | null;
   check_out: string | null; company_id: ID;
 }
+export interface TrainingCourse {
+  id: ID; company_id: ID; title: string; description: string | null;
+  category: string; thumbnail_url: string | null; display_order: number;
+  is_published: boolean; created_at: string;
+}
+export interface TrainingLesson {
+  id: ID; course_id: ID; company_id: ID; title: string; description: string | null;
+  video_url: string; duration_seconds: number; attachment_url: string | null;
+  display_order: number; is_published: boolean; created_at: string;
+}
+export interface SupervisorTrainingProgress {
+  id: ID; company_id: ID; supervisor_id: ID; lesson_id: ID;
+  is_completed: boolean; last_watched_seconds: number; completed_at: string | null;
+  created_at: string; updated_at: string;
+}
 export interface TableMap {
   supervisors: Supervisor; customers: Customer; visits: Visit; shelf_audit: ShelfAudit;
   notifications: Notification; app_settings: AppSettings;
   targets: Target; beat_plans: BeatPlan; attendance: Attendance;
+  training_courses: TrainingCourse; training_lessons: TrainingLesson;
+  supervisor_training_progress: SupervisorTrainingProgress;
 }
