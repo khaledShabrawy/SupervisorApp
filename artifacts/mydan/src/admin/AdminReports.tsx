@@ -470,7 +470,7 @@ export default function AdminReports() {
                   </div>
                 </div>
                 <div className="row">
-                  <button className="btn sm" onClick={() => setViewing(r)}>{t('عرض')}</button>
+                  <button className="btn sm" onClick={() => setViewing(r)}>{t('عرض التقرير')}</button>
                   <button
                     className="icon-btn"
                     aria-label={t('حذف')}
