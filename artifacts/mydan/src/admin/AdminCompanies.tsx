@@ -1,6 +1,7 @@
 import { memo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { type CompanyRow, useCompanies, useSaveCompany } from '@/lib/admin-data';
+import { type CompanyRow, useCompanies, useInviteSupervisor, useSaveCompany } from '@/lib/admin-data';
+import { SCREENS, type ScreenKey } from '@/lib/permissions';
 import { t } from '@/i18n';
 
 /* ─── helpers ─── */
@@ -94,8 +95,94 @@ function CompanyModal({ initial, onClose }: { initial: (CompanyRow & { id?: stri
   );
 }
 
+/* ─── Invite Admin Modal ─── */
+function InviteCompanyAdminModal({ company, onClose }: { company: CompanyRow; onClose: () => void }) {
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const invite = useInviteSupervisor();
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const defaultPerms = Object.fromEntries(SCREENS.map((s) => [s.key, true])) as Record<ScreenKey, boolean>;
+    invite.mutate(
+      {
+        full_name: fullName,
+        email,
+        phone,
+        role: 'admin',
+        company_id: company.id,
+        permissions: defaultPerms,
+      },
+      {
+        onSuccess: () => {
+          onClose();
+        },
+      }
+    );
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+        <h2 className="modal-title">{t('دعوة مدير للشركة: {name}', { name: company.name })}</h2>
+        <p className="text-muted text-sm mb-3">
+          {t('سيتم إنشاء حساب بصلاحية (مدير) مع منحه كافة الصلاحيات لإدارة الشركة.')}
+        </p>
+        <form onSubmit={submit} className="form-grid">
+          <label>
+            {t('الاسم الكامل')} *
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="مثال: أحمد محمد"
+              required
+            />
+          </label>
+          <label>
+            {t('البريد الإلكتروني')} *
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="admin@company.com"
+              required
+            />
+          </label>
+          <label>
+            {t('رقم الهاتف')}
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="01xxxxxxxxx"
+            />
+          </label>
+          <div className="row gap-2 justify-end mt-2" style={{ gridColumn: '1/-1' }}>
+            <button type="button" className="btn ghost" onClick={onClose} disabled={invite.isPending}>
+              {t('إلغاء')}
+            </button>
+            <button type="submit" className="btn primary" disabled={invite.isPending}>
+              {invite.isPending ? t('جاري الإرسال...') : t('إرسال الدعوة')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Row ─── */
-const Row = memo(function Row({ c, onEdit }: { c: CompanyRow; onEdit: (c: CompanyRow) => void }) {
+const Row = memo(function Row({
+  c,
+  onEdit,
+  onInviteAdmin,
+}: {
+  c: CompanyRow;
+  onEdit: (c: CompanyRow) => void;
+  onInviteAdmin: (c: CompanyRow) => void;
+}) {
   return (
     <tr>
       <td>{c.name}{c.name_en ? <small style={{ display: 'block', color: '#6b7280' }}>{c.name_en}</small> : null}</td>
@@ -109,7 +196,19 @@ const Row = memo(function Row({ c, onEdit }: { c: CompanyRow; onEdit: (c: Compan
         </span>
       </td>
       <td>
-        <button className="btn sm ghost" onClick={() => onEdit(c)}>{t('تعديل')}</button>
+        <div className="row gap-1 items-center">
+          <button
+            type="button"
+            className="btn sm primary"
+            onClick={() => onInviteAdmin(c)}
+            title={t('دعوة مدير لهذه الشركة')}
+          >
+            {t('+ دعوة مدير')}
+          </button>
+          <button type="button" className="btn sm ghost" onClick={() => onEdit(c)}>
+            {t('تعديل')}
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -120,6 +219,7 @@ export default function AdminCompanies() {
   const { supervisor } = useAuth();
   const { data, isLoading, error } = useCompanies();
   const [editing, setEditing] = useState<(CompanyRow & { id?: string }) | null | false>(false);
+  const [invitingAdmin, setInvitingAdmin] = useState<CompanyRow | null>(null);
 
   if (supervisor?.role !== 'super_admin') {
     return <div className="adm-empty">{t('هذه الصفحة للمدير الأعلى فقط.')}</div>;
@@ -150,7 +250,9 @@ export default function AdminCompanies() {
               </tr>
             </thead>
             <tbody>
-              {data.map((c) => <Row key={c.id} c={c} onEdit={setEditing} />)}
+              {data.map((c) => (
+                <Row key={c.id} c={c} onEdit={setEditing} onInviteAdmin={setInvitingAdmin} />
+              ))}
               {!data.length && (
                 <tr><td colSpan={7} className="adm-empty">{t('لا توجد شركات بعد.')}</td></tr>
               )}
@@ -161,6 +263,10 @@ export default function AdminCompanies() {
 
       {editing !== false && (
         <CompanyModal initial={editing} onClose={() => setEditing(false)} />
+      )}
+
+      {invitingAdmin && (
+        <InviteCompanyAdminModal company={invitingAdmin} onClose={() => setInvitingAdmin(null)} />
       )}
     </section>
   );

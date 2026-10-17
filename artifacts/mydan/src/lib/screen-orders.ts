@@ -12,6 +12,9 @@ export interface OrderLineItem {
   name: string;
   unit_price: number;
   quantity: number;
+  unit?: string;
+  units_per_carton?: number;
+  total_pieces?: number;
 }
 
 export interface OrderRecord {
@@ -50,6 +53,8 @@ export interface PricedProduct {
   sub_brand?: string | null;
   unit?: string | null;
   unit_price: number;
+  units_per_carton?: number;
+  carton_price?: number;
   is_active: boolean;
 }
 
@@ -115,7 +120,14 @@ export function formatOrderWhatsAppMessage(
   appName = 'ميدان'
 ): string {
   const itemsText = order.items
-    .map((it, idx) => `  ${idx + 1}. *${it.name}* : ${num(it.quantity)} وحدة × ${num(it.unit_price)} ج.م = ${num(it.quantity * it.unit_price)} ج.م`)
+    .map((it, idx) => {
+      const unitLabel = it.unit || 'قطعة';
+      const convText =
+        it.unit === 'كرتونة' && it.units_per_carton && it.units_per_carton > 1
+          ? ` (تعادل ${num(it.quantity * it.units_per_carton)} قطعة)`
+          : '';
+      return `  ${idx + 1}. *${it.name}* : ${num(it.quantity)} ${unitLabel}${convText} × ${num(it.unit_price)} ج.م = ${num(it.quantity * it.unit_price)} ج.م`;
+    })
     .join('\n');
 
   const mapsLink =
@@ -159,7 +171,7 @@ export function useProductsWithPrices(customerType: string | null) {
       // 1. Attempt full column selection
       let productsRes = await supabase
         .from('products')
-        .select('id,name,category,sku_code,item_code,master_brand,sub_brand,price,is_active')
+        .select('id,name,category,sku_code,item_code,master_brand,sub_brand,price,unit,units_per_carton,carton_price,is_active')
         .eq('company_id', sc.companyId)
         .eq('is_active', true)
         .order('name');
@@ -206,18 +218,25 @@ export function useProductsWithPrices(customerType: string | null) {
         // price_lists table may not exist; rely on product.price
       }
 
-      return products.map((prod: any) => ({
-        id: prod.id,
-        name: prod.name,
-        category: prod.category ?? null,
-        sku: prod.item_code || prod.sku_code || prod.sku || null,
-        item_code: prod.item_code || prod.sku_code || null,
-        master_brand: prod.master_brand ?? null,
-        sub_brand: prod.sub_brand ?? null,
-        unit: prod.unit ?? null,
-        unit_price: priceMap.get(prod.id) ?? (Number(prod.price) || 0),
-        is_active: prod.is_active !== false,
-      })) as PricedProduct[];
+      return products.map((prod: any) => {
+        const basePrice = priceMap.get(prod.id) ?? (Number(prod.price) || 0);
+        const upc = Math.max(1, Number(prod.units_per_carton) || 1);
+        const cp = Number(prod.carton_price) || (basePrice * upc);
+        return {
+          id: prod.id,
+          name: prod.name,
+          category: prod.category ?? null,
+          sku: prod.item_code || prod.sku_code || prod.sku || null,
+          item_code: prod.item_code || prod.sku_code || null,
+          master_brand: prod.master_brand ?? null,
+          sub_brand: prod.sub_brand ?? null,
+          unit: prod.unit ?? 'قطعة',
+          unit_price: basePrice,
+          units_per_carton: upc,
+          carton_price: cp,
+          is_active: prod.is_active !== false,
+        };
+      }) as PricedProduct[];
     },
   });
 }
@@ -229,6 +248,9 @@ function parseOrderItems(raw: any, totalAmount?: number): OrderLineItem[] {
       name: item.name || t('منتج غير معروف'),
       unit_price: Number(item.unit_price) || 0,
       quantity: Number(item.quantity) || 1,
+      unit: item.unit || 'قطعة',
+      units_per_carton: Number(item.units_per_carton) || 1,
+      total_pieces: Number(item.total_pieces) || (Number(item.quantity) || 1) * (Number(item.units_per_carton) || 1),
     }));
   }
   return [];

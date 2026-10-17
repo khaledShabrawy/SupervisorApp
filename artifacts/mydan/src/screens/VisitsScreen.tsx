@@ -1,6 +1,7 @@
 import { memo, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCheck, ClipboardList, Play, Plus, RefreshCw, XCircle } from '@/components/Icons';
+import { CheckCheck, ClipboardList, Download, Play, Plus, RefreshCw, XCircle } from '@/components/Icons';
+import { exportToCsv } from '@/lib/csv-export';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useUpdateVisitStatus, type VisitRow } from '@/lib/data';
@@ -77,8 +78,44 @@ export default function VisitsScreen() {
     m.mutate({ id, status });
   }, [m]);
   const create = useCallback(() => nav('/visits/new'), [nav]);
+
+  const handleExportVisits = useCallback(() => {
+    if (!q.items.length) return;
+    exportToCsv(
+      `Visits_${p}_${new Date().toISOString().slice(0, 10)}`,
+      [
+        { header: t('تاريخ الزيارة'), accessor: (v: Row) => fmtDate(v.visit_date) },
+        { header: t('العميل'), accessor: (v: Row) => v.customers?.name || '' },
+        { header: t('العنوان'), accessor: (v: Row) => v.customers?.address || '' },
+        { header: t('الحالة'), accessor: (v: Row) => v.status },
+        { header: t('وقت الدخول'), accessor: (v: Row) => fmtTime(v.check_in_time) },
+        { header: t('وقت الخروج'), accessor: (v: Row) => fmtTime(v.check_out_time) },
+        { header: t('مدة الزيارة (دقيقة)'), accessor: (v: Row) => visitMinutes(v.check_in_time, v.check_out_time) ?? '' },
+        { header: t('النطاق الجغرافي'), accessor: (v: Row) => (v.on_beat != null ? (v.on_beat ? t('داخل النطاق') : t('خارج النطاق OOR')) : '') },
+        { header: t('المسافة (متر)'), accessor: (v: Row) => (v.geo_distance != null ? Math.round(v.geo_distance) : '') },
+        { header: t('ملاحظات'), accessor: (v: Row) => v.notes || '' },
+      ],
+      q.items as Row[]
+    );
+  }, [q.items, p]);
+
   return <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
-    <PageTitle action={<button className="icon-btn" aria-label={t('تحديث')} onClick={refresh} data-testid="button-refresh"><RefreshCw className={q.isFetching ? 's-spin' : ''} /></button>}>{t('الزيارات')}</PageTitle>
+    <PageTitle action={
+      <div className="row gap-1 items-center">
+        <button
+          className="icon-btn"
+          aria-label={t('تصدير Excel')}
+          title={t('تصدير الزيارات إلى Excel')}
+          onClick={handleExportVisits}
+          disabled={!q.items.length}
+        >
+          <Download size={18} />
+        </button>
+        <button className="icon-btn" aria-label={t('تحديث')} onClick={refresh} data-testid="button-refresh">
+          <RefreshCw className={q.isFetching ? 's-spin' : ''} />
+        </button>
+      </div>
+    }>{t('الزيارات')}</PageTitle>
     <div className="tabs" role="tablist">{TABS.map(([k, l]) => <Chip key={k} role="tab" value={k} label={l} active={p === k} onSelect={onTab} testId={`tab-${k}`} />)}</div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={refresh} />
       : q.items.length === 0 ? <EmptyState icon={<ClipboardList />} title={t('لا توجد زيارات')} text={t('لا زيارات في هذه الفترة.')} action={{ label: t('زيارة جديدة'), onClick: create }} />

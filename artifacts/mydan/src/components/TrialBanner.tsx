@@ -1,63 +1,61 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { useCompanySubscription } from '@/lib/subscription';
 import { t } from '@/i18n';
 
-function daysUntil(iso: string): number {
-  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
-}
-
 export function TrialBanner() {
-  const { supervisor } = useAuth();
-  const companyId = supervisor?.company_id;
+  const { isLoading, isLocked, daysRemaining, company, isSuperAdmin } = useCompanySubscription();
 
-  const { data } = useQuery({
-    queryKey: ['company-trial', companyId],
-    enabled: !!companyId,
-    staleTime: 10 * 60_000,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('companies')
-        .select('expires_at, license_type, is_active')
-        .eq('id', companyId!)
-        .single();
-      return data;
-    },
-  });
+  if (isSuperAdmin || isLoading || isLocked || !company?.expires_at) {
+    return null;
+  }
 
-  if (!data?.expires_at) return null;
-
-  const days = daysUntil(data.expires_at);
-
-  // Company deactivated
-  if (!data.is_active) {
+  // Urgent expiry warning (≤ 5 days)
+  if (daysRemaining !== null && daysRemaining <= 5 && daysRemaining > 0) {
     return (
-      <div className="alert err" style={{ margin: '0 0 12px', borderRadius: 8 }}>
-        {t('⛔ الحساب معطّل. تواصل مع الدعم لإعادة التفعيل.')}
+      <div
+        className="alert warn"
+        style={{
+          margin: '0 0 12px',
+          borderRadius: 8,
+          display: 'flex',
+          gap: 10,
+          alignItems: 'center',
+          background: '#FFFBEB',
+          borderColor: '#F59E0B',
+          boxShadow: '0 1px 3px rgba(245, 158, 11, 0.2)',
+        }}
+      >
+        <span style={{ fontSize: 20 }}>⚠️</span>
+        <div style={{ flex: 1, fontSize: 13, lineHeight: 1.5 }}>
+          <strong>{t('تنبيه تجديد الاشتراك:')} </strong>
+          <span>
+            {daysRemaining === 1
+              ? t('ينتهي اشتراك شركتكم غداً! يرجى التواصل لتجديد الباقة لتفادي توقف الخدمة عن المشرفين.')
+              : t('ينتهي اشتراك شركتكم خلال {days} أيام ({date}). يرجى تجديد الترخيص لتجنب توقف الخدمة.', {
+                  days: daysRemaining,
+                  date: new Date(company.expires_at).toLocaleDateString('ar-EG'),
+                })}
+          </span>
+        </div>
       </div>
     );
   }
 
-  // Expired
-  if (days <= 0) {
+  // Expiring trial (≤ 14 days)
+  if (daysRemaining !== null && daysRemaining > 5 && daysRemaining <= 14 && company.license_type === 'trial') {
     return (
-      <div className="alert err" style={{ margin: '0 0 12px', borderRadius: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
-        <span style={{ fontSize: 18 }}>⏰</span>
-        <span>{t('انتهت فترة التجربة. تواصل مع الدعم لتجديد الاشتراك.')}</span>
-      </div>
-    );
-  }
-
-  // Expiring soon (≤ 7 days) — trial or any license
-  if (days <= 7) {
-    const isTrial = data.license_type === 'trial';
-    return (
-      <div className="alert warn" style={{ margin: '0 0 12px', borderRadius: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div
+        className="alert warn"
+        style={{
+          margin: '0 0 12px',
+          borderRadius: 8,
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center',
+        }}
+      >
         <span style={{ fontSize: 18 }}>🕐</span>
-        <span>
-          {isTrial
-            ? t('التجربة المجانية تنتهي خلال {days} أيام — تواصل معنا لتفعيل اشتراكك', { days })
-            : t('الترخيص ينتهي خلال {days} أيام', { days })}
+        <span style={{ fontSize: 13 }}>
+          {t('التجربة المجانية تنتهي خلال {days} يوماً — تواصل معنا لتفعيل اشتراكك', { days: daysRemaining })}
         </span>
       </div>
     );

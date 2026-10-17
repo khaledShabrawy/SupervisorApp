@@ -114,10 +114,19 @@ export default function NewVisitScreen() {
 
     <div className="card col">
       <span className="title">{t('موقعك')}</span>
-      {gps.loading ? <div className="alert warn" role="status">{t('جاري تحديد موقعك...')}</div>
-        : here ? <div className="muted">{t('تم تحديد موقعك · دقة GPS {d} م', { d: num(Math.round(gps.accuracy ?? 0)) })}</div>
-        : <div className="alert err" role="alert">{gps.error}
-            <div style={{ fontWeight: 400, marginTop: 4 }}>{t('لا يمكن تسجيل زيارة بدون الموقع. فعّل GPS واسمح للتطبيق بالوصول للموقع من إعدادات المتصفح أو الهاتف.')}</div></div>}
+      {gps.isMock ? (
+        <div className="alert err" role="alert" style={{ fontWeight: 600 }}>
+          ⚠️ {gps.mockWarning || t('تم رصد تزييف موقع (Mock/Fake GPS). لن يُسمح بتسجيل الزيارة بموقع وهمي.')}
+        </div>
+      ) : gps.loading ? (
+        <div className="alert warn" role="status">{t('جاري تحديد موقعك...')}</div>
+      ) : here ? (
+        <div className="muted">{t('تم تحديد موقعك · دقة GPS {d} م', { d: num(Math.round(gps.accuracy ?? 0)) })}</div>
+      ) : (
+        <div className="alert err" role="alert">{gps.error}
+          <div style={{ fontWeight: 400, marginTop: 4 }}>{t('لا يمكن تسجيل زيارة بدون الموقع. فعّل GPS واسمح للتطبيق بالوصول للموقع من إعدادات المتصفح أو الهاتف.')}</div>
+        </div>
+      )}
       {!gps.loading && <button className="btn ghost" onClick={gps.retry}><LocateFixed /> {t('إعادة تحديد الموقع')}</button>}
     </div>
 
@@ -142,7 +151,7 @@ export default function NewVisitScreen() {
         {check && <div className={`alert row ${check.on_beat ? 'ok' : 'warn'}`} role="status">{check.on_beat && <ShieldCheck />}<span>{geoText(check, s.geofence_radius_m)}</span></div>}
       </div>
       <label className="f">{t('ملاحظات (اختياري)')}<textarea className="input" rows={3} value={notes} onChange={onNotes} data-testid="input-notes" /></label>
-      <button className="btn success block" disabled={!customer || !here || m.isPending} onClick={submit} data-testid="button-start-visit">
+      <button className="btn success block" disabled={!customer || !here || gps.isMock || m.isPending} onClick={submit} data-testid="button-start-visit">
         {m.isPending ? t('جاري الحفظ...') : t('تسجيل الوصول')}</button>
     </> : <>
       {here && <NearestCustomers gps={here} busy={m.isPending} onLog={logNearest} />}

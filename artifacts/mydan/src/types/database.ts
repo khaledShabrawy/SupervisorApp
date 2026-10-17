@@ -5,6 +5,7 @@ export interface Supervisor {
   role: 'admin' | 'supervisor' | 'senior_supervisor' | 'branch_manager' | 'super_admin'; branch_id: ID | null;
   company_id: ID; is_active: boolean;
   force_password_change?: boolean; password_changed_at?: string | null;
+  device_id?: string | null;
 }
 export interface Customer {
   id: ID; name: string; customer_type: string; address: string;
@@ -53,6 +54,8 @@ export interface Product {
   id: ID; company_id: ID; name: string; category?: string | null;
   sku_code?: string | null; item_code?: string | null;
   master_brand?: string | null; sub_brand?: string | null;
+  units_per_carton?: number | null; carton_price?: number | null;
+  unit?: string | null; price?: number | null;
   is_active: boolean; created_at?: string;
 }
 export interface BeatPlan {
