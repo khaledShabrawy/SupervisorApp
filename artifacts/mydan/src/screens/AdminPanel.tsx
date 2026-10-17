@@ -128,19 +128,72 @@ export function SettingsForm() {
   const [name, setName] = useState(s.app_name); const [color, setColor] = useState(s.primary_color);
   const [radius, setRadius] = useState(String(s.geofence_radius_m)); const [brand, setBrand] = useState(s.target_brand_name);
   const [comp, setComp] = useState(s.competitor_brands.join(', '));
+  const [allowPwChange, setAllowPwChange] = useState(s.allow_password_change ?? true);
+  const [allowForgotPw, setAllowForgotPw] = useState(s.allow_forgot_password ?? true);
+  const [pwExpiryEnabled, setPwExpiryEnabled] = useState(s.password_expiry_enabled ?? false);
+  const [pwExpiryDays, setPwExpiryDays] = useState(String(s.password_expiry_days ?? 90));
+  const [branchMode, setBranchMode] = useState(s.branch_lock_mode ?? 'auto_supervisor_branch');
+
   const onName = useInput(setName); const onColor = useInput(setColor); const onRadius = useInput(setRadius); const onBrand = useInput(setBrand); const onComp = useInput(setComp);
   const r = Number(radius); const okColor = /^#[0-9a-f]{6}$/i.test(color);
   const valid = name.trim() && okColor && radius.trim() !== '' && Number.isFinite(r) && r >= 0 && brand.trim();
-  const submit = useCallback((e: FormEvent) => { e.preventDefault(); if (!valid) return;
-    m.mutate({ app_name: name.trim(), primary_color: color, geofence_radius_m: r, target_brand_name: brand.trim(), competitor_brands: comp.split(/[,،]/).map((x) => x.trim()).filter(Boolean) }); }, [valid, m, name, color, r, brand, comp]);
+
+  const submit = useCallback((e: FormEvent) => {
+    e.preventDefault(); if (!valid) return;
+    m.mutate({
+      app_name: name.trim(),
+      primary_color: color,
+      geofence_radius_m: r,
+      target_brand_name: brand.trim(),
+      competitor_brands: comp.split(/[,،]/).map((x) => x.trim()).filter(Boolean),
+      allow_password_change: allowPwChange,
+      allow_forgot_password: allowForgotPw,
+      password_expiry_enabled: pwExpiryEnabled,
+      password_expiry_days: Number(pwExpiryDays) || 90,
+      branch_lock_mode: branchMode,
+    });
+  }, [valid, m, name, color, r, brand, comp, allowPwChange, allowForgotPw, pwExpiryEnabled, pwExpiryDays, branchMode]);
+
   return <form className="card col" onSubmit={submit}>
+    <div className="title" style={{ fontSize: 16 }}>{t('هوية الشركة والمظهر')}</div>
     <label className="f">{t('اسم التطبيق')}<input className="input" value={name} onChange={onName} data-testid="input-app-name" /></label>
     <label className="f">{t('اللون الأساسي')}<div className="row"><input type="color" aria-label={t('اختيار اللون')} value={okColor ? color : '#1A56DB'} onChange={onColor} style={{ width: 52, height: 48 }} /><input className="input" dir="ltr" value={color} onChange={onColor} /></div></label>
     {!okColor && <div className="alert err">{t('اللون بصيغة #RRGGBB')}</div>}
     <label className="f">{t('نطاق الزيارة (متر)')}<input className="input" type="number" min="0" value={radius} onChange={onRadius} /></label>
     <label className="f">{t('العلامة المستهدفة')}<input className="input" value={brand} onChange={onBrand} /></label>
     <label className="f">{t('العلامات المنافسة (مفصولة بفاصلة)')}<input className="input" value={comp} onChange={onComp} /></label>
-    <button className="btn" disabled={!valid || m.isPending} data-testid="button-save-settings">{m.isPending ? t('جاري الحفظ...') : t('حفظ الإعدادات')}</button>
+
+    <div className="title" style={{ fontSize: 16, marginTop: 14 }}>{t('الأمان وسياسات تسجيل الدخول')}</div>
+    <label className="row" style={{ minHeight: 40, gap: 10, cursor: 'pointer' }}>
+      <input type="checkbox" checked={allowPwChange} onChange={(e) => setAllowPwChange(e.target.checked)} style={{ width: 20, height: 20 }} />
+      <span>{t('السماح للمستخدم بتغيير كلمة السر الخاصة به')}</span>
+    </label>
+    <label className="row" style={{ minHeight: 40, gap: 10, cursor: 'pointer' }}>
+      <input type="checkbox" checked={allowForgotPw} onChange={(e) => setAllowForgotPw(e.target.checked)} style={{ width: 20, height: 20 }} />
+      <span>{t('تفعيل خاصية "نسيت كلمة المرور" الذاتية')}</span>
+    </label>
+    <label className="row" style={{ minHeight: 40, gap: 10, cursor: 'pointer' }}>
+      <input type="checkbox" checked={pwExpiryEnabled} onChange={(e) => setPwExpiryEnabled(e.target.checked)} style={{ width: 20, height: 20 }} />
+      <span>{t('تفعيل انتهاء صلاحية الباسورد دورياً وإجبار المستخدم على التغيير')}</span>
+    </label>
+    {pwExpiryEnabled && (
+      <label className="f" style={{ marginInlineStart: 28 }}>
+        {t('مدة الصلاحية (بالأيام)')}
+        <input className="input" type="number" min={15} max={365} value={pwExpiryDays} onChange={(e) => setPwExpiryDays(e.target.value)} />
+      </label>
+    )}
+
+    <label className="f" style={{ marginTop: 8 }}>
+      {t('تحديد الفرع عند الدخول')}
+      <select className="input" value={branchMode} onChange={(e) => setBranchMode(e.target.value as 'auto_supervisor_branch' | 'manual_selection')}>
+        <option value="auto_supervisor_branch">{t('فتح فرع المشرف تلقائياً (مثل SalesBuzz)')}</option>
+        <option value="manual_selection">{t('السماح باختيار الفرع من الخارج')}</option>
+      </select>
+    </label>
+
+    <button className="btn" disabled={!valid || m.isPending} data-testid="button-save-settings" style={{ marginTop: 12 }}>
+      {m.isPending ? t('جاري الحفظ...') : t('حفظ الإعدادات')}
+    </button>
   </form>;
 }
 export function TargetForm() {

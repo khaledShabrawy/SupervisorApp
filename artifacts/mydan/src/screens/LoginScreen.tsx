@@ -23,9 +23,37 @@ export default function LoginScreen() {
   const retry = useCallback(() => { void retryProfile(); }, [retryProfile]);
   const out = useCallback(() => { void signOut().catch(() => undefined); }, [signOut]);
   const IS_ANDROID = import.meta.env.VITE_PLATFORM === 'android';
-  if (isAuthenticated) return <Navigate to={!IS_ANDROID && canAdmin(supervisor) ? '/admin' : '/'} replace />;
+  const [forgot, setForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotMsg, setForgotMsg] = useState<string | null>(null);
+  const [forgotBusy, setForgotBusy] = useState(false);
+
+  if (isAuthenticated) {
+    if (supervisor?.force_password_change) {
+      return <Navigate to="/set-password" replace />;
+    }
+    return <Navigate to={!IS_ANDROID && canAdmin(supervisor) ? '/admin' : '/'} replace />;
+  }
   if (isLoading && !busy) return <LoadingSpinner />;
   const profileFailed = !!session && !!error;
+
+  const handleForgot = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setForgotBusy(true); setForgotMsg(null);
+    try {
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim().toLowerCase(), {
+        redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}set-password`,
+      });
+      if (resetErr) throw resetErr;
+      setForgotMsg(t('تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني بنجاح.'));
+    } catch (err) {
+      setForgotMsg(err instanceof Error ? err.message : t('تعذر إرسال رابط الاستعادة.'));
+    } finally {
+      setForgotBusy(false);
+    }
+  };
+
   return <main className="login">
     <div className="s-card s-login-card">
       <div className="row" style={{ justifyContent: 'flex-end' }}><LanguageToggle className="btn sm ghost" /></div>
@@ -36,15 +64,46 @@ export default function LoginScreen() {
         <div className="alert err row" role="alert"><AlertCircle /><span>{t(error)}</span></div>
         <button className="btn block" data-testid="button-retry" onClick={retry}>{t('إعادة المحاولة')}</button>
         <button className="btn ghost block" data-testid="button-signout" onClick={out}>{t('تسجيل الخروج')}</button>
-      </> : <form onSubmit={submit} className="col" style={{ gap: 12, textAlign: 'start' }}>
-        <input className="input" type="email" dir="ltr" placeholder={t('البريد الإلكتروني')} aria-label={t('البريد الإلكتروني')} autoComplete="username" required value={email} onChange={onEmail} data-testid="input-email" />
-        <div className="s-pw">
-          <input className="input" type={show ? 'text' : 'password'} dir="ltr" placeholder={t('كلمة المرور')} aria-label={t('كلمة المرور')} autoComplete="current-password" required value={password} onChange={onPass} data-testid="input-password" />
-          <button type="button" className="icon-btn" aria-label={show ? t('إخفاء كلمة المرور') : t('إظهار كلمة المرور')} onClick={toggle}>{show ? <EyeOff /> : <Eye />}</button>
-        </div>
-        {(local || error) && <div className="alert err" role="alert">{t(local ?? error ?? '')}</div>}
-        <button className="btn block" disabled={busy} data-testid="button-login">{busy && <span className="loading-spinner" aria-hidden="true" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: 'currentColor' }} />}{busy ? t('جاري الدخول...') : t('تسجيل الدخول')}</button>
-      </form>}
+      </> : !forgot ? (
+        <form onSubmit={submit} className="col" style={{ gap: 12, textAlign: 'start' }}>
+          <input className="input" type="email" dir="ltr" placeholder={t('البريد الإلكتروني')} aria-label={t('البريد الإلكتروني')} autoComplete="username" required value={email} onChange={onEmail} data-testid="input-email" />
+          <div className="s-pw">
+            <input className="input" type={show ? 'text' : 'password'} dir="ltr" placeholder={t('كلمة المرور')} aria-label={t('كلمة المرور')} autoComplete="current-password" required value={password} onChange={onPass} data-testid="input-password" />
+            <button type="button" className="icon-btn" aria-label={show ? t('إخفاء كلمة المرور') : t('إظهار كلمة المرور')} onClick={toggle}>{show ? <EyeOff /> : <Eye />}</button>
+          </div>
+
+          {settings.allow_forgot_password !== false && (
+            <div style={{ textAlign: 'end' }}>
+              <button
+                type="button"
+                className="btn link"
+                style={{ fontSize: 13, padding: 0, color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer' }}
+                onClick={() => { setForgot(true); setForgotEmail(email); }}
+              >
+                {t('نسيت كلمة المرور؟')}
+              </button>
+            </div>
+          )}
+
+          {(local || error) && <div className="alert err" role="alert">{t(local ?? error ?? '')}</div>}
+          <button className="btn block" disabled={busy} data-testid="button-login">{busy && <span className="loading-spinner" aria-hidden="true" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: 'currentColor' }} />}{busy ? t('جاري الدخول...') : t('تسجيل الدخول')}</button>
+        </form>
+      ) : (
+        <form onSubmit={handleForgot} className="col" style={{ gap: 12, textAlign: 'start' }}>
+          <h2 style={{ margin: '8px 0 0', fontSize: 18 }}>{t('استعادة كلمة المرور')}</h2>
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+            {t('أدخل بريدك الإلكتروني المسجل وسنرسل لك رابطاً لإعادة تعيين كلمة المرور.')}
+          </p>
+          <input className="input" type="email" dir="ltr" placeholder={t('البريد الإلكتروني')} required value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} />
+          {forgotMsg && <div className={`alert ${forgotMsg.includes('نجاح') ? 'ok' : 'err'}`}>{forgotMsg}</div>}
+          <button className="btn block" disabled={forgotBusy}>
+            {forgotBusy ? t('جاري الإرسال...') : t('إرسال رابط الاستعادة')}
+          </button>
+          <button type="button" className="btn ghost block" onClick={() => { setForgot(false); setForgotMsg(null); }}>
+            {t('العودة لتسجيل الدخول')}
+          </button>
+        </form>
+      )}
     </div>
   </main>;
 }

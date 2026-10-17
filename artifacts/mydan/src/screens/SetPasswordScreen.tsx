@@ -59,6 +59,14 @@ export default function SetPasswordScreen() {
       }
       return;
     }
+    // Clear force_password_change if user was prompted to change password
+    const { data: sess } = await supabase.auth.getSession();
+    if (sess.session?.user) {
+      await supabase.from('supervisors').update({
+        force_password_change: false,
+        password_changed_at: new Date().toISOString(),
+      }).eq('user_id', sess.session.user.id);
+    }
     nav('/', { replace: true });
   }, [pw, pw2, nav]);
 

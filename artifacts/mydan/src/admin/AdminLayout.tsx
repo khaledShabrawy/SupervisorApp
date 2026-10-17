@@ -16,7 +16,7 @@ export const ADMIN_NAV = [
   { to: '/admin/live-map', label: t('تتبع المشرفين 🗺️'), icon: MapPin },
   { to: '/admin/training', label: t('أكاديمية التدريب 🎓'), icon: GraduationCap },
   { to: '/admin/orders', label: t('الأوردرات'), icon: ShoppingCart },
-  { to: '/admin/users', label: t('المشرفون'), icon: Users },
+  { to: '/admin/users', label: t('المستخدمين'), icon: Users },
   { to: '/admin/companies', label: t('الشركات'), icon: Building2, superAdminOnly: true },
   { to: '/admin/branches', label: t('الفروع'), icon: MapPin },
   { to: '/admin/customers', label: t('العملاء'), icon: Store },
