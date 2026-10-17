@@ -30,20 +30,42 @@ def main():
         if not os.path.exists(required_file):
             raise FileNotFoundError(f"Required tool or keystore missing: {required_file}")
 
-    log("1. Fetching latest asset manifest from Cloudflare Pages...")
-    manifest_raw = fetch_url("https://mydan.digityoucan.com/asset-manifest.json")
-    manifest = json.loads(manifest_raw.decode("utf-8"))
-    log(f"   Manifest version: {manifest.get('version')} with {len(manifest.get('assets', []))} assets")
+    local_dist = os.path.abspath(r"artifacts\mydan\dist\public")
+    local_manifest = os.path.join(local_dist, "asset-manifest.json")
 
-    log("2. Fetching SPA index.html from Cloudflare Pages...")
-    spa_index_html = fetch_url("https://mydan.digityoucan.com/login")
-    if b'<div id="root">' not in spa_index_html or b'assets/index-' not in spa_index_html:
-        raise ValueError("Fetched SPA index.html does not contain root div or main index bundle script tag!")
-    log("   SPA index.html verified successfully.")
+    downloaded_assets = {}
+    if os.path.exists(local_manifest):
+        log(f"1. Using fresh local build from: {local_dist}...")
+        with open(local_manifest, "rb") as f:
+            manifest_raw = f.read()
+        manifest = json.loads(manifest_raw.decode("utf-8"))
+        log(f"   Manifest version: {manifest.get('version')} with {len(manifest.get('assets', []))} assets")
 
-    temp_work_dir = tempfile.mkdtemp(prefix="mydan_apk_")
-    try:
-        downloaded_assets = {}
+        log("2. Using local SPA index.html...")
+        with open(os.path.join(local_dist, "index.html"), "rb") as f:
+            spa_index_html = f.read()
+        if b'<div id="root">' not in spa_index_html:
+            raise ValueError("Local index.html missing root div!")
+        log("   SPA index.html verified successfully.")
+
+        log("3. Reading local build assets...")
+        for asset_rel in manifest.get("assets", []):
+            asset_path = os.path.join(local_dist, asset_rel.replace("/", os.sep))
+            with open(asset_path, "rb") as f:
+                downloaded_assets[asset_rel] = f.read()
+        log(f"   Loaded {len(downloaded_assets)} local build assets successfully.")
+    else:
+        log("1. Fetching latest asset manifest from Cloudflare Pages...")
+        manifest_raw = fetch_url("https://mydan.digityoucan.com/asset-manifest.json")
+        manifest = json.loads(manifest_raw.decode("utf-8"))
+        log(f"   Manifest version: {manifest.get('version')} with {len(manifest.get('assets', []))} assets")
+
+        log("2. Fetching SPA index.html from Cloudflare Pages...")
+        spa_index_html = fetch_url("https://mydan.digityoucan.com/login")
+        if b'<div id="root">' not in spa_index_html or b'assets/index-' not in spa_index_html:
+            raise ValueError("Fetched SPA index.html does not contain root div or main index bundle script tag!")
+        log("   SPA index.html verified successfully.")
+
         log("3. Downloading all latest build assets...")
         for asset_rel in manifest.get("assets", []):
             url = f"https://mydan.digityoucan.com/{asset_rel}"
@@ -53,6 +75,8 @@ def main():
 
         log(f"   Downloaded {len(downloaded_assets)} web assets successfully.")
 
+    temp_work_dir = tempfile.mkdtemp(prefix="mydan_apk_")
+    try:
         temp_unaligned_apk = os.path.join(temp_work_dir, "unaligned.apk")
         temp_aligned_apk = os.path.join(temp_work_dir, "aligned.apk")
         temp_signed_apk = os.path.join(temp_work_dir, "signed.apk")
@@ -144,7 +168,7 @@ def main():
         project_apk_1 = os.path.join(project_dir, "Mydan-latest.apk")
         project_apk_2 = os.path.join(project_dir, "artifacts", "mydan", "dist", "Mydan-latest.apk")
         downloads_apk_1 = r"C:\Users\Khaled.Mahmoud\Downloads\APK\Mydan-latest.apk"
-        downloads_apk_2 = r"C:\Users\Khaled.Mahmoud\Downloads\APK\Mydan-debug-20261014.apk"
+        downloads_apk_2 = r"C:\Users\Khaled.Mahmoud\Downloads\APK\Mydan-debug-20261017.apk"
 
         os.makedirs(os.path.dirname(project_apk_2), exist_ok=True)
         os.makedirs(os.path.dirname(downloads_apk_1), exist_ok=True)
