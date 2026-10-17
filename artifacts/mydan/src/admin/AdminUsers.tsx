@@ -1,8 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Plus, ShieldCheck, X } from '@/components/Icons';
+import { Key, Plus, RefreshCw, ShieldCheck, X } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupervisors, useUpdateSupervisor } from '@/lib/data';
-import { useBranches, useEditSupervisorProfile, useInviteSupervisor, useSavePermissions, useSupervisorPermissions, type InviteRole } from '@/lib/admin-data';
+import {
+  useBranches, useEditSupervisorProfile, useInviteSupervisor,
+  useResendInvite, useSavePermissions, useSetUserPassword,
+  useSupervisorPermissions, type InviteRole
+} from '@/lib/admin-data';
 import { SCREENS, isScreenAllowed, type ScreenKey } from '@/lib/permissions';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
 import EmptyState from '@/components/EmptyState';
@@ -34,8 +38,8 @@ function InviteModal({ onClose }: { onClose: () => void }) {
     m.mutate({ email, full_name: name, phone, role, branch_id: branch, permissions: perms }, { onSuccess: onClose });
   }, [m, email, name, phone, role, branch, perms, onClose]);
   return <div className="adm-modal-bg" onClick={onClose}>
-    <form className="adm-modal col" role="dialog" aria-modal="true" aria-label={t('دعوة مشرف جديد')} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
-      <div className="row between"><h2 style={{ margin: 0, fontSize: 18 }}>{t('دعوة مشرف جديد')}</h2>
+    <form className="adm-modal col" role="dialog" aria-modal="true" aria-label={t('دعوة مستخدم جديد')} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+      <div className="row between"><h2 style={{ margin: 0, fontSize: 18 }}>{t('دعوة مستخدم جديد')}</h2>
         <button type="button" className="icon-btn" aria-label={t('إغلاق')} onClick={onClose}><X /></button></div>
       <label className="f">{t('البريد الإلكتروني *')}<input className="input" type="email" dir="ltr" required value={email} onChange={onEmail} data-testid="input-invite-email" /></label>
       <label className="f">{t('الاسم بالكامل *')}<input className="input" required value={name} onChange={onName} /></label>
@@ -48,8 +52,37 @@ function InviteModal({ onClose }: { onClose: () => void }) {
       </div>
       <div className="title" style={{ marginTop: 8 }}>{t('صلاحيات الشاشات')}</div>
       <Toggles values={perms} onChange={toggle} />
-      <div className="muted" style={{ fontSize: 13 }}>{t('سيصل للمشرف بريد دعوة لتعيين كلمة المرور. لا يتم إنشاء كلمة مرور من لوحة الإدارة.')}</div>
+      <div className="muted" style={{ fontSize: 13 }}>{t('سيصل للمستخدم بريد دعوة لتعيين كلمة المرور.')}</div>
       <button className="btn" disabled={m.isPending} data-testid="button-send-invite">{m.isPending ? t('جاري الإرسال...') : t('إرسال الدعوة')}</button>
+    </form>
+  </div>;
+}
+
+function SetPasswordModal({ s, onClose }: { s: Supervisor; onClose: () => void }) {
+  const m = useSetUserPassword();
+  const [pw, setPw] = useState('');
+  const [force, setForce] = useState(true);
+  const submit = useCallback((e: FormEvent) => {
+    e.preventDefault();
+    if (pw.length < 8) return;
+    m.mutate({ supervisorId: s.id, newPassword: pw, forceChange: force }, { onSuccess: onClose });
+  }, [m, s.id, pw, force, onClose]);
+  return <div className="adm-modal-bg" onClick={onClose}>
+    <form className="adm-modal col" role="dialog" aria-modal="true" aria-label={t('تعيين كلمة المرور')} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+      <div className="row between">
+        <h2 style={{ margin: 0, fontSize: 18 }}>{t('تعيين كلمة المرور: {name}', { name: s.full_name })}</h2>
+        <button type="button" className="icon-btn" aria-label={t('إغلاق')} onClick={onClose}><X /></button>
+      </div>
+      <label className="f">{t('كلمة المرور الجديدة *')}
+        <input className="input" type="password" required minLength={8} value={pw} onChange={(e) => setPw(e.target.value)} placeholder={t('8 أحرف على الأقل')} />
+      </label>
+      <label className="row" style={{ minHeight: 40, gap: 8, cursor: 'pointer' }}>
+        <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} style={{ width: 20, height: 20 }} />
+        <span style={{ fontSize: 13 }}>{t('إجبار المستخدم على تغيير كلمة المرور عند أول تسجيل دخول')}</span>
+      </label>
+      <button className="btn" disabled={pw.length < 8 || m.isPending}>
+        {m.isPending ? t('جاري الحفظ...') : t('حفظ كلمة المرور')}
+      </button>
     </form>
   </div>;
 }
@@ -64,8 +97,8 @@ function EditSupervisorModal({ s, onClose }: { s: Supervisor; onClose: () => voi
     m.mutate({ id: s.id, full_name: name, phone, role, branch_id: branch }, { onSuccess: onClose });
   }, [m, s.id, name, phone, role, branch, onClose]);
   return <div className="adm-modal-bg" onClick={onClose}>
-    <form className="adm-modal col" role="dialog" aria-modal="true" aria-label={t('تعديل بيانات المشرف')} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
-      <div className="row between"><h2 style={{ margin: 0, fontSize: 18 }}>{t('تعديل بيانات المشرف')}</h2>
+    <form className="adm-modal col" role="dialog" aria-modal="true" aria-label={t('تعديل بيانات المستخدم')} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+      <div className="row between"><h2 style={{ margin: 0, fontSize: 18 }}>{t('تعديل بيانات المستخدم')}</h2>
         <button type="button" className="icon-btn" aria-label={t('إغلاق')} onClick={onClose}><X /></button></div>
       <label className="f">{t('الاسم بالكامل *')}<input className="input" required value={name} onChange={useInput(setName)} /></label>
       <label className="f">{t('الهاتف')}<input className="input" dir="ltr" inputMode="tel" value={phone} onChange={useInput(setPhone)} /></label>
@@ -83,7 +116,6 @@ function EditSupervisorModal({ s, onClose }: { s: Supervisor; onClose: () => voi
 function PermissionsDrawer({ s, onClose }: { s: Supervisor; onClose: () => void }) {
   const q = useSupervisorPermissions(s.id); const m = useSavePermissions(); const retry = useRefetch(q.refetch);
   const [values, setValues] = useState<Record<ScreenKey, boolean> | null>(null);
-  // Without a row the screen is allowed (see isScreenAllowed), so show that as "on".
   useEffect(() => { if (q.data) setValues(Object.fromEntries(SCREENS.map((x) => [x.key, isScreenAllowed(q.data, x.key)])) as Record<ScreenKey, boolean>); }, [q.data]);
   const toggle = useCallback((k: ScreenKey, v: boolean) => setValues((p) => p && ({ ...p, [k]: v })), []);
   const save = useCallback(() => { if (values) m.mutate({ supervisorId: s.id, values }, { onSuccess: onClose }); }, [m, s.id, values, onClose]);
@@ -100,52 +132,197 @@ function PermissionsDrawer({ s, onClose }: { s: Supervisor; onClose: () => void 
   </>;
 }
 
-const Row = memo(function Row({ s, self, branch, onPatch, onPerms, onEdit }: { s: Supervisor; self: boolean; branch: string;
-  onPatch: (s: Supervisor, p: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => void; onPerms: (s: Supervisor) => void; onEdit: (s: Supervisor) => void }) {
+const Row = memo(function Row({
+  s, self, branch, onPatch, onPerms, onEdit, onSetPw, onResend, resending
+}: {
+  s: Supervisor; self: boolean; branch: string;
+  onPatch: (s: Supervisor, p: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => void;
+  onPerms: (s: Supervisor) => void; onEdit: (s: Supervisor) => void;
+  onSetPw: (s: Supervisor) => void; onResend: (s: Supervisor) => void; resending: boolean;
+}) {
   const locked = self || s.role === 'super_admin';
-  const toggle = useCallback(() => { if (!s.is_active || window.confirm(t('تعطيل حساب {name}؟', { name: s.full_name }))) onPatch(s, { is_active: !s.is_active }); }, [s, onPatch]);
+  const toggle = useCallback(() => {
+    if (!s.is_active || window.confirm(t('تعطيل حساب {name}؟', { name: s.full_name }))) onPatch(s, { is_active: !s.is_active });
+  }, [s, onPatch]);
+
   return <tr data-testid={`row-supervisor-${s.id}`}>
-    <td><div className="title">{s.full_name}{self && t(' (أنت)')}</div><div className="muted" dir="ltr" style={{ textAlign: 'start' }}>{s.phone ?? '—'}</div></td>
+    <td>
+      <div className="title">{s.full_name}{self && t(' (أنت)')}</div>
+      <div className="muted" dir="ltr" style={{ textAlign: 'start', fontSize: 12 }}>{s.phone ?? '—'}</div>
+    </td>
     <td>{branch}</td>
     <td><span className="badge b-gray"><ShieldCheck size={14} /> {ROLE[s.role] ?? s.role}</span></td>
     <td><span className={`badge ${s.is_active ? 'b-green' : 'b-red'}`}>{s.is_active ? t('نشط') : t('معطل')}</span></td>
-    <td><div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-      {!locked && <button className="btn sm ghost" onClick={() => onEdit(s)}>{t('تعديل')}</button>}
-      {!locked && <button className={`btn sm ${s.is_active ? 'danger-ghost' : 'success'}`} onClick={toggle}>{s.is_active ? t('تعطيل') : t('تفعيل')}</button>}
-      {!['admin', 'super_admin'].includes(s.role) && <button className="btn sm ghost" onClick={() => onPerms(s)} data-testid={`button-perms-${s.id}`}>{t('الصلاحيات')}</button>}
-    </div></td>
+    <td>
+      <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+        <button className="btn sm ghost" onClick={() => onSetPw(s)} title={t('تعيين كلمة المرور يدوياً')}>
+          <Key size={14} /> {t('الباسورد')}
+        </button>
+        <button className="btn sm ghost" onClick={() => onResend(s)} disabled={resending} title={t('إعادة إرسال رابط التفعيل والدعوة')}>
+          <RefreshCw size={14} /> {t('إعادة الرابط')}
+        </button>
+        {!locked && <button className="btn sm ghost" onClick={() => onEdit(s)}>{t('تعديل')}</button>}
+        {!locked && <button className={`btn sm ${s.is_active ? 'danger-ghost' : 'success'}`} onClick={toggle}>{s.is_active ? t('تعطيل') : t('تفعيل')}</button>}
+        {!['admin', 'super_admin'].includes(s.role) && <button className="btn sm ghost" onClick={() => onPerms(s)} data-testid={`button-perms-${s.id}`}>{t('الصلاحيات')}</button>}
+      </div>
+    </td>
   </tr>;
 });
 
 export default function AdminUsers() {
-  const { supervisor } = useAuth(); const q = useSupervisors(); const branches = useBranches(); const m = useUpdateSupervisor();
+  const { supervisor } = useAuth();
+  const q = useSupervisors();
+  const branches = useBranches();
+  const m = useUpdateSupervisor();
+  const resend = useResendInvite();
   const retry = useRefetch(q.refetch);
+
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: 'full_name', asc: true });
-  const [invite, setInvite] = useState(false); const [perms, setPerms] = useState<Supervisor | null>(null); const [editing, setEditing] = useState<Supervisor | null>(null);
+  const [branchFilter, setBranchFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [search, setSearch] = useState('');
+
+  const [invite, setInvite] = useState(false);
+  const [perms, setPerms] = useState<Supervisor | null>(null);
+  const [editing, setEditing] = useState<Supervisor | null>(null);
+  const [pwTarget, setPwTarget] = useState<Supervisor | null>(null);
+
   const mutate = m.mutate;
   const onPatch = useCallback((target: Supervisor, patch: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => mutate({ target, patch }), [mutate]);
   const branchName = useMemo(() => new Map(branches.data?.map((b) => [b.id, b.name]) ?? []), [branches.data]);
-  const rows = useMemo(() => [...q.items].sort((a, b) => {
-    const x = String(a[sort.key]), y = String(b[sort.key]);
-    return (sort.asc ? 1 : -1) * x.localeCompare(y, 'ar');
-  }), [q.items, sort]);
-  const th = (key: SortKey, label: string) => <th aria-sort={sort.key === key ? (sort.asc ? 'ascending' : 'descending') : 'none'}>
-    <button onClick={() => setSort((s) => ({ key, asc: s.key === key ? !s.asc : true }))}>{label}{sort.key === key ? (sort.asc ? ' ▲' : ' ▼') : ''}</button></th>;
-  const closeInvite = useCallback(() => setInvite(false), []); const closePerms = useCallback(() => setPerms(null), []); const closeEdit = useCallback(() => setEditing(null), []);
+
+  const onResend = useCallback((target: Supervisor) => {
+    if (window.confirm(t('إعادة إرسال رابط الدعوة إلى بريد {name}؟', { name: target.full_name }))) {
+      resend.mutate(target.id);
+    }
+  }, [resend]);
+
+  // Scoping: branch_managers only see their branch
+  const effectiveBranchFilter = supervisor?.role === 'branch_manager' && supervisor.branch_id
+    ? supervisor.branch_id
+    : branchFilter;
+
+  const rows = useMemo(() => {
+    let list = [...q.items];
+    if (effectiveBranchFilter !== 'all') {
+      list = list.filter((s) => s.branch_id === effectiveBranchFilter);
+    }
+    if (statusFilter === 'active') {
+      list = list.filter((s) => s.is_active);
+    } else if (statusFilter === 'inactive') {
+      list = list.filter((s) => !s.is_active);
+    }
+    if (search.trim()) {
+      const term = search.trim().toLowerCase();
+      list = list.filter((s) => s.full_name.toLowerCase().includes(term) || (s.phone && s.phone.includes(term)));
+    }
+    return list.sort((a, b) => {
+      const x = String(a[sort.key]), y = String(b[sort.key]);
+      return (sort.asc ? 1 : -1) * x.localeCompare(y, 'ar');
+    });
+  }, [q.items, sort, effectiveBranchFilter, statusFilter, search]);
+
+  const th = (key: SortKey, label: string) => (
+    <th aria-sort={sort.key === key ? (sort.asc ? 'ascending' : 'descending') : 'none'}>
+      <button onClick={() => setSort((s) => ({ key, asc: s.key === key ? !s.asc : true }))}>
+        {label}{sort.key === key ? (sort.asc ? ' ▲' : ' ▼') : ''}
+      </button>
+    </th>
+  );
+
+  const closeInvite = useCallback(() => setInvite(false), []);
+  const closePerms = useCallback(() => setPerms(null), []);
+  const closeEdit = useCallback(() => setEditing(null), []);
+  const closePw = useCallback(() => setPwTarget(null), []);
 
   return <>
-    <div className="row between"><h2>{t('المشرفون')}</h2>
-      <button className="btn" onClick={() => setInvite(true)} data-testid="button-invite"><Plus size={18} /> {t('دعوة مشرف جديد')}</button></div>
+    <div className="row between">
+      <div>
+        <h2 style={{ margin: 0 }}>{t('المستخدمين')}</h2>
+        <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
+          {t('إدارة حسابات المشرفين والمدراء، الفروع، الصلاحيات، وتعيين كلمات المرور.')}
+        </p>
+      </div>
+      <button className="btn" onClick={() => setInvite(true)} data-testid="button-invite">
+        <Plus size={18} /> {t('دعوة مستخدم جديد')}
+      </button>
+    </div>
+
+    {/* Filters Toolbar */}
+    <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center', marginTop: 14 }}>
+      {supervisor?.role !== 'branch_manager' && (
+        <select
+          className="input"
+          style={{ width: 180 }}
+          value={branchFilter}
+          onChange={(e) => setBranchFilter(e.target.value)}
+        >
+          <option value="all">{t('كل الفروع')}</option>
+          {branches.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select>
+      )}
+
+      <select
+        className="input"
+        style={{ width: 160 }}
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+      >
+        <option value="all">{t('كل الحالات')}</option>
+        <option value="active">{t('النشط فقط')}</option>
+        <option value="inactive">{t('المعطل فقط')}</option>
+      </select>
+
+      <input
+        className="input grow"
+        placeholder={t('بحث بالاسم أو الهاتف...')}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
+      {(branchFilter !== 'all' || statusFilter !== 'all' || search) && (
+        <button className="btn sm ghost" onClick={() => { setBranchFilter('all'); setStatusFilter('all'); setSearch(''); }}>
+          {t('إعادة ضبط')}
+        </button>
+      )}
+    </div>
+
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
-      : q.items.length === 0 ? <EmptyState icon={<ShieldCheck />} title={t('لا يوجد مشرفون')} />
-      : <div className="adm-table-wrap"><table className="adm-table">
-          <thead><tr>{th('full_name', t('الاسم'))}<th>{t('الفرع')}</th>{th('role', t('الدور'))}{th('is_active', t('الحالة'))}<th>{t('إجراءات')}</th></tr></thead>
-          <tbody>{rows.map((s) => <Row key={s.id} s={s} self={s.id === supervisor?.id} branch={(s.branch_id && branchName.get(s.branch_id)) || '—'}
-            onPatch={onPatch} onPerms={setPerms} onEdit={setEditing} />)}</tbody>
-        </table></div>}
+      : rows.length === 0 ? <EmptyState icon={<ShieldCheck />} title={t('لا يوجد مستخدمون')} />
+      : <div className="adm-table-wrap" style={{ marginTop: 12 }}>
+          <table className="adm-table">
+            <thead>
+              <tr>
+                {th('full_name', t('الاسم'))}
+                <th>{t('الفرع')}</th>
+                {th('role', t('الدور'))}
+                {th('is_active', t('الحالة'))}
+                <th>{t('إجراءات')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((s) => (
+                <Row
+                  key={s.id}
+                  s={s}
+                  self={s.id === supervisor?.id}
+                  branch={(s.branch_id && branchName.get(s.branch_id)) || '—'}
+                  onPatch={onPatch}
+                  onPerms={setPerms}
+                  onEdit={setEditing}
+                  onSetPw={setPwTarget}
+                  onResend={onResend}
+                  resending={resend.isPending}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>}
+
     <LoadMore q={q} />
     {invite && <InviteModal onClose={closeInvite} />}
     {editing && <EditSupervisorModal s={editing} onClose={closeEdit} />}
     {perms && <PermissionsDrawer s={perms} onClose={closePerms} />}
+    {pwTarget && <SetPasswordModal s={pwTarget} onClose={closePw} />}
   </>;
 }

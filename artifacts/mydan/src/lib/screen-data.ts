@@ -13,9 +13,8 @@ export { useUploadAudit, useRequestAuditAnalysis, useAuditResult } from './scree
 
 export type CustomerCardRow = Customer & { last_visit: string | null };
 export type CatalogProduct = { id: string; name: string; category: string; sku?: string; is_active: boolean };
-export type MonthProgress = Pick<Target, 'month' | 'year' | 'visits_target' | 'audit_target'
-  | 'actual_visits' | 'actual_audits'>;
-export type SettingsInput = Pick<AppSettings, 'app_name' | 'primary_color' | 'geofence_radius_m' | 'target_brand_name' | 'competitor_brands'> & Partial<Pick<AppSettings, 'logo_url'>>;
+export type SettingsInput = Pick<AppSettings, 'app_name' | 'primary_color' | 'geofence_radius_m' | 'target_brand_name' | 'competitor_brands'> &
+  Partial<Pick<AppSettings, 'logo_url' | 'allow_password_change' | 'allow_forgot_password' | 'password_expiry_enabled' | 'password_expiry_days' | 'branch_lock_mode'>>;
 export type MonthlyTargetInput = Pick<Target, 'supervisor_id' | 'month' | 'year' | 'visits_target' | 'audit_target'>;
 type Scope = ReturnType<typeof useScope>;
 const errorMessage = (message: string, error: { message: string } | null) => {

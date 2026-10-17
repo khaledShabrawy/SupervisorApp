@@ -62,13 +62,43 @@ export function useAdminKpis() {
 }
 
 /* ---------- Branches ---------- */
-export type Branch = { id: string; name: string; region: string | null; manager_id: string | null; latitude: number | null; longitude: number | null; is_active: boolean };
+export type RegionRow = { id: string; name: string; name_en: string | null; is_active: boolean };
+export function useRegions() {
+  const sc = useScope();
+  return useQuery({
+    queryKey: [...sc.base, 'regions'], retry: 1,
+    queryFn: async ({ signal }) => {
+      const { data, error } = await supabase.from('regions').select('id,name,name_en,is_active')
+        .eq('company_id', sc.companyId).order('name').abortSignal(signal);
+      if (error) return [];
+      return data as RegionRow[];
+    },
+  });
+}
+export function useSaveRegion() {
+  const sc = useScope(); const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (r: { id?: string; name: string; name_en?: string; is_active: boolean }) => {
+      requireAdmin(sc);
+      if (!r.name.trim()) throw new Error('اسم الإقليم مطلوب.');
+      const values = { name: r.name.trim(), name_en: r.name_en?.trim() || null, is_active: r.is_active };
+      const res = r.id
+        ? await supabase.from('regions').update(values).eq('id', r.id).eq('company_id', sc.companyId).select('id')
+        : await supabase.from('regions').insert({ ...values, company_id: sc.companyId }).select('id');
+      if (res.error) fail('تعذر حفظ الإقليم.', res.error);
+    },
+    onSuccess: () => { notify('تم حفظ الإقليم', 'success'); void invalidate(qc, sc, 'regions'); },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+export type Branch = { id: string; name: string; region: string | null; region_id?: string | null; manager_id: string | null; latitude: number | null; longitude: number | null; is_active: boolean };
 export function useBranches() {
   const sc = useScope();
   return useQuery({
     queryKey: [...sc.base, 'branches'], retry: 1,
     queryFn: async ({ signal }) => {
-      const { data, error } = await supabase.from('branches').select('id,name,region,manager_id,latitude,longitude,is_active')
+      const { data, error } = await supabase.from('branches').select('id,name,region,region_id,manager_id,latitude,longitude,is_active')
         .eq('company_id', sc.companyId).order('name').abortSignal(signal);
       if (error) fail('تعذر تحميل الفروع.', error);
       return data as Branch[];
@@ -80,7 +110,7 @@ export function useSaveBranch() {
   return useMutation({
     mutationFn: async (b: Omit<Branch, 'id'> & { id?: string }) => {
       requireAdmin(sc);
-      const values = { name: b.name.trim(), region: b.region?.trim() || null, manager_id: b.manager_id || null,
+      const values = { name: b.name.trim(), region: b.region?.trim() || null, region_id: b.region_id || null, manager_id: b.manager_id || null,
         latitude: b.latitude, longitude: b.longitude, is_active: b.is_active };
       if (!values.name) throw new Error('اسم الفرع مطلوب.');
       const r = b.id
@@ -124,6 +154,57 @@ export function useInviteSupervisor() {
       return data as { supervisor_id: string };
     },
     onSuccess: () => { notify('✅ تم إرسال الدعوة بالبريد', 'success'); void invalidate(qc, sc, 'admin-supervisors', 'admin-kpis'); },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+export function useResendInvite() {
+  const sc = useScope();
+  return useMutation({
+    mutationFn: async (supervisorId: string) => {
+      requireAdmin(sc);
+      const { data, error } = await supabase.functions.invoke('invite-supervisor', {
+        body: {
+          action: 'resend_invite',
+          supervisor_id: supervisorId,
+          redirect_to: `${window.location.origin}${import.meta.env.BASE_URL}set-password`,
+        },
+      });
+      if (error) {
+        const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
+        throw new Error(body?.error_ar ?? 'تعذر إعادة إرسال رابط الدعوة.');
+      }
+      return data as { message?: string; link?: string };
+    },
+    onSuccess: (res) => {
+      notify(res?.message || '✅ تم إعادة إرسال رابط التفعيل بنجاح', 'success');
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+export function useSetUserPassword() {
+  const sc = useScope();
+  return useMutation({
+    mutationFn: async ({ supervisorId, newPassword, forceChange }: { supervisorId: string; newPassword: string; forceChange: boolean }) => {
+      requireAdmin(sc);
+      const { data, error } = await supabase.functions.invoke('invite-supervisor', {
+        body: {
+          action: 'set_password',
+          supervisor_id: supervisorId,
+          new_password: newPassword,
+          force_change: forceChange,
+        },
+      });
+      if (error) {
+        const body = await (error as { context?: Response }).context?.json?.().catch(() => null);
+        throw new Error(body?.error_ar ?? 'تعذر تعيين كلمة المرور.');
+      }
+      return data as { message?: string };
+    },
+    onSuccess: (res) => {
+      notify(res?.message || '✅ تم تعيين كلمة المرور بنجاح', 'success');
+    },
     onError: (e: Error) => notify(e.message, 'error'),
   });
 }

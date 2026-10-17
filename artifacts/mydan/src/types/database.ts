@@ -4,11 +4,16 @@ export interface Supervisor {
   id: ID; user_id: ID; full_name: string; phone: string | null;
   role: 'admin' | 'supervisor' | 'senior_supervisor' | 'branch_manager' | 'super_admin'; branch_id: ID | null;
   company_id: ID; is_active: boolean;
+  force_password_change?: boolean; password_changed_at?: string | null;
 }
 export interface Customer {
   id: ID; name: string; customer_type: string; address: string;
   latitude: number | null; longitude: number | null; company_id: ID;
-  supervisor_id: ID; is_active: boolean;
+  supervisor_id: ID; is_active: boolean; customer_code?: string | null;
+}
+export interface Region {
+  id: ID; company_id: ID; name: string; name_en?: string | null;
+  is_active: boolean; created_at?: string;
 }
 export interface Visit {
   id: ID; supervisor_id: ID; customer_id: ID; visit_date: string;
@@ -32,6 +37,9 @@ export interface AppSettings {
   primary_color: string; success_color: string; danger_color: string;
   background_color: string; geofence_radius_m: number; target_brand_name: string;
   competitor_brands: string[]; ai_audit_enabled: boolean;
+  allow_password_change?: boolean; allow_forgot_password?: boolean;
+  password_expiry_enabled?: boolean; password_expiry_days?: number;
+  branch_lock_mode?: 'auto_supervisor_branch' | 'manual_selection';
 }
 export interface Target {
   id: ID; supervisor_id: ID; month: number; year: number;
@@ -61,7 +69,7 @@ export interface SupervisorTrainingProgress {
   created_at: string; updated_at: string;
 }
 export interface TableMap {
-  supervisors: Supervisor; customers: Customer; visits: Visit; shelf_audit: ShelfAudit;
+  supervisors: Supervisor; customers: Customer; regions: Region; visits: Visit; shelf_audit: ShelfAudit;
   notifications: Notification; app_settings: AppSettings;
   targets: Target; beat_plans: BeatPlan; attendance: Attendance;
   training_courses: TrainingCourse; training_lessons: TrainingLesson;

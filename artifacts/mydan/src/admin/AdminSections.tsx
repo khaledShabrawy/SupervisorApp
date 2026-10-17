@@ -12,6 +12,7 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
   ASSET_STATUS, useAdminCustomers, useAdminSurveys, useAssets, useAuditLogs, useBranches, useBroadcast,
   useDeactivateRecord, useSaveAdminCustomer, useSaveAsset, useSaveBranch, useSaveProduct, useSaveSurvey, useUploadLogo,
+  useRegions, useSaveRegion,
   type AdminCustomerRow, type AssetRow, type AuditRow, type Branch, type SurveyQuestion, type SurveyRow,
 } from '@/lib/admin-data';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
@@ -33,18 +34,51 @@ function Modal({ title, onClose, onSubmit, children }: { title: string; onClose:
 }
 const numOrNull = (v: string) => (v.trim() === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 
+/* ---------- Regions Modal ---------- */
+function RegionModal({ onClose }: { onClose: () => void }) {
+  const m = useSaveRegion();
+  const [name, setName] = useState('');
+  const [nameEn, setNameEn] = useState('');
+  const submit = useCallback((e: FormEvent) => {
+    e.preventDefault();
+    m.mutate({ name, name_en: nameEn, is_active: true }, { onSuccess: onClose });
+  }, [m, name, nameEn, onClose]);
+  return <Modal title={t('إضافة إقليم جديد')} onClose={onClose} onSubmit={submit}>
+    <label className="f">{t('اسم الإقليم بالعربي *')}<input className="input" required value={name} onChange={useInput(setName)} placeholder={t('مثال: إقليم القاهرة الكبرى')} /></label>
+    <label className="f">{t('اسم الإقليم بالإنجليزي')}<input className="input" value={nameEn} onChange={useInput(setNameEn)} placeholder="Greater Cairo" /></label>
+    <button className="btn" disabled={m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ الإقليم')}</button>
+  </Modal>;
+}
+
 /* ---------- Branches ---------- */
 function BranchForm({ edit, onClose }: { edit: Branch | null; onClose: () => void }) {
-  const m = useSaveBranch(); const sups = useSupervisors();
-  const [name, setName] = useState(edit?.name ?? ''); const [region, setRegion] = useState(edit?.region ?? '');
+  const m = useSaveBranch(); const sups = useSupervisors(); const regions = useRegions();
+  const [name, setName] = useState(edit?.name ?? '');
+  const [regionId, setRegionId] = useState(edit?.region_id ?? '');
+  const [region, setRegion] = useState(edit?.region ?? '');
   const [manager, setManager] = useState(edit?.manager_id ?? ''); const [active, setActive] = useState(edit?.is_active ?? true);
   const [lat, setLat] = useState(edit?.latitude?.toString() ?? ''); const [lng, setLng] = useState(edit?.longitude?.toString() ?? '');
+
   const submit = useCallback((e: FormEvent) => { e.preventDefault();
-    m.mutate({ id: edit?.id, name, region, manager_id: manager || null, latitude: numOrNull(lat), longitude: numOrNull(lng), is_active: active }, { onSuccess: onClose });
-  }, [m, edit, name, region, manager, lat, lng, active, onClose]);
+    m.mutate({
+      id: edit?.id, name, region, region_id: regionId || null,
+      manager_id: manager || null, latitude: numOrNull(lat), longitude: numOrNull(lng), is_active: active
+    }, { onSuccess: onClose });
+  }, [m, edit, name, region, regionId, manager, lat, lng, active, onClose]);
+
   return <Modal title={edit ? t('تعديل الفرع') : t('فرع جديد')} onClose={onClose} onSubmit={submit}>
     <label className="f">{t('اسم الفرع *')}<input className="input" required value={name} onChange={useInput(setName)} /></label>
-    <label className="f">{t('المنطقة')}<input className="input" value={region} onChange={useInput(setRegion)} /></label>
+    <label className="f">{t('الإقليم')}<select className="input" value={regionId} onChange={(e) => {
+      setRegionId(e.target.value);
+      const found = regions.data?.find((r) => r.id === e.target.value);
+      if (found) setRegion(found.name);
+    }}>
+      <option value="">{t('اختر الإقليم')}</option>
+      {regions.data?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+    </select></label>
+    {(!regionId || !regions.data?.length) && (
+      <label className="f">{t('اسم المنطقة يدويًا')}<input className="input" value={region} onChange={useInput(setRegion)} placeholder={t('مثال: الدلتا / الصعيد')} /></label>
+    )}
     <label className="f">{t('مدير الفرع')}<select className="input" value={manager} onChange={useInput(setManager)}>
       <option value="">{t('بدون')}</option>{sups.items.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}</select></label>
     <div className="row"><label className="f grow">{t('خط العرض')}<input className="input" dir="ltr" inputMode="decimal" value={lat} onChange={useInput(setLat)} /></label>
@@ -54,17 +88,29 @@ function BranchForm({ edit, onClose }: { edit: Branch | null; onClose: () => voi
   </Modal>;
 }
 export function AdminBranches() {
-  const q = useBranches(); const sups = useSupervisors(); const retry = useRefetch(q.refetch);
+  const q = useBranches(); const sups = useSupervisors(); const regions = useRegions(); const retry = useRefetch(q.refetch);
   const deactivate = useDeactivateRecord('branches', 'admin-branches');
   const [edit, setEdit] = useState<Branch | null | undefined>(undefined);
+  const [showRegionModal, setShowRegionModal] = useState(false);
   const name = (id: string | null) => sups.items.find((s) => s.id === id)?.full_name ?? '—';
+  const regionMap = useMemo(() => new Map(regions.data?.map((r) => [r.id, r.name]) ?? []), [regions.data]);
+
   return <>
-    <div className="row between"><h2>{t('الفروع')}</h2><button className="btn" onClick={() => setEdit(null)}><Plus size={18} /> {t('فرع جديد')}</button></div>
+    <div className="row between">
+      <div>
+        <h2 style={{ margin: 0 }}>{t('الفروع والأقاليم')}</h2>
+        <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>{t('إدارة الفروع الجغرافية وربطها بالأقاليم والمشرفين.')}</p>
+      </div>
+      <div className="row" style={{ gap: 8 }}>
+        <button className="btn ghost" onClick={() => setShowRegionModal(true)}><Plus size={16} /> {t('إقليم جديد')}</button>
+        <button className="btn" onClick={() => setEdit(null)}><Plus size={18} /> {t('فرع جديد')}</button>
+      </div>
+    </div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
       : !q.data.length ? <EmptyState icon={<MapPin />} title={t('لا توجد فروع')} action={{ label: t('إضافة فرع'), onClick: () => setEdit(null) }} />
       : <div className="adm-table-wrap"><table className="adm-table">
-          <thead><tr><th>{t('الفرع')}</th><th>{t('المنطقة')}</th><th>{t('المدير')}</th><th>{t('الحالة')}</th><th /></tr></thead>
-          <tbody>{q.data.map((b) => <tr key={b.id}><td className="title">{b.name}</td><td>{b.region ?? '—'}</td><td>{name(b.manager_id)}</td>
+          <thead><tr><th>{t('الفرع')}</th><th>{t('الإقليم / المنطقة')}</th><th>{t('المدير')}</th><th>{t('الحالة')}</th><th /></tr></thead>
+          <tbody>{q.data.map((b) => <tr key={b.id}><td className="title">{b.name}</td><td>{(b.region_id && regionMap.get(b.region_id)) || b.region || '—'}</td><td>{name(b.manager_id)}</td>
             <td><span className={`badge ${b.is_active ? 'b-green' : 'b-gray'}`}>{b.is_active ? t('نشط') : t('متوقف')}</span></td>
             <td className="row gap-1">
               <button className="btn sm ghost" onClick={() => setEdit(b)}>{t('تعديل')}</button>
@@ -72,6 +118,7 @@ export function AdminBranches() {
             </td></tr>)}</tbody>
         </table></div>}
     {edit !== undefined && <BranchForm edit={edit} onClose={() => setEdit(undefined)} />}
+    {showRegionModal && <RegionModal onClose={() => setShowRegionModal(false)} />}
   </>;
 }
 
