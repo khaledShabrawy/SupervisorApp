@@ -11,8 +11,20 @@ import { countTargetRecord } from './execution-records';
 import type { AppSettings, Customer, Target } from '@/types/database';
 export { useUploadAudit, useRequestAuditAnalysis, useAuditResult, useVisitAudits } from './screen-audit';
 
-export type CustomerCardRow = Customer & { last_visit: string | null };
-export type CatalogProduct = { id: string; name: string; category: string; sku?: string; item_code?: string; master_brand?: string; sub_brand?: string; is_active: boolean };
+export type CatalogProduct = {
+  id: string;
+  name: string;
+  category: string;
+  sku?: string;
+  item_code?: string;
+  master_brand?: string;
+  sub_brand?: string;
+  units_per_carton?: number;
+  carton_price?: number;
+  unit?: string;
+  price?: number;
+  is_active: boolean;
+};
 export type SettingsInput = Pick<AppSettings, 'app_name' | 'primary_color' | 'geofence_radius_m' | 'target_brand_name' | 'competitor_brands'> &
   Partial<Pick<AppSettings, 'logo_url' | 'allow_password_change' | 'allow_forgot_password' | 'password_expiry_enabled' | 'password_expiry_days' | 'branch_lock_mode'>>;
 export type MonthlyTargetInput = {

@@ -14,15 +14,62 @@ import { LanguageToggle } from './LanguageToggle';
 import LoadingSpinner from './LoadingSpinner';
 import { SyncActionBar } from './SyncActionBar';
 import { TrialBanner } from './TrialBanner';
+import { useDeviceBinding } from '@/lib/device-binding';
+import { useCompanySubscription, SubscriptionLockedView } from '@/lib/subscription';
 import { t } from '@/i18n';
 
 const IS_ANDROID = import.meta.env.VITE_PLATFORM === 'android';
 
+function DeviceLockedView({ registeredDeviceId, currentDeviceId }: { registeredDeviceId: string; currentDeviceId: string }) {
+  const { signOut, supervisor } = useAuth();
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: '#F8FAFC' }}>
+      <div className="card col" style={{ maxWidth: 460, textAlign: 'center', gap: 16, padding: 28, borderRadius: 16, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}>
+        <div style={{ fontSize: 54 }}>🔒</div>
+        <h2 style={{ margin: 0, color: '#EF4444', fontSize: 20 }}>{t('هذا الحساب مرتبط بجهاز آخر')}</h2>
+        <p className="muted" style={{ lineHeight: 1.6, fontSize: 14 }}>
+          {t('حساب المشرف ({name}) مقترن بجهاز عمل مصرح به سابقاً. لأسباب أمنية ومنع التلاعب الميداني، يُحظر تسجيل الدخول من أكثر من جهاز هاتف.', { name: supervisor?.full_name || '' })}
+        </p>
+        <div className="alert warn" style={{ fontSize: 12, direction: 'ltr', textAlign: 'start', overflowWrap: 'anywhere' }}>
+          <div><strong>Registered Device:</strong> {registeredDeviceId}</div>
+          <div><strong>Current Device:</strong> {currentDeviceId}</div>
+        </div>
+        <p style={{ fontSize: 13, color: '#64748B', margin: 0 }}>
+          {t('يرجى التواصل مع إدارة الشركة أو مسؤول النظام لإلغاء ارتباط الجهاز السابق والسماح بالربط من جهازك الحالي.')}
+        </p>
+        <button className="btn primary block" onClick={() => void signOut()} style={{ marginTop: 8 }}>
+          {t('تسجيل الخروج')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function RequireAuth() {
   const { isAuthenticated, isLoading, supervisor } = useAuth();
-  if (isLoading) return <LoadingSpinner />;
+  const binding = useDeviceBinding(supervisor);
+  const subscription = useCompanySubscription();
+
+  if (isLoading || binding.status === 'checking' || subscription.isLoading) return <LoadingSpinner />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (supervisor?.force_password_change) return <Navigate to="/set-password" replace />;
+  if (binding.status === 'locked') {
+    return (
+      <DeviceLockedView
+        registeredDeviceId={binding.registeredDeviceId}
+        currentDeviceId={binding.currentDeviceId}
+      />
+    );
+  }
+  if (subscription.isLocked) {
+    return (
+      <SubscriptionLockedView
+        companyName={subscription.company?.name}
+        expiresAt={subscription.company?.expires_at}
+        isInactive={subscription.isInactive}
+      />
+    );
+  }
   return <Shell />;
 }
 export function RequireAdmin({ children }: { children: ReactNode }) {

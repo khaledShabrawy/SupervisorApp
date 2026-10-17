@@ -10,6 +10,7 @@ import { LanguageToggle } from '@/components/LanguageToggle';
 import './admin.css';
 import { t } from '@/i18n';
 import { TrialBanner } from '@/components/TrialBanner';
+import { useCompanySubscription, SubscriptionLockedView } from '@/lib/subscription';
 
 export const ADMIN_NAV = [
   { to: '/admin', label: t('لوحة المؤشرات'), icon: BarChart3, end: true },
@@ -35,6 +36,7 @@ export const ADMIN_NAV = [
 /** Auth + role gate for /admin/*; renders the desktop admin shell instead of the mobile one. */
 export default function AdminLayout() {
   const { isAuthenticated, isLoading, supervisor, signOut } = useAuth();
+  const subscription = useCompanySubscription();
   const s = useAppSettings();
   const { pathname } = useLocation();
   const logout = useCallback(() => void signOut().catch((e: Error) => notify(e.message, 'error')), [signOut]);
@@ -43,10 +45,19 @@ export default function AdminLayout() {
     document.title = `${page} | ${t('إدارة {app}', { app: s.app_name })}`;
   }, [pathname, s.app_name]);
 
-  if (isLoading) return <LoadingSpinner />;
+  if (isLoading || subscription.isLoading) return <LoadingSpinner />;
   if (!isAuthenticated) return <Navigate to="/login" replace state={{ from: pathname }} />;
   if (supervisor?.force_password_change) return <Navigate to="/set-password" replace />;
   if (!canAdmin(supervisor)) return <Navigate to="/" replace />;
+  if (subscription.isLocked) {
+    return (
+      <SubscriptionLockedView
+        companyName={subscription.company?.name}
+        expiresAt={subscription.company?.expires_at}
+        isInactive={subscription.isInactive}
+      />
+    );
+  }
 
   return <div className="adm">
     <aside className="adm-side">

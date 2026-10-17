@@ -226,12 +226,16 @@ export type InviteRole = 'supervisor' | 'senior_supervisor' | 'branch_manager' |
 export function useInviteSupervisor() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { email: string; full_name: string; phone: string; role: InviteRole; branch_id: string;
-      permissions: Record<ScreenKey, boolean> }) => {
+    mutationFn: async (input: { email: string; full_name: string; phone: string; role: InviteRole; branch_id?: string;
+      company_id?: string; permissions?: Record<ScreenKey, boolean> }) => {
       requireAdmin(sc);
       if (sc.supervisor.role === 'branch_manager' && input.role === 'admin') {
         throw new Error(t('مدير الفرع لا يملك صلاحية دعوة رتبة مدير.'));
       }
+      const targetCompanyId = (sc.supervisor.role === 'super_admin' && input.company_id)
+        ? input.company_id
+        : sc.companyId;
+
       const effectiveBranchId = sc.supervisor.role === 'branch_manager' && sc.supervisor.branch_id
         ? sc.supervisor.branch_id
         : (input.branch_id || null);
@@ -240,7 +244,7 @@ export function useInviteSupervisor() {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('البريد الإلكتروني غير صالح.');
       if (!input.full_name.trim()) throw new Error('الاسم مطلوب.');
       const { data, error } = await supabase.functions.invoke('invite-supervisor', {
-        body: { ...input, email, full_name: input.full_name.trim(), phone: input.phone.trim() || null,
+        body: { ...input, company_id: targetCompanyId, email, full_name: input.full_name.trim(), phone: input.phone.trim() || null,
           branch_id: effectiveBranchId, redirect_to: `${window.location.origin}${import.meta.env.BASE_URL}set-password` },
       });
       if (error) {
@@ -346,6 +350,10 @@ export function useSaveProduct() {
       item_code?: string;
       master_brand?: string;
       sub_brand?: string;
+      units_per_carton?: number;
+      carton_price?: number;
+      price?: number;
+      unit?: string;
       is_active: boolean;
     }) => {
       requireAdmin(sc);
@@ -356,6 +364,10 @@ export function useSaveProduct() {
         item_code: p.item_code?.trim() || p.sku?.trim() || null,
         master_brand: p.master_brand?.trim() || null,
         sub_brand: p.sub_brand?.trim() || null,
+        units_per_carton: p.units_per_carton != null ? Math.max(1, Number(p.units_per_carton)) : 1,
+        carton_price: p.carton_price != null ? Number(p.carton_price) : null,
+        price: p.price != null ? Number(p.price) : null,
+        unit: p.unit?.trim() || 'قطعة',
         is_active: p.is_active,
       };
       if (!values.name) throw new Error('اسم المنتج مطلوب.');
@@ -624,7 +636,27 @@ export function useSaveCompany() {
         : await supabase.from('companies').insert(values).select('id');
       if (r.error) fail('تعذر حفظ الشركة.', r.error);
       if (!r.data?.length) throw new Error('لم يتم الحفظ. تحقق من الصلاحيات.');
-      return r.data[0].id as string;
+      const newCompanyId = r.data[0].id as string;
+      if (!c.id) {
+        // Automatically initialize default app_settings for the new company
+        try {
+          await supabase.from('app_settings').insert({
+            company_id: newCompanyId,
+            app_name: values.name,
+            primary_color: '#1A56DB',
+            success_color: '#10B981',
+            danger_color: '#EF4444',
+            background_color: '#F8FAFC',
+            geofence_radius_m: 100,
+            target_brand_name: values.name,
+            competitor_brands: [],
+            ai_audit_enabled: true,
+          });
+        } catch {
+          // Non-blocking if trigger handles it
+        }
+      }
+      return newCompanyId;
     },
     onSuccess: () => { notify(t('تم حفظ الشركة'), 'success'); void qc.invalidateQueries({ queryKey: ['mydan', 'super-admin', 'companies'] }); },
     onError: (e: Error) => notify(e.message, 'error'),

@@ -13,19 +13,29 @@ import { useProductsWithPrices, useSaveOrder, formatOrderWhatsAppMessage, openWh
 const ProductRow = memo(function ProductRow({
   product,
   qty,
+  unit,
   onInc,
   onDec,
+  onSetUnit,
   onRemove,
 }: {
   product: PricedProduct;
   qty: number;
+  unit: 'قطعة' | 'كرتونة';
   onInc: (id: string) => void;
   onDec: (id: string) => void;
+  onSetUnit: (id: string, unit: 'قطعة' | 'كرتونة') => void;
   onRemove: (id: string) => void;
 }) {
   const inc = useCallback(() => onInc(product.id), [onInc, product.id]);
   const dec = useCallback(() => onDec(product.id), [onDec, product.id]);
   const remove = useCallback(() => onRemove(product.id), [onRemove, product.id]);
+
+  const hasCarton = Boolean(product.units_per_carton && product.units_per_carton > 1);
+  const factor = unit === 'كرتونة' && hasCarton ? product.units_per_carton! : 1;
+  const currentPrice = unit === 'كرتونة' && hasCarton
+    ? (product.carton_price || product.unit_price * factor)
+    : product.unit_price;
 
   return (
     <div className="card col" style={{ padding: 12, borderRight: qty > 0 ? '4px solid var(--color-primary)' : '1px solid var(--line)' }} data-testid={`order-product-${product.id}`}>
@@ -35,9 +45,14 @@ const ProductRow = memo(function ProductRow({
             {product.item_code && <span className="badge b-blue" style={{ fontFamily: 'monospace', fontSize: 11, padding: '1px 6px' }}>{product.item_code}</span>}
             <span>{product.name}</span>
           </div>
-          <div className="muted" style={{ fontSize: 13 }}>
-            {product.unit_price > 0 ? `${num(product.unit_price)} ${t('ج.م')}` : t('بلا سعر')}
-            {product.unit ? ` / ${product.unit}` : ''}
+          <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+            {currentPrice > 0 ? `${num(currentPrice)} ${t('ج.م')}` : t('بلا سعر')}
+            {unit === 'كرتونة' ? ` / ${t('كرتونة')}` : ` / ${product.unit || t('قطعة')}`}
+            {hasCarton && unit === 'كرتونة' && (
+              <span className="badge b-gray" style={{ marginInlineStart: 6, fontSize: 11 }}>
+                ({product.units_per_carton} {product.unit || t('قطعة')} / كرتونة)
+              </span>
+            )}
             {product.master_brand ? ` · ${product.master_brand}` : product.sku ? ` · ${product.sku}` : ''}
           </div>
         </div>
@@ -47,6 +62,28 @@ const ProductRow = memo(function ProductRow({
           </button>
         )}
       </div>
+
+      {/* Unit Selector: قطعة vs كرتونة */}
+      {hasCarton && (
+        <div className="row gap-2" style={{ marginTop: 8 }}>
+          <button
+            type="button"
+            className={`btn sm ${unit === 'قطعة' ? 'primary' : 'ghost'}`}
+            style={{ fontSize: 12, padding: '2px 10px', height: 28 }}
+            onClick={() => onSetUnit(product.id, 'قطعة')}
+          >
+            {product.unit || t('قطعة')}
+          </button>
+          <button
+            type="button"
+            className={`btn sm ${unit === 'كرتونة' ? 'primary' : 'ghost'}`}
+            style={{ fontSize: 12, padding: '2px 10px', height: 28 }}
+            onClick={() => onSetUnit(product.id, 'كرتونة')}
+          >
+            📦 {t('كرتونة ({n} ق)', { n: product.units_per_carton })}
+          </button>
+        </div>
+      )}
 
       <div className="row between" style={{ marginTop: 8, gap: 10 }}>
         <div className="row" style={{ gap: 8 }}>
@@ -61,8 +98,15 @@ const ProductRow = memo(function ProductRow({
           </button>
         </div>
         {qty > 0 && (
-          <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--color-primary)' }}>
-            = {num(product.unit_price * qty)} {t('ج.م')}
+          <div style={{ textAlign: 'end' }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-primary)' }}>
+              = {num(currentPrice * qty)} {t('ج.م')}
+            </div>
+            {unit === 'كرتونة' && hasCarton && (
+              <div className="muted" style={{ fontSize: 11 }}>
+                ({num(qty * factor)} {product.unit || t('قطعة')})
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -84,39 +128,62 @@ export default function OrderEntryScreen() {
   const products = useProductsWithPrices(customerType);
   const save = useSaveOrder();
 
-  const [quantities, setQty] = useState<Record<string, number>>({});
+  const [itemsMap, setItemsMap] = useState<Record<string, { qty: number; unit: 'قطعة' | 'كرتونة' }>>({});
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
   const [saved, setSaved] = useState(false);
 
-  const inc = useCallback((id: string) => setQty((q) => ({ ...q, [id]: (q[id] ?? 0) + 1 })), []);
-  const dec = useCallback((id: string) => setQty((q) => {
-    const next = (q[id] ?? 0) - 1;
-    if (next <= 0) {
-      const { [id]: _, ...rest } = q;
+  const inc = useCallback((id: string) => setItemsMap((prev) => {
+    const cur = prev[id] ?? { qty: 0, unit: 'قطعة' };
+    return { ...prev, [id]: { ...cur, qty: cur.qty + 1 } };
+  }), []);
+
+  const dec = useCallback((id: string) => setItemsMap((prev) => {
+    const cur = prev[id];
+    if (!cur) return prev;
+    if (cur.qty <= 1) {
+      const { [id]: _, ...rest } = prev;
       return rest;
     }
-    return { ...q, [id]: next };
+    return { ...prev, [id]: { ...cur, qty: cur.qty - 1 } };
   }), []);
-  const remove = useCallback((id: string) => setQty((q) => {
-    const { [id]: _, ...rest } = q;
+
+  const setUnit = useCallback((id: string, unit: 'قطعة' | 'كرتونة') => setItemsMap((prev) => {
+    const cur = prev[id] ?? { qty: 0, unit: 'قطعة' };
+    return { ...prev, [id]: { ...cur, unit } };
+  }), []);
+
+  const remove = useCallback((id: string) => setItemsMap((prev) => {
+    const { [id]: _, ...rest } = prev;
     return rest;
   }), []);
 
   const lines = useMemo<OrderLineItem[]>(() => {
     if (!products.data) return [];
     return products.data
-      .filter((p) => (quantities[p.id] ?? 0) > 0)
-      .map((p) => ({
-        product_id: p.id,
-        name: p.name,
-        unit_price: p.unit_price,
-        quantity: quantities[p.id],
-      }));
-  }, [products.data, quantities]);
+      .filter((p) => (itemsMap[p.id]?.qty ?? 0) > 0)
+      .map((p) => {
+        const item = itemsMap[p.id];
+        const isCarton = item.unit === 'كرتونة';
+        const factor = isCarton ? (p.units_per_carton && p.units_per_carton > 1 ? p.units_per_carton : 1) : 1;
+        const price = isCarton
+          ? (p.carton_price || p.unit_price * factor)
+          : p.unit_price;
+
+        return {
+          product_id: p.id,
+          name: p.name,
+          unit_price: price,
+          quantity: item.qty,
+          unit: item.unit,
+          units_per_carton: p.units_per_carton || 1,
+          total_pieces: item.qty * factor,
+        };
+      });
+  }, [products.data, itemsMap]);
 
   const total = useMemo(() => lines.reduce((s, l) => s + l.unit_price * l.quantity, 0), [lines]);
-  const totalUnits = useMemo(() => lines.reduce((s, l) => s + l.quantity, 0), [lines]);
+  const totalUnits = useMemo(() => lines.reduce((s, l) => s + (l.total_pieces ?? l.quantity), 0), [lines]);
 
   const filteredProducts = useMemo(() => {
     if (!products.data) return [];
@@ -200,7 +267,7 @@ export default function OrderEntryScreen() {
                 <ArrowRight size={16} className="flip-ltr" /> {t('العودة للزيارة')}
               </button>
             )}
-            <button className="btn ghost grow" onClick={() => { setQty({}); setNotes(''); setSaved(false); }}>
+            <button className="btn ghost grow" onClick={() => { setItemsMap({}); setNotes(''); setSaved(false); }}>
               {t('أوردر آخر')}
             </button>
           </div>
@@ -255,9 +322,11 @@ export default function OrderEntryScreen() {
             <ProductRow
               key={p.id}
               product={p}
-              qty={quantities[p.id] ?? 0}
+              qty={itemsMap[p.id]?.qty ?? 0}
+              unit={itemsMap[p.id]?.unit ?? 'قطعة'}
               onInc={inc}
               onDec={dec}
+              onSetUnit={setUnit}
               onRemove={remove}
             />
           ))}

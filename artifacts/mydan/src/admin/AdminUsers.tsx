@@ -13,6 +13,7 @@ import EmptyState from '@/components/EmptyState';
 import { ROLE } from '@/screens/AdminPanel';
 import { useInput, useRefetch } from '@/screens/shared';
 import type { Supervisor } from '@/types/database';
+import { useResetDeviceBinding } from '@/lib/device-binding';
 import { t } from '@/i18n';
 
 type SortKey = 'full_name' | 'role' | 'is_active';
@@ -133,12 +134,14 @@ function PermissionsDrawer({ s, onClose }: { s: Supervisor; onClose: () => void 
 }
 
 const Row = memo(function Row({
-  s, self, branch, onPatch, onPerms, onEdit, onSetPw, onResend, resending
+  s, self, branch, onPatch, onPerms, onEdit, onSetPw, onResend, resending,
+  onResetDevice, resettingDevice
 }: {
   s: Supervisor; self: boolean; branch: string;
   onPatch: (s: Supervisor, p: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => void;
   onPerms: (s: Supervisor) => void; onEdit: (s: Supervisor) => void;
   onSetPw: (s: Supervisor) => void; onResend: (s: Supervisor) => void; resending: boolean;
+  onResetDevice: (s: Supervisor) => void; resettingDevice: boolean;
 }) {
   const locked = self || s.role === 'super_admin';
   const toggle = useCallback(() => {
@@ -152,6 +155,29 @@ const Row = memo(function Row({
     </td>
     <td>{branch}</td>
     <td><span className="badge b-gray"><ShieldCheck size={14} /> {ROLE[s.role] ?? s.role}</span></td>
+    <td>
+      {s.device_id ? (
+        <div className="row gap-1 items-center" style={{ flexWrap: 'wrap' }}>
+          <span className="badge b-blue" title={s.device_id} style={{ fontSize: 11 }}>
+            📱 {t('مقترن')}
+          </span>
+          {!locked && (
+            <button
+              type="button"
+              className="btn sm ghost danger"
+              style={{ fontSize: 11, padding: '2px 6px' }}
+              onClick={() => onResetDevice(s)}
+              disabled={resettingDevice}
+              title={t('إلغاء اقتران هذا الجهاز ليتمكن المشرف من ربط هاتف جديد')}
+            >
+              {t('إلغاء الربط')}
+            </button>
+          )}
+        </div>
+      ) : (
+        <span className="muted" style={{ fontSize: 12 }}>{t('غير مقترن')}</span>
+      )}
+    </td>
     <td><span className={`badge ${s.is_active ? 'b-green' : 'b-red'}`}>{s.is_active ? t('نشط') : t('معطل')}</span></td>
     <td>
       <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
@@ -235,6 +261,13 @@ export default function AdminUsers() {
   const closeEdit = useCallback(() => setEditing(null), []);
   const closePw = useCallback(() => setPwTarget(null), []);
 
+  const resetDevice = useResetDeviceBinding();
+  const onResetDevice = useCallback((target: Supervisor) => {
+    if (window.confirm(t('إلغاء ارتباط جهاز المشرف {name}؟ سيتمكن من ربط جهاز جديد عند تسجيل الدخول القادم.', { name: target.full_name }))) {
+      resetDevice.mutate(target.id);
+    }
+  }, [resetDevice]);
+
   return <>
     <div className="row between">
       <div>
@@ -296,6 +329,7 @@ export default function AdminUsers() {
                 {th('full_name', t('الاسم'))}
                 <th>{t('الفرع')}</th>
                 {th('role', t('الدور'))}
+                <th>{t('جهاز العمل')}</th>
                 {th('is_active', t('الحالة'))}
                 <th>{t('إجراءات')}</th>
               </tr>
@@ -313,6 +347,8 @@ export default function AdminUsers() {
                   onSetPw={setPwTarget}
                   onResend={onResend}
                   resending={resend.isPending}
+                  onResetDevice={onResetDevice}
+                  resettingDevice={resetDevice.isPending}
                 />
               ))}
             </tbody>

@@ -2,7 +2,8 @@ import { useCallback, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
-import { Bell, CheckCheck, FileText, MapPin, Package, Plus, ShoppingCart, Store, Trash2, X } from '@/components/Icons';
+import { Bell, CheckCheck, Download, FileText, MapPin, Package, Plus, ShoppingCart, Store, Trash2, X } from '@/components/Icons';
+import { exportToCsv } from '@/lib/csv-export';
 import { useAdminOrders, useUpdateOrderStatus, formatOrderWhatsAppMessage, openWhatsAppShare, type OrderRecord } from '@/lib/screen-orders';
 import { fmtDate, fmtTime, num } from '@/lib/format';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
@@ -171,9 +172,46 @@ export function AdminCustomers() {
   const retry = useRefetch(q.refetch);
   const deactivate = useDeactivateRecord('customers', 'admin-customers');
   const [edit, setEdit] = useState<AdminCustomerRow | null | undefined>(undefined);
+
+  const handleExportCustomers = () => {
+    if (!q.items.length) return;
+    exportToCsv(
+      `Customers_${new Date().toISOString().slice(0, 10)}`,
+      [
+        { header: t('كود العميل'), accessor: (c) => c.customer_code || '' },
+        { header: t('اسم العميل'), accessor: (c) => c.name },
+        { header: t('النوع'), accessor: (c) => c.type },
+        { header: t('المسؤول'), accessor: (c) => c.owner_name || '' },
+        { header: t('الهاتف'), accessor: (c) => c.phone || '' },
+        { header: t('الفرع'), accessor: (c) => c.branch || '' },
+        { header: t('العنوان'), accessor: (c) => c.address || '' },
+        { header: t('خط العرض'), accessor: (c) => c.latitude ?? '' },
+        { header: t('خط الطول'), accessor: (c) => c.longitude ?? '' },
+        { header: t('المشرف المسؤول'), accessor: (c) => c.supervisors?.full_name || '' },
+        { header: t('الحالة'), accessor: (c) => (c.is_active ? t('نشط') : t('متوقف')) },
+      ],
+      q.items
+    );
+  };
+
   return <>
-    <div className="row between"><h2>{t('العملاء')}</h2>
-      <button className="btn" onClick={() => setEdit(null)}><Plus size={18} /> {t('عميل جديد')}</button></div>
+    <div className="row between">
+      <h2>{t('العملاء')}</h2>
+      <div className="row gap-2">
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={handleExportCustomers}
+          disabled={!q.items.length}
+          title={t('تصدير بيانات العملاء إلى ملف Excel')}
+        >
+          <Download size={16} /> {t('تصدير Excel')}
+        </button>
+        <button className="btn" onClick={() => setEdit(null)}>
+          <Plus size={18} /> {t('عميل جديد')}
+        </button>
+      </div>
+    </div>
     <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
       <input className="input grow" placeholder={t('ابحث بالاسم أو الكود أو الهاتف أو العنوان...')} value={search} onChange={useInput(setSearch)} style={{ maxWidth: 380 }} />
       <select className="input" style={{ width: 200 }} value={supFilter} onChange={(e) => setSupFilter(e.target.value)}>
@@ -218,6 +256,10 @@ function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: 
   const [itemCode, setItemCode] = useState(edit?.item_code ?? edit?.sku ?? '');
   const [masterBrand, setMasterBrand] = useState(edit?.master_brand ?? '');
   const [subBrand, setSubBrand] = useState(edit?.sub_brand ?? '');
+  const [unit, setUnit] = useState(edit?.unit ?? 'قطعة');
+  const [price, setPrice] = useState(edit?.price?.toString() ?? '');
+  const [unitsPerCarton, setUnitsPerCarton] = useState(edit?.units_per_carton?.toString() ?? '1');
+  const [cartonPrice, setCartonPrice] = useState(edit?.carton_price?.toString() ?? '');
   const [active, setActive] = useState(edit?.is_active ?? true);
 
   const submit = useCallback((e: FormEvent) => {
@@ -230,19 +272,31 @@ function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: 
       item_code: itemCode,
       master_brand: masterBrand,
       sub_brand: subBrand,
+      unit,
+      price: numOrNull(price),
+      units_per_carton: numOrNull(unitsPerCarton) ?? 1,
+      carton_price: numOrNull(cartonPrice),
       is_active: active,
     }, { onSuccess: onClose });
-  }, [m, edit, name, category, sku, itemCode, masterBrand, subBrand, active, onClose]);
+  }, [m, edit, name, category, sku, itemCode, masterBrand, subBrand, unit, price, unitsPerCarton, cartonPrice, active, onClose]);
 
   return <Modal title={edit ? t('تعديل المنتج') : t('منتج جديد')} onClose={onClose} onSubmit={submit}>
     <label className="f">{t('اسم المنتج *')}<input className="input" required value={name} onChange={useInput(setName)} /></label>
     <div className="row">
       <label className="f grow">{t('كود الصنف (Item Code / SKU)')}<input className="input" dir="ltr" value={itemCode} onChange={useInput(setItemCode)} placeholder="ITM-001" /></label>
-      <label className="f grow">{t('الفئة')}<input className="input" value={category} onChange={useInput(setCategory)} placeholder={t('مثال: مشروبات / منظفات')} /></label>
+      <label className="f grow">{t('الفئة')}<input className="input" value={category} onChange={useInput(setCategory)} placeholder={t('مثال: مشروبات / شوكولاتة')} /></label>
     </div>
     <div className="row">
       <label className="f grow">{t('Master Brand (العلامة الرئيسية)')}<input className="input" value={masterBrand} onChange={useInput(setMasterBrand)} placeholder={t('مثال: كورونا')} /></label>
       <label className="f grow">{t('Sub Brand (العلامة الفرعية)')}<input className="input" value={subBrand} onChange={useInput(setSubBrand)} placeholder={t('مثال: شوكولاتة')} /></label>
+    </div>
+    <div className="row">
+      <label className="f grow">{t('الوحدة الأساسية')}<input className="input" value={unit} onChange={useInput(setUnit)} placeholder={t('مثال: قطعة / باكو')} /></label>
+      <label className="f grow">{t('سعر القطعة (ج.م)')}<input className="input" dir="ltr" inputMode="decimal" value={price} onChange={useInput(setPrice)} placeholder="0.00" /></label>
+    </div>
+    <div className="row">
+      <label className="f grow">{t('عدد القطع في الكرتونة (التعبئة)')}<input className="input" dir="ltr" type="number" min={1} value={unitsPerCarton} onChange={useInput(setUnitsPerCarton)} placeholder="مثال: 12 أو 24" /></label>
+      <label className="f grow">{t('سعر الكرتونة (ج.م) [اختياري]')}<input className="input" dir="ltr" inputMode="decimal" value={cartonPrice} onChange={useInput(setCartonPrice)} placeholder={t('يحسب تلقائياً إن ترك فارغاً')} /></label>
     </div>
     <label className="row" style={{ minHeight: 44 }}><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} style={{ width: 22, height: 22 }} /> {t('متاح في الكتالوج')}</label>
     <button className="btn" disabled={m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ المنتج')}</button>
@@ -276,7 +330,7 @@ export function AdminProducts() {
             <th>{t('المنتج')}</th>
             <th>Master Brand</th>
             <th>Sub Brand</th>
-            <th>{t('الفئة')}</th>
+            <th>{t('التعبئة والوحدة')}</th>
             <th>{t('الحالة')}</th>
             <th />
           </tr></thead>
@@ -285,7 +339,7 @@ export function AdminProducts() {
             <td className="title">{p.name}</td>
             <td>{p.master_brand || '—'}</td>
             <td>{p.sub_brand || '—'}</td>
-            <td>{p.category || '—'}</td>
+            <td>{p.units_per_carton && p.units_per_carton > 1 ? `${p.units_per_carton} ${p.unit || 'قطعة'} / كرتونة` : (p.unit || 'قطعة')}</td>
             <td><span className={`badge ${p.is_active ? 'b-green' : 'b-gray'}`}>{p.is_active ? t('متاح') : t('متوقف')}</span></td>
             <td className="row gap-1">
               <button className="btn sm ghost" onClick={() => setEdit(p)}>{t('تعديل')}</button>
@@ -331,13 +385,45 @@ export function AdminAssets() {
   const q = useAssets(useDebouncedValue(search, 300), dateFrom || undefined, dateTo || undefined);
   const retry = useRefetch(q.refetch);
   const [edit, setEdit] = useState<AssetRow | null | undefined>(undefined);
+
+  const handleExportAssets = () => {
+    if (!q.items.length) return;
+    exportToCsv(
+      `Assets_${new Date().toISOString().slice(0, 10)}`,
+      [
+        { header: t('كود الأصل'), accessor: (a) => a.asset_code },
+        { header: t('نوع الأصل'), accessor: (a) => a.asset_types?.name_ar || '' },
+        { header: t('العميل المركّب عنده'), accessor: (a) => a.customers?.name || '' },
+        { header: t('الرقم التسلسلي'), accessor: (a) => a.serial_number || '' },
+        { header: t('الموديل'), accessor: (a) => a.model || '' },
+        { header: t('الحالة'), accessor: (a) => t(ASSET_STATUS[a.status]?.[0] || a.status) },
+      ],
+      q.items
+    );
+  };
+
   return <>
     <h2>{t('إدارة الأصول')}</h2>
     <div className="adm-grid">
       <section className="col"><div className="title">{t('أنواع الأصول')}</div><AssetTypes /></section>
       <section className="col">
-        <div className="row between"><div className="title">{t('الأصول')}</div>
-          <button className="btn sm" onClick={() => setEdit(null)} data-testid="button-new-asset"><Plus size={18} /> {t('أصل جديد')}</button></div>
+        <div className="row between">
+          <div className="title">{t('الأصول')}</div>
+          <div className="row gap-2">
+            <button
+              type="button"
+              className="btn sm ghost"
+              onClick={handleExportAssets}
+              disabled={!q.items.length}
+              title={t('تصدير الأصول إلى Excel')}
+            >
+              <Download size={14} /> {t('تصدير Excel')}
+            </button>
+            <button className="btn sm" onClick={() => setEdit(null)} data-testid="button-new-asset">
+              <Plus size={18} /> {t('أصل جديد')}
+            </button>
+          </div>
+        </div>
         <div className="col" style={{ gap: 8 }}>
           <input className="input" placeholder={t('ابحث بالكود أو الرقم التسلسلي...')} value={search} onChange={useInput(setSearch)} />
           <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -679,6 +765,34 @@ export function AdminOrders() {
 
   const kpi = q.kpi;
 
+  const handleExportOrders = () => {
+    if (!q.data?.length) return;
+    exportToCsv(
+      `Orders_${new Date().toISOString().slice(0, 10)}`,
+      [
+        { header: t('تاريخ الأوردر'), accessor: (o) => fmtDate(o.order_date || o.created_at) },
+        { header: t('المشرف'), accessor: (o) => o.supervisors?.full_name || '' },
+        { header: t('العميل'), accessor: (o) => o.customers?.name || '' },
+        { header: t('كود العميل'), accessor: (o) => o.customers?.customer_code || '' },
+        { header: t('عنوان العميل'), accessor: (o) => o.customers?.address || '' },
+        { header: t('عدد الأصناف'), accessor: (o) => o.items.length },
+        { header: t('إجمالي الكمية'), accessor: (o) => o.items.reduce((s, it) => s + it.quantity, 0) },
+        {
+          header: t('الأصناف والكميات'),
+          accessor: (o) =>
+            o.items
+              .map((it) => `${it.name} (${it.quantity}${it.unit ? ` ${it.unit}` : ''})`)
+              .join(' ; '),
+        },
+        { header: t('الإجمالي (ج.م)'), accessor: (o) => o.total_amount },
+        { header: t('الحالة'), accessor: (o) => (o.status === 'delivered' ? t('تم التسليم') : t('قيد المتابعة')) },
+        { header: t('تاريخ التسليم'), accessor: (o) => (o.delivered_at ? fmtDate(o.delivered_at) : '') },
+        { header: t('ملاحظات'), accessor: (o) => o.notes || '' },
+      ],
+      q.data
+    );
+  };
+
   return <>
     <div className="row between">
       <div>
@@ -687,7 +801,18 @@ export function AdminOrders() {
           {t('الأوردرات التي يلتقطها المشرفون أثناء جولاتهم الميدانية لعرضها على المناديب. بمجرد تأكيد التسليم تصبح إنتاجية المشرف 100%.')}
         </p>
       </div>
-      {q.data && <span className="badge b-blue" style={{ fontSize: 14 }}>{num(q.data.length)} {t('أوردر')}</span>}
+      <div className="row gap-2 items-center">
+        <button
+          type="button"
+          className="btn ghost"
+          onClick={handleExportOrders}
+          disabled={!q.data?.length}
+          title={t('تصدير قائمة الأوردرات المصفاة إلى Excel')}
+        >
+          <Download size={16} /> {t('تصدير Excel')}
+        </button>
+        {q.data && <span className="badge b-blue" style={{ fontSize: 14 }}>{num(q.data.length)} {t('أوردر')}</span>}
+      </div>
     </div>
 
     {/* KPI Summary Cards */}

@@ -2,7 +2,8 @@ import { useCallback, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
-import { BarChart3, Plus, RefreshCw, Trash2, X } from '@/components/Icons';
+import { BarChart3, Download, Plus, RefreshCw, Trash2, X } from '@/components/Icons';
+import { exportToCsv } from '@/lib/csv-export';
 import EmptyState from '@/components/EmptyState';
 import { ErrorState } from '@/components/States';
 import { t } from '@/i18n';
@@ -118,11 +119,30 @@ function ReportViewer({ config, onClose }: { config: ReportConfig; onClose: () =
     },
   });
 
+  const handleExport = () => {
+    if (!q.data?.length) return;
+    const cols = config.columns.length > 0 ? config.columns : Object.keys(q.data[0]);
+    exportToCsv(
+      `${config.name}_${new Date().toISOString().slice(0, 10)}`,
+      cols.map((c) => ({ header: c, accessor: (row) => row[c] ?? '' })),
+      q.data
+    );
+  };
+
   return (
     <div className="col" style={{ gap: 14 }}>
       <div className="row between">
         <h3 style={{ margin: 0 }}>{config.name}</h3>
-        <div className="row">
+        <div className="row gap-1">
+          <button
+            className="icon-btn"
+            aria-label={t('تصدير Excel')}
+            title={t('تصدير التقرير إلى Excel')}
+            onClick={handleExport}
+            disabled={!q.data?.length}
+          >
+            <Download size={18} />
+          </button>
           <button className="icon-btn" aria-label={t('تحديث')} onClick={() => q.refetch()} disabled={q.isFetching}>
             <RefreshCw size={18} style={{ animation: q.isFetching ? 'spin .8s linear infinite' : 'none' }} />
           </button>
