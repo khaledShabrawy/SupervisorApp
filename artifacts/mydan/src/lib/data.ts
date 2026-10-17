@@ -288,7 +288,7 @@ export function useCustomers(search: string) {
   const sc = useScope(); const term = search.trim().replace(/[%,()]/g, ' ');
   return usePaged<Customer>(sc, 'customers', [term], async (from, to, signal) => {
     let q = sc.scope(supabase.from('customers').select(CUSTOMER_COLUMNS));
-    if (term) q = q.or(`name.ilike.%${term}%,address.ilike.%${term}%`);
+    if (term) q = q.or(`name.ilike.%${term}%,customer_code.ilike.%${term}%,address.ilike.%${term}%`);
     const { data, error } = await q.order('name').order('id').range(from, to).abortSignal(signal);
     if (error) fail('تعذر تحميل العملاء.', error);
     return data as Customer[];
@@ -300,8 +300,8 @@ export function useCustomerSearch(search: string) {
     queryKey: [...sc.base, 'customer-search', term], retry: 1,
     queryFn: async ({ signal }) => {
       let q = sc.scope(supabase.from('customers').select(CUSTOMER_COLUMNS)).eq('is_active', true);
-      if (term) q = q.ilike('name', `%${term}%`);
-      const { data, error } = await q.order('name').limit(15).abortSignal(signal);
+      if (term) q = q.or(`name.ilike.%${term}%,customer_code.ilike.%${term}%,address.ilike.%${term}%`);
+      const { data, error } = await q.order('name').limit(20).abortSignal(signal);
       if (error) fail('تعذر البحث عن العملاء.', error);
       return data as Customer[];
     },

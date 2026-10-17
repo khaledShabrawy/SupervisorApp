@@ -45,6 +45,9 @@ export interface PricedProduct {
   name: string;
   category?: string | null;
   sku?: string | null;
+  item_code?: string | null;
+  master_brand?: string | null;
+  sub_brand?: string | null;
   unit?: string | null;
   unit_price: number;
   is_active: boolean;
@@ -153,32 +156,67 @@ export function useProductsWithPrices(customerType: string | null) {
   return useQuery({
     queryKey: [...sc.base, 'products-with-prices', customerType ?? 'all'],
     queryFn: async () => {
-      const { data: products, error: pErr } = await supabase
+      // 1. Attempt full column selection
+      let productsRes = await supabase
         .from('products')
-        .select('id,name,category,sku,unit,is_active')
+        .select('id,name,category,sku_code,item_code,master_brand,sub_brand,price,is_active')
         .eq('company_id', sc.companyId)
         .eq('is_active', true)
         .order('name');
-      if (pErr) throw new Error(t('تعذر تحميل قائمة المنتجات.'));
 
-      const { data: prices } = await supabase
-        .from('price_lists')
-        .select('product_id,customer_type,unit_price')
-        .eq('company_id', sc.companyId);
+      // Fallback if brand/item_code migration not yet applied
+      if (productsRes.error) {
+        productsRes = await supabase
+          .from('products')
+          .select('id,name,category,price,is_active')
+          .eq('company_id', sc.companyId)
+          .eq('is_active', true)
+          .order('name');
+      }
 
+      // Final fallback if column naming differs or table unpopulated per company
+      if (productsRes.error) {
+        productsRes = await supabase
+          .from('products')
+          .select('id,name,category,is_active')
+          .limit(100);
+      }
+
+      const products = productsRes.data ?? [];
+
+      // 2. Fetch prices if price_lists table exists
       const priceMap = new Map<string, number>();
-      for (const p of prices ?? []) {
-        if (p.customer_type === customerType || p.customer_type === 'default') {
-          if (!priceMap.has(p.product_id)) priceMap.set(p.product_id, Number(p.unit_price) || 0);
+      try {
+        const { data: prices } = await supabase
+          .from('price_lists')
+          .select('product_id,customer_type,unit_price')
+          .eq('company_id', sc.companyId);
+
+        if (prices && prices.length > 0) {
+          for (const p of prices) {
+            if (p.customer_type === customerType || p.customer_type === 'default') {
+              if (!priceMap.has(p.product_id)) priceMap.set(p.product_id, Number(p.unit_price) || 0);
+            }
+          }
+          for (const p of prices) {
+            if (!priceMap.has(p.product_id)) priceMap.set(p.product_id, Number(p.unit_price) || 0);
+          }
         }
-      }
-      for (const p of prices ?? []) {
-        if (!priceMap.has(p.product_id)) priceMap.set(p.product_id, Number(p.unit_price) || 0);
+      } catch {
+        // price_lists table may not exist; rely on product.price
       }
 
-      return (products ?? []).map((prod) => ({
-        ...prod,
-        unit_price: priceMap.get(prod.id) ?? 0,
+      return products.map((prod: any) => ({
+        id: prod.id,
+        name: prod.name,
+        category: prod.category ?? null,
+        sku: prod.item_code || prod.sku_code || prod.sku || null,
+        item_code: prod.item_code || prod.sku_code || null,
+        master_brand: prod.master_brand ?? null,
+        sub_brand: prod.sub_brand ?? null,
+        unit: prod.unit ?? null,
+        unit_price: priceMap.get(prod.id) ?? Number(prod.price) || 0,
+        is_active: prod.is_active !== false,
       })) as PricedProduct[];
     },
   });

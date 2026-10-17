@@ -1,5 +1,6 @@
 export type CustomerInput = {
   name: string; type: string; address: string;
+  customer_code?: string | null;
   latitude: number | null; longitude: number | null; is_active: boolean;
 };
 
@@ -18,6 +19,7 @@ export function customerRecord(input: CustomerInput): CustomerInput {
   }
   return {
     name: input.name.trim(), type: input.type.trim(), address: input.address.trim(),
+    customer_code: input.customer_code?.trim() || null,
     latitude, longitude, is_active: input.is_active,
   };
 }

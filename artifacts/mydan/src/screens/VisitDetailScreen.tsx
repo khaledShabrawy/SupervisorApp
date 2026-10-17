@@ -49,7 +49,7 @@ function useVisitDetail(id: string) {
         supabase.from('visits').select(
           `id,supervisor_id,customer_id,visit_date,check_in_time,check_out_time,
            status,latitude,longitude,notes,company_id,visit_outcome,on_beat,geo_distance,
-           customers(id,name,address,customer_type,latitude,longitude),
+           customers(id,name,address,customer_type,customer_code,latitude,longitude),
            visit_tasks(id,task_type,title_ar,is_completed,is_mandatory,order_num)`
         )
       ).eq('id', id).abortSignal(signal).single();
@@ -115,9 +115,30 @@ const OutcomePicker = memo(function OutcomePicker({ value, disabled, onPick }: {
   return <div className="card col" role="radiogroup" aria-label={t('نتيجة الزيارة')}>
     <div className="title">{t('نتيجة الزيارة *')}</div>
     <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-      {VISIT_OUTCOMES.map((o) => <button key={o.value} type="button" role="radio" aria-checked={value === o.value}
-        className={`chip grow ${value === o.value ? 'on' : ''}`} disabled={disabled} onClick={() => onPick(o.value)}
-        data-testid={`outcome-${o.value}`}>{o.dot} {t(o.label)}</button>)}
+      {VISIT_OUTCOMES.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={value === o.value}
+          className={`chip grow ${value === o.value ? 'on' : ''}`}
+          style={{
+            fontSize: o.value.length > 7 ? 12 : 13.5,
+            whiteSpace: 'nowrap',
+            padding: '8px 10px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+          }}
+          disabled={disabled}
+          onClick={() => onPick(o.value)}
+          data-testid={`outcome-${o.value}`}
+        >
+          <span>{o.dot}</span>
+          <span>{t(o.label)}</span>
+        </button>
+      ))}
     </div>
     {!value && !disabled && <div className="muted" style={{ fontSize: 13 }}>{t('اختر نتيجة الزيارة قبل إنهائها.')}</div>}
   </div>;
@@ -203,7 +224,10 @@ export default function VisitDetailScreen() {
         <>
           <div className="card col">
             <div className="row between">
-              <div className="title" style={{ fontSize: 18 }}>{detail.data.customers?.name ?? t('عميل غير معروف')}</div>
+              <div className="title row" style={{ fontSize: 18, alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {detail.data.customers?.customer_code && <span className="badge b-blue" style={{ fontFamily: 'monospace', fontSize: 12 }}>{detail.data.customers.customer_code}</span>}
+                <span>{detail.data.customers?.name ?? t('عميل غير معروف')}</span>
+              </div>
               <StatusBadge status={detail.data.status} />
             </div>
             {detail.data.customers?.address && <div className="muted" style={{ fontSize: 13 }}>{detail.data.customers.address}</div>}
@@ -234,9 +258,9 @@ export default function VisitDetailScreen() {
             <div className="card col">
               <div className="title">{t('إجراءات سريعة')}</div>
               <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-                <button className="btn sm ghost grow" onClick={goShelfAudit}><Camera size={16} /> {t('مراجعة الرف')}</button>
-                <button className="btn sm ghost grow" onClick={goCompetitors}><Plus size={16} /> {t('منافسين')}</button>
-                <button className="btn sm ghost grow" onClick={goOrder} data-testid="button-quick-order"><ShoppingCart size={16} /> {t('أوردر')}</button>
+                <button className="btn sm ghost grow" onClick={goShelfAudit} style={{ whiteSpace: 'nowrap', minWidth: 90 }}><Camera size={16} /> {t('مراجعة الرف')}</button>
+                <button className="btn sm ghost grow" onClick={goCompetitors} style={{ whiteSpace: 'nowrap', minWidth: 80 }}><Plus size={16} /> {t('منافسين')}</button>
+                <button className="btn sm ghost grow" onClick={goOrder} data-testid="button-quick-order" style={{ whiteSpace: 'nowrap', minWidth: 70 }}><ShoppingCart size={16} /> {t('أوردر')}</button>
               </div>
             </div>
           )}

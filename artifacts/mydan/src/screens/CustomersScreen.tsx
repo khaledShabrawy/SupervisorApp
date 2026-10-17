@@ -21,10 +21,12 @@ import { t } from '@/i18n';
 function Form({ c, onClose }: { c: Customer | null; onClose: () => void }) {
   const m = useSaveCustomer();
   const [name, setName] = useState(c?.name ?? ''); const [type, setType] = useState(c?.customer_type ?? '');
+  const [code, setCode] = useState(c?.customer_code ?? '');
   const [address, setAddress] = useState(c?.address ?? ''); const [active, setActive] = useState(c?.is_active ?? true);
   const [lat, setLat] = useState(c?.latitude != null ? String(c.latitude) : ''); const [lng, setLng] = useState(c?.longitude != null ? String(c.longitude) : '');
   const [locating, setLocating] = useState(false);
-  const onName = useInput(setName); const onType = useInput(setType); const onAddr = useInput(setAddress); const onLat = useInput(setLat); const onLng = useInput(setLng); const onActive = useCheck(setActive);
+  const onName = useInput(setName); const onType = useInput(setType); const onCode = useInput(setCode);
+  const onAddr = useInput(setAddress); const onLat = useInput(setLat); const onLng = useInput(setLng); const onActive = useCheck(setActive);
   const locate = useCallback(() => {
     if (!navigator.geolocation) return notify(t('تحديد الموقع غير مدعوم.'), 'error');
     setLocating(true);
@@ -34,9 +36,10 @@ function Form({ c, onClose }: { c: Customer | null; onClose: () => void }) {
   const la = lat === '' ? null : Number(lat), lo = lng === '' ? null : Number(lng);
   const bad = (la !== null && (!Number.isFinite(la) || Math.abs(la) > 90)) || (lo !== null && (!Number.isFinite(lo) || Math.abs(lo) > 180)) || ((la === null) !== (lo === null));
   const valid = name.trim() && type.trim() && address.trim() && !bad;
-  const save = useCallback(() => m.mutate({ id: c?.id, input: { name: name.trim(), type: type.trim(), address: address.trim(), latitude: la, longitude: lo, is_active: active } }, { onSuccess: onClose }), [m, c, name, type, address, la, lo, active, onClose]);
+  const save = useCallback(() => m.mutate({ id: c?.id, input: { name: name.trim(), type: type.trim(), customer_code: code.trim() || null, address: address.trim(), latitude: la, longitude: lo, is_active: active } }, { onSuccess: onClose }), [m, c, name, type, code, address, la, lo, active, onClose]);
   return <Sheet title={c ? t('تعديل العميل') : t('عميل جديد')} onClose={onClose}><div className="col">
     <label className="f">{t('اسم العميل')}<input className="input" value={name} onChange={onName} data-testid="input-name" /></label>
+    <label className="f">{t('كود العميل (اختياري)')}<input className="input" placeholder="مثال: CUST-001" value={code} onChange={onCode} data-testid="input-customer-code" /></label>
     <label className="f">{t('النوع (بقالة، سوبرماركت...)')}<input className="input" value={type} onChange={onType} data-testid="input-type" /></label>
     <label className="f">{t('العنوان')}<input className="input" value={address} onChange={onAddr} data-testid="input-address" /></label>
     <div className="row">
@@ -56,6 +59,7 @@ function Detail({ c, onEdit, onClose }: { c: CustomerCardRow; onEdit: (c: Custom
   const nav = useNavigate(); const h = useCustomerHistory(c.id); const retry = useRefetch(h.refetch);
   const visit = useCallback(() => nav(`/visits/new?customer=${c.id}`), [nav, c.id]); const edit = useCallback(() => onEdit(c), [onEdit, c]);
   return <Sheet title={c.name} onClose={onClose}><div className="col">
+    {c.customer_code && <div className="badge b-blue" style={{ alignSelf: 'flex-start', fontFamily: 'monospace', fontSize: 13, marginBottom: 4 }}>كود العميل: {c.customer_code}</div>}
     <div className="muted">{t(customerTypeLabel(c.customer_type))} · {c.address}</div>
     <div className="row">
       <button className="btn sm grow" onClick={visit}>{t('زيارة جديدة')}</button>
@@ -70,13 +74,23 @@ function Detail({ c, onEdit, onClose }: { c: CustomerCardRow; onEdit: (c: Custom
 const Card = memo(function Card({ c, now, onOpen }: { c: CustomerCardRow; now: number; onOpen: (c: CustomerCardRow) => void }) {
   const open = useCallback(() => onOpen(c), [onOpen, c]);
   return <button className="s-row" onClick={open} data-testid={`card-customer-${c.id}`}>
-    <div className="grow"><div className="title">{c.name}{!c.is_active && <span className="badge b-gray" style={{ marginInlineStart: 8 }}>{t('غير نشط')}</span>}</div>
-      <div className="muted">{t(customerTypeLabel(c.customer_type))}</div><div className="muted row" style={{ gap: 4 }}><MapPin size={14} />{c.address}</div>
-      <div className="muted" style={{ fontSize: 13 }}>{t('آخر زيارة:')} {c.last_visit ? relativeArabicTime(c.last_visit, now) : t('لا توجد')}</div></div>
+    <div className="grow">
+      <div className="title row" style={{ alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        {c.customer_code && <span className="badge b-blue" style={{ fontFamily: 'monospace', fontSize: 11, padding: '1px 6px' }}>{c.customer_code}</span>}
+        <span>{c.name}</span>
+        {!c.is_active && <span className="badge b-gray" style={{ marginInlineStart: 4 }}>{t('غير نشط')}</span>}
+      </div>
+      <div className="muted">{t(customerTypeLabel(c.customer_type))}</div>
+      <div className="muted row" style={{ gap: 4 }}><MapPin size={14} />{c.address}</div>
+      <div className="muted" style={{ fontSize: 13 }}>{t('آخر زيارة:')} {c.last_visit ? relativeArabicTime(c.last_visit, now) : t('لا توجد')}</div>
+    </div>
   </button>;
 });
 // Values are the stored customer types (Arabic); only the label is translated.
-const CHIPS: [string, string][] = [['all', t('الكل')], ...['بقالة', 'سوبر ماركت', 'هايبر ماركت', 'كافيه', 'أخرى'].map((v): [string, string] => [v, t(v)])];
+const CHIPS: [string, string][] = [
+  ['all', t('الكل')],
+  ...['بقالة', 'سوبر ماركت', 'هايبر ماركت', 'منظفات', 'صيدليات', 'كافيه', 'أخرى'].map((v): [string, string] => [v, t(v)])
+];
 
 export default function CustomersScreen({ embedded = false }: { embedded?: boolean }) {
   const { supervisor } = useAuth(); const settings = useAppSettings(); const now = useMinuteTick();
@@ -97,7 +111,7 @@ export default function CustomersScreen({ embedded = false }: { embedded?: boole
     {embedded && <button className="btn sm" data-testid="button-new-customer" onClick={newOne}><Plus size={18} /> {t('عميل')}</button>}
     <div style={{ position: 'relative' }}>
       <Search size={18} style={{ position: 'absolute', insetInlineStart: 12, top: 15, color: 'var(--muted)' }} />
-      <input className="input" style={{ paddingInlineStart: 38 }} placeholder={t('بحث بالاسم أو العنوان')} value={term} onChange={onTerm} data-testid="input-search" />
+      <input className="input" style={{ paddingInlineStart: 38 }} placeholder={t('بحث بالاسم أو الكود أو العنوان')} value={term} onChange={onTerm} data-testid="input-search" />
     </div>
     <div className="tabs">{CHIPS.map(([k, l]) => <Chip key={k} value={k} label={l} active={type === k} onSelect={onType} />)}</div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />

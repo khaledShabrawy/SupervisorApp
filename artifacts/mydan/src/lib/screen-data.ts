@@ -9,7 +9,7 @@ import { readAllRows, readExactCount } from './read-count';
 import { notify } from './toast';
 import { countTargetRecord } from './execution-records';
 import type { AppSettings, Customer, Target } from '@/types/database';
-export { useUploadAudit, useRequestAuditAnalysis, useAuditResult } from './screen-audit';
+export { useUploadAudit, useRequestAuditAnalysis, useAuditResult, useVisitAudits } from './screen-audit';
 
 export type CustomerCardRow = Customer & { last_visit: string | null };
 export type CatalogProduct = { id: string; name: string; category: string; sku?: string; item_code?: string; master_brand?: string; sub_brand?: string; is_active: boolean };
@@ -81,8 +81,8 @@ export function useVisitsRange(period: 'today' | 'week' | 'month') {
 export function useCustomerCards(search: string, type: string) {
   const sc = useScope(), term = search.trim().replace(/[%,()]/g, ' ');
   return usePaged<CustomerCardRow>(sc, 'customers', ['cards', term, type], async (from, to, signal) => {
-    let q: ReturnType<typeof sc.scope> = supabase.from('customers').select(`${CUSTOMER_COLUMNS},visits(check_in_time)`).eq('company_id', sc.companyId);
-    if (term) q = q.or(`name.ilike.%${term}%,address.ilike.%${term}%`);
+    let q = sc.scope(supabase.from('customers').select(`${CUSTOMER_COLUMNS},visits(check_in_time)`));
+    if (term) q = q.or(`name.ilike.%${term}%,customer_code.ilike.%${term}%,address.ilike.%${term}%`);
     if (type === 'أخرى') {
       const known = Object.entries(CUSTOMER_TYPES).filter(([key]) => key !== 'أخرى').flatMap(([, values]) => values);
       q = q.not('customer_type', 'in', `(${known.map(value => `"${value}"`).join(',')})`);
@@ -107,7 +107,7 @@ export function useCustomerById(id: string | null) {
   const sc = useScope();
   return useQuery({ queryKey: [...sc.base, 'customers', 'selected', id], enabled: !!id, retry: 1,
     queryFn: async ({ signal }) => {
-      const r = await supabase.from('customers').select(CUSTOMER_COLUMNS).eq('company_id', sc.companyId).eq('id', id!)
+      const r = await sc.scope(supabase.from('customers').select(CUSTOMER_COLUMNS)).eq('id', id!)
         .eq('is_active', true).abortSignal(signal).single();
       errorMessage('تعذر تحميل العميل المحدد.', r.error);
       return r.data as Customer;

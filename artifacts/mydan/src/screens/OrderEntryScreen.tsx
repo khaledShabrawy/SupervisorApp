@@ -31,11 +31,14 @@ const ProductRow = memo(function ProductRow({
     <div className="card col" style={{ padding: 12, borderRight: qty > 0 ? '4px solid var(--color-primary)' : '1px solid var(--line)' }} data-testid={`order-product-${product.id}`}>
       <div className="row between">
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="title" style={{ fontSize: 15 }}>{product.name}</div>
+          <div className="title" style={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {product.item_code && <span className="badge b-blue" style={{ fontFamily: 'monospace', fontSize: 11, padding: '1px 6px' }}>{product.item_code}</span>}
+            <span>{product.name}</span>
+          </div>
           <div className="muted" style={{ fontSize: 13 }}>
             {product.unit_price > 0 ? `${num(product.unit_price)} ${t('ج.م')}` : t('بلا سعر')}
             {product.unit ? ` / ${product.unit}` : ''}
-            {product.sku ? ` · ${product.sku}` : ''}
+            {product.master_brand ? ` · ${product.master_brand}` : product.sku ? ` · ${product.sku}` : ''}
           </div>
         </div>
         {qty > 0 && (
@@ -122,6 +125,9 @@ export default function OrderEntryScreen() {
     return products.data.filter((p) =>
       p.name.toLowerCase().includes(s) ||
       (p.sku && p.sku.toLowerCase().includes(s)) ||
+      (p.item_code && p.item_code.toLowerCase().includes(s)) ||
+      (p.master_brand && p.master_brand.toLowerCase().includes(s)) ||
+      (p.sub_brand && p.sub_brand.toLowerCase().includes(s)) ||
       (p.category && p.category.toLowerCase().includes(s))
     );
   }, [products.data, search]);
