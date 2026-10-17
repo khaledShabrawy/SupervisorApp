@@ -11,8 +11,13 @@ if (!supabaseUrl || !serviceRoleKey) {
   process.exit(1);
 }
 
-const DEMO_EMAIL    = 'demo@mydan.app';
-const DEMO_PASSWORD = '[REDACTED]';
+const DEMO_EMAIL    = process.env.DEMO_EMAIL;
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
+
+if (!DEMO_EMAIL || !DEMO_PASSWORD) {
+  console.error('Missing DEMO_EMAIL or DEMO_PASSWORD');
+  process.exit(1);
+}
 const trialExpiry   = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
 
 const headers = {
@@ -94,8 +99,6 @@ async function run() {
   console.log('\n' + '─'.repeat(52));
   console.log('🎉  حساب تجريبي جاهز — 15 يوم');
   console.log('─'.repeat(52));
-  console.log('📧  البريد    :', DEMO_EMAIL);
-  console.log('🔑  كلمة المرور:', DEMO_PASSWORD);
   console.log('📅  ينتهي في  :', expLabel);
   console.log('─'.repeat(52));
 }

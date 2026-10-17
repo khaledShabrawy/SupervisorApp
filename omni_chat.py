@@ -1,10 +1,13 @@
 import json
+import os
 import urllib.request
 
 API_URL = "http://localhost:20128/v1/chat/completions"
-API_KEY = "[REDACTED]"
+API_KEY = os.environ.get("OMNI_API_KEY", "")
 
 def ask_omni(prompt):
+    if not API_KEY:
+        return "خطأ: يجب ضبط متغير البيئة OMNI_API_KEY."
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {API_KEY}"
