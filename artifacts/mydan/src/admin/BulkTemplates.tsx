@@ -11,6 +11,16 @@ const CUSTOMER_CSV_TEMPLATE = `name,type,customer_type,owner_name,phone,address,
 بقالة الأمل,بقالة,retail,أحمد محمد,01012345678,شارع النيل، القاهرة,30.0444,31.2357,القاهرة,,true
 سوبرماركت النور,سوبرماركت,wholesale,محمود علي,01098765432,ميدان التحرير، الجيزة,30.0626,31.2497,الجيزة,,true`;
 
+/** CSV template for products import */
+const PRODUCT_CSV_TEMPLATE = `name,category,sku_code,item_code,master_brand,sub_brand,is_active
+شوكولاتة كورونا سبريد,حلويات,SKU-COR-01,ITM-101,كورونا,سبريد,true
+بسكويت كورونا لوكس,بسكويت,SKU-COR-02,ITM-102,كورونا,لوكس,true`;
+
+/** CSV template for monthly targets import */
+const TARGET_CSV_TEMPLATE = `supervisor_id,month,year,visits_target,audit_target,criteria,target_amount
+,10,2026,50,25,visits,0
+,10,2026,60,30,orders,25000`;
+
 /** CSV template for supervisor beat plans */
 const BEAT_PLAN_CSV_TEMPLATE = `supervisor_id,day_of_week,customer_id,sequence
 ,0,,1
@@ -102,10 +112,153 @@ function useBulkImportCustomers() {
           latitude: row[latIdx] ? parseFloat(row[latIdx]) : null,
           longitude: row[lngIdx] ? parseFloat(row[lngIdx]) : null,
           branch: row[branchIdx]?.trim() || null,
-          is_active: row[activeIdx]?.toLowerCase() !== 'false',
+          is_active: row[activeIdx]?.trim() !== 'false',
         };
 
         const { error } = await supabase.from('customers').insert(customer);
+        if (error) {
+          result.failed++;
+          result.errors.push(t('سطر {n} ({name}): {err}', { n: i + 2, name, err: error.message }));
+        } else {
+          result.success++;
+        }
+      }
+
+      return result;
+    },
+    onSuccess: (result) => {
+      notify(t('تم استيراد {s} عميل بنجاح. فشل: {f}', { s: result.success, f: result.failed }), result.failed === 0 ? 'success' : 'info');
+      void qc.invalidateQueries({ queryKey: [...sc.base, 'customers'] });
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+function useBulkImportProducts() {
+  const sc = useScope();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File): Promise<ImportResult> => {
+      const text = await file.text();
+      const rows = parseCSV(text);
+      if (rows.length < 2) throw new Error(t('ملف CSV فارغ أو لا يحتوي على بيانات.'));
+
+      const headers = rows[0].map(h => h.toLowerCase().trim());
+      const nameIdx = headers.indexOf('name');
+      const catIdx = headers.indexOf('category');
+      const skuIdx = headers.indexOf('sku_code') !== -1 ? headers.indexOf('sku_code') : headers.indexOf('sku');
+      const itemCodeIdx = headers.indexOf('item_code');
+      const masterIdx = headers.indexOf('master_brand');
+      const subIdx = headers.indexOf('sub_brand');
+      const activeIdx = headers.indexOf('is_active');
+
+      if (nameIdx === -1) {
+        throw new Error(t('الحقول المطلوبة: name'));
+      }
+
+      const result: ImportResult = { success: 0, failed: 0, errors: [] };
+      const dataRows = rows.slice(1);
+
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        const name = row[nameIdx]?.trim();
+        if (!name) {
+          result.failed++;
+          result.errors.push(t('سطر {n}: اسم المنتج فارغ', { n: i + 2 }));
+          continue;
+        }
+
+        const sku = (skuIdx !== -1 ? row[skuIdx]?.trim() : '') || null;
+        const itemCode = (itemCodeIdx !== -1 ? row[itemCodeIdx]?.trim() : '') || sku;
+
+        const prod = {
+          company_id: sc.companyId,
+          name,
+          category: (catIdx !== -1 ? row[catIdx]?.trim() : '') || null,
+          sku_code: sku,
+          item_code: itemCode,
+          master_brand: (masterIdx !== -1 ? row[masterIdx]?.trim() : '') || null,
+          sub_brand: (subIdx !== -1 ? row[subIdx]?.trim() : '') || null,
+          is_active: activeIdx !== -1 ? row[activeIdx]?.trim().toLowerCase() !== 'false' : true,
+        };
+
+        const { error } = await supabase.from('products').insert(prod);
+        if (error) {
+          result.failed++;
+          result.errors.push(t('سطر {n} ({name}): {err}', { n: i + 2, name, err: error.message }));
+        } else {
+          result.success++;
+        }
+      }
+
+      return result;
+    },
+    onSuccess: (res) => {
+      notify(t('تم استيراد {n} منتج بنجاح', { n: res.success }), res.failed ? 'info' : 'success');
+      void qc.invalidateQueries({ queryKey: [...sc.base, 'products'] });
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+function useBulkImportTargets() {
+  const sc = useScope();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File): Promise<ImportResult> => {
+      const text = await file.text();
+      const rows = parseCSV(text);
+      if (rows.length < 2) throw new Error(t('ملف CSV فارغ أو لا يحتوي على بيانات.'));
+
+      const headers = rows[0].map(h => h.toLowerCase().trim());
+      const supIdx = headers.indexOf('supervisor_id');
+      const monthIdx = headers.indexOf('month');
+      const yearIdx = headers.indexOf('year');
+      const visitsIdx = headers.indexOf('visits_target');
+      const auditIdx = headers.indexOf('audit_target');
+      const criteriaIdx = headers.indexOf('criteria');
+      const amountIdx = headers.indexOf('target_amount');
+
+      if (monthIdx === -1 || yearIdx === -1) {
+        throw new Error(t('الحقول المطلوبة: month, year'));
+      }
+
+      const result: ImportResult = { success: 0, failed: 0, errors: [] };
+      const dataRows = rows.slice(1);
+
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        const month = Number(row[monthIdx]);
+        const year = Number(row[yearIdx]);
+
+        if (!month || !year || month < 1 || month > 12) {
+          result.failed++;
+          result.errors.push(t('سطر {n}: شهر أو سنة غير صالحة', { n: i + 2 }));
+          continue;
+        }
+
+        const supervisorId = (supIdx !== -1 ? row[supIdx]?.trim() : '') || null;
+        const visitsTarget = Number(visitsIdx !== -1 ? row[visitsIdx] : 0) || 0;
+        const auditTarget = Number(auditIdx !== -1 ? row[auditIdx] : 0) || 0;
+        const targetAmount = Number(amountIdx !== -1 ? row[amountIdx] : 0) || 0;
+        const criteria = (criteriaIdx !== -1 ? row[criteriaIdx]?.trim() : '') || 'visits';
+
+        const record = {
+          company_id: sc.companyId,
+          supervisor_id: supervisorId,
+          month,
+          year,
+          visits_target: visitsTarget,
+          audit_target: auditTarget,
+          target_amount: targetAmount,
+          criteria,
+          scope_type: supervisorId ? 'per_user' : 'general',
+          target_date: `${year}-${String(month).padStart(2, '0')}-01`,
+          actual_visits: 0,
+          actual_audits: 0,
+        };
+
+        const { error } = await supabase.from('targets').insert(record);
         if (error) {
           result.failed++;
           result.errors.push(t('سطر {n}: {err}', { n: i + 2, err: error.message }));
@@ -116,9 +269,10 @@ function useBulkImportCustomers() {
 
       return result;
     },
-    onSuccess: (result) => {
-      notify(t('تم استيراد {s} عميل. فشل: {f}', { s: result.success, f: result.failed }), result.failed === 0 ? 'success' : 'info');
-      void qc.invalidateQueries({ queryKey: [...sc.base, 'customers'] });
+    onSuccess: (res) => {
+      notify(t('تم استيراد {n} هدف بنجاح', { n: res.success }), res.failed ? 'info' : 'success');
+      void qc.invalidateQueries({ queryKey: [...sc.base, 'targets'] });
+      void qc.invalidateQueries({ queryKey: [...sc.base, 'dashboard'] });
     },
     onError: (e: Error) => notify(e.message, 'error'),
   });
@@ -138,8 +292,8 @@ function useBulkImportBeatPlans() {
       const dayIdx = headers.indexOf('day_of_week');
       const custIdIdx = headers.indexOf('customer_id');
 
-      if (supIdIdx === -1 || dayIdx === -1 || custIdIdx === -1) {
-        throw new Error(t('الحقول المطلوبة: supervisor_id, day_of_week, customer_id'));
+      if (dayIdx === -1 || custIdIdx === -1) {
+        throw new Error(t('الحقول المطلوبة: day_of_week, customer_id'));
       }
 
       const result: ImportResult = { success: 0, failed: 0, errors: [] };
@@ -185,8 +339,13 @@ function useBulkImportBeatPlans() {
 
 export function BulkTemplates() {
   const customerFileRef = useRef<HTMLInputElement>(null);
+  const productFileRef = useRef<HTMLInputElement>(null);
+  const targetFileRef = useRef<HTMLInputElement>(null);
   const beatFileRef = useRef<HTMLInputElement>(null);
+
   const importCustomers = useBulkImportCustomers();
+  const importProducts = useBulkImportProducts();
+  const importTargets = useBulkImportTargets();
   const importBeats = useBulkImportBeatPlans();
   const [errors, setErrors] = useState<string[]>([]);
 
@@ -201,6 +360,28 @@ export function BulkTemplates() {
     e.target.value = '';
   }, [importCustomers]);
 
+  const handleProductUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setErrors([]);
+      importProducts.mutate(file, {
+        onSuccess: (result) => { if (result.errors.length) setErrors(result.errors); },
+      });
+    }
+    e.target.value = '';
+  }, [importProducts]);
+
+  const handleTargetUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setErrors([]);
+      importTargets.mutate(file, {
+        onSuccess: (result) => { if (result.errors.length) setErrors(result.errors); },
+      });
+    }
+    e.target.value = '';
+  }, [importTargets]);
+
   const handleBeatUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -214,8 +395,9 @@ export function BulkTemplates() {
 
   return (
     <div className="col" style={{ gap: 16 }}>
-      <h2>{t('استيراد جماعي')}</h2>
+      <h2>{t('استيراد جماعي (Bulk Import)')}</h2>
 
+      {/* 1. Customers Import */}
       <div className="card col">
         <div className="title">{t('استيراد العملاء')}</div>
         <div className="muted">{t('قم بتنزيل القالب، املأ بيانات العملاء، ثم ارفعه للاستيراد.')}</div>
@@ -223,10 +405,10 @@ export function BulkTemplates() {
           <strong>{t('تنسيق الحقول:')}</strong>
           <ul style={{ marginTop: 4, paddingInlineStart: 20 }}>
             <li><code>name</code>: {t('اسم العميل (مطلوب)')}</li>
-            <li><code>type</code>: {t('النوع (بقالة، سوبرماركت، هايبرماركت، كيوسك، محل جملة، ضيافة، أخرى)')}</li>
+            <li><code>type</code>: {t('النوع (بقالة، سوبرماركت، هايبرماركت، كيوسك، محل جملة، منظفات، صيدليات، أخرى)')}</li>
             <li><code>customer_type</code>: retail, wholesale</li>
             <li><code>address</code>: {t('العنوان (مطلوب)')}</li>
-            <li><code>phone</code>, <code>latitude</code>, <code>longitude</code>: {t('اختياري')}</li>
+            <li><code>phone</code>, <code>latitude</code>, <code>longitude</code>, <code>branch</code>, <code>supervisor_id</code>: {t('اختياري')}</li>
           </ul>
         </div>
         <div className="row" style={{ gap: 8 }}>
@@ -253,6 +435,85 @@ export function BulkTemplates() {
         </div>
       </div>
 
+      {/* 2. Products Import */}
+      <div className="card col">
+        <div className="title">{t('استيراد المنتجات (الأصناف)')}</div>
+        <div className="muted">{t('قم بتنزيل قالب المنتجات، املأ بيانات الأصناف والماركات، ثم ارفعه للاستيراد.')}</div>
+        <div className="alert warn" style={{ fontSize: 13 }}>
+          <strong>{t('تنسيق الحقول:')}</strong>
+          <ul style={{ marginTop: 4, paddingInlineStart: 20 }}>
+            <li><code>name</code>: {t('اسم المنتج (مطلوب)')}</li>
+            <li><code>item_code</code> / <code>sku_code</code>: {t('كود الصنف (Item Code)')}</li>
+            <li><code>master_brand</code>: {t('العلامة الرئيسية (Master Brand)')}</li>
+            <li><code>sub_brand</code>: {t('العلامة الفرعية (Sub Brand)')}</li>
+            <li><code>category</code>: {t('الفئة')}</li>
+            <li><code>is_active</code>: {t('true / false')}</li>
+          </ul>
+        </div>
+        <div className="row" style={{ gap: 8 }}>
+          <button
+            className="btn ghost"
+            onClick={() => downloadTemplate('products_template.csv', PRODUCT_CSV_TEMPLATE)}
+          >
+            <Download size={18} /> {t('تنزيل قالب المنتجات')}
+          </button>
+          <button
+            className="btn"
+            onClick={() => productFileRef.current?.click()}
+            disabled={importProducts.isPending}
+          >
+            <Save size={18} /> {importProducts.isPending ? t('جاري الاستيراد...') : t('رفع ملف المنتجات')}
+          </button>
+          <input
+            ref={productFileRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={handleProductUpload}
+            style={{ display: 'none' }}
+          />
+        </div>
+      </div>
+
+      {/* 3. Targets Import */}
+      <div className="card col">
+        <div className="title">{t('استيراد الأهداف الشهرية (Targets)')}</div>
+        <div className="muted">{t('قم بتنزيل قالب الأهداف، حدد تارجت الزيارات والمبيعات لكل مشرف أو للفريق، ثم ارفعه.')}</div>
+        <div className="alert warn" style={{ fontSize: 13 }}>
+          <strong>{t('تنسيق الحقول:')}</strong>
+          <ul style={{ marginTop: 4, paddingInlineStart: 20 }}>
+            <li><code>month</code>, <code>year</code>: {t('الشهر والسنة (مطلوبان، مثال: 10, 2026)')}</li>
+            <li><code>visits_target</code>: {t('عدد الزيارات المستهدفة')}</li>
+            <li><code>audit_target</code>: {t('عدد مراجعات الرف')}</li>
+            <li><code>criteria</code>: {t('visits, orders, shelf_audit, new_opportunity')}</li>
+            <li><code>target_amount</code>: {t('القيمة المالية المستهدفة (للأوردرات)')}</li>
+            <li><code>supervisor_id</code>: {t('معرّف المشرف (اختياري، اتركه فارغاً للهدف العام)')}</li>
+          </ul>
+        </div>
+        <div className="row" style={{ gap: 8 }}>
+          <button
+            className="btn ghost"
+            onClick={() => downloadTemplate('targets_template.csv', TARGET_CSV_TEMPLATE)}
+          >
+            <Download size={18} /> {t('تنزيل قالب الأهداف')}
+          </button>
+          <button
+            className="btn"
+            onClick={() => targetFileRef.current?.click()}
+            disabled={importTargets.isPending}
+          >
+            <Save size={18} /> {importTargets.isPending ? t('جاري الاستيراد...') : t('رفع ملف الأهداف')}
+          </button>
+          <input
+            ref={targetFileRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={handleTargetUpload}
+            style={{ display: 'none' }}
+          />
+        </div>
+      </div>
+
+      {/* 4. Beat Plans Import */}
       <div className="card col">
         <div className="title">{t('استيراد خطة الزيارات')}</div>
         <div className="muted">{t('قم بتنزيل القالب، حدد خطط الزيارات اليومية لكل مشرف.')}</div>

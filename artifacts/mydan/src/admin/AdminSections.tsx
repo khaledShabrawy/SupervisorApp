@@ -212,29 +212,80 @@ export function AdminTargets() { return <><h2>{t('الأهداف الشهرية'
 /* ---------- Products (catalog only; pricing is out of scope by design) ---------- */
 function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: () => void }) {
   const m = useSaveProduct();
-  const [name, setName] = useState(edit?.name ?? ''); const [category, setCategory] = useState(edit?.category ?? '');
-  const [sku, setSku] = useState(edit?.sku ?? ''); const [active, setActive] = useState(edit?.is_active ?? true);
-  const submit = useCallback((e: FormEvent) => { e.preventDefault();
-    m.mutate({ id: edit?.id, name, category, sku, is_active: active }, { onSuccess: onClose }); }, [m, edit, name, category, sku, active, onClose]);
+  const [name, setName] = useState(edit?.name ?? '');
+  const [category, setCategory] = useState(edit?.category ?? '');
+  const [sku, setSku] = useState(edit?.sku ?? '');
+  const [itemCode, setItemCode] = useState(edit?.item_code ?? edit?.sku ?? '');
+  const [masterBrand, setMasterBrand] = useState(edit?.master_brand ?? '');
+  const [subBrand, setSubBrand] = useState(edit?.sub_brand ?? '');
+  const [active, setActive] = useState(edit?.is_active ?? true);
+
+  const submit = useCallback((e: FormEvent) => {
+    e.preventDefault();
+    m.mutate({
+      id: edit?.id,
+      name,
+      category,
+      sku: itemCode || sku,
+      item_code: itemCode,
+      master_brand: masterBrand,
+      sub_brand: subBrand,
+      is_active: active,
+    }, { onSuccess: onClose });
+  }, [m, edit, name, category, sku, itemCode, masterBrand, subBrand, active, onClose]);
+
   return <Modal title={edit ? t('تعديل المنتج') : t('منتج جديد')} onClose={onClose} onSubmit={submit}>
     <label className="f">{t('اسم المنتج *')}<input className="input" required value={name} onChange={useInput(setName)} /></label>
-    <label className="f">{t('الفئة')}<input className="input" value={category} onChange={useInput(setCategory)} /></label>
-    <label className="f">{t('كود SKU')}<input className="input" dir="ltr" value={sku} onChange={useInput(setSku)} /></label>
-    <label className="row" style={{ minHeight: 44 }}><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} style={{ width: 22, height: 22 }} /> {t('متاح')}</label>
-    <button className="btn" disabled={m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ')}</button>
+    <div className="row">
+      <label className="f grow">{t('كود الصنف (Item Code / SKU)')}<input className="input" dir="ltr" value={itemCode} onChange={useInput(setItemCode)} placeholder="ITM-001" /></label>
+      <label className="f grow">{t('الفئة')}<input className="input" value={category} onChange={useInput(setCategory)} placeholder={t('مثال: مشروبات / منظفات')} /></label>
+    </div>
+    <div className="row">
+      <label className="f grow">{t('Master Brand (العلامة الرئيسية)')}<input className="input" value={masterBrand} onChange={useInput(setMasterBrand)} placeholder={t('مثال: كورونا')} /></label>
+      <label className="f grow">{t('Sub Brand (العلامة الفرعية)')}<input className="input" value={subBrand} onChange={useInput(setSubBrand)} placeholder={t('مثال: شوكولاتة')} /></label>
+    </div>
+    <label className="row" style={{ minHeight: 44 }}><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} style={{ width: 22, height: 22 }} /> {t('متاح في الكتالوج')}</label>
+    <button className="btn" disabled={m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ المنتج')}</button>
   </Modal>;
 }
 export function AdminProducts() {
-  const q = useAdminProducts(); const retry = useRefetch(q.refetch);
+  const [availability, setAvailability] = useState<'all' | 'active' | 'inactive'>('all');
+  const q = useAdminProducts(availability);
+  const retry = useRefetch(q.refetch);
   const deactivate = useDeactivateRecord('products', 'admin-products');
   const [edit, setEdit] = useState<CatalogProduct | null | undefined>(undefined);
+
   return <>
-    <div className="row between"><h2>{t('المنتجات')}</h2><button className="btn" onClick={() => setEdit(null)}><Plus size={18} /> {t('منتج جديد')}</button></div>
+    <div className="row between">
+      <h2>{t('المنتجات')}</h2>
+      <button className="btn" onClick={() => setEdit(null)}><Plus size={18} /> {t('منتج جديد')}</button>
+    </div>
+    <div className="row" style={{ gap: 10, alignItems: 'center', marginBottom: 12 }}>
+      <span className="muted" style={{ fontSize: 13 }}>{t('حالة الصنف:')}</span>
+      <select className="input" style={{ width: 170 }} value={availability} onChange={(e) => setAvailability(e.target.value as any)}>
+        <option value="all">{t('كل الأصناف')}</option>
+        <option value="active">{t('المتاحة فقط')}</option>
+        <option value="inactive">{t('غير المتاحة (المتوقفة)')}</option>
+      </select>
+    </div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
       : !q.items.length ? <EmptyState icon={<Package />} title={t('لا توجد منتجات')} />
       : <div className="adm-table-wrap"><table className="adm-table">
-          <thead><tr><th>{t('المنتج')}</th><th>{t('الفئة')}</th><th>SKU</th><th>{t('الحالة')}</th><th /></tr></thead>
-          <tbody>{q.items.map((p) => <tr key={p.id}><td className="title">{p.name}</td><td>{p.category || '—'}</td><td dir="ltr">{p.sku || '—'}</td>
+          <thead><tr>
+            <th>{t('كود الصنف')}</th>
+            <th>{t('المنتج')}</th>
+            <th>Master Brand</th>
+            <th>Sub Brand</th>
+            <th>{t('الفئة')}</th>
+            <th>{t('الحالة')}</th>
+            <th />
+          </tr></thead>
+          <tbody>{q.items.map((p) => <tr key={p.id}>
+            <td dir="ltr" style={{ fontWeight: 600, color: 'var(--color-primary)' }}>{p.item_code || p.sku || '—'}</td>
+            <td className="title">{p.name}</td>
+            <td>{p.master_brand || '—'}</td>
+            <td>{p.sub_brand || '—'}</td>
+            <td>{p.category || '—'}</td>
             <td><span className={`badge ${p.is_active ? 'b-green' : 'b-gray'}`}>{p.is_active ? t('متاح') : t('متوقف')}</span></td>
             <td className="row gap-1">
               <button className="btn sm ghost" onClick={() => setEdit(p)}>{t('تعديل')}</button>
@@ -274,7 +325,11 @@ function AssetForm({ edit, types, onClose }: { edit: AssetRow | null; types: { i
   </Modal>;
 }
 export function AdminAssets() {
-  const [search, setSearch] = useState(''); const q = useAssets(useDebouncedValue(search, 300)); const retry = useRefetch(q.refetch);
+  const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const q = useAssets(useDebouncedValue(search, 300), dateFrom || undefined, dateTo || undefined);
+  const retry = useRefetch(q.refetch);
   const [edit, setEdit] = useState<AssetRow | null | undefined>(undefined);
   return <>
     <h2>{t('إدارة الأصول')}</h2>
@@ -283,7 +338,18 @@ export function AdminAssets() {
       <section className="col">
         <div className="row between"><div className="title">{t('الأصول')}</div>
           <button className="btn sm" onClick={() => setEdit(null)} data-testid="button-new-asset"><Plus size={18} /> {t('أصل جديد')}</button></div>
-        <input className="input" placeholder={t('ابحث بالكود أو الرقم التسلسلي...')} value={search} onChange={useInput(setSearch)} />
+        <div className="col" style={{ gap: 8 }}>
+          <input className="input" placeholder={t('ابحث بالكود أو الرقم التسلسلي...')} value={search} onChange={useInput(setSearch)} />
+          <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="muted" style={{ fontSize: 12 }}>{t('تاريخ التركيب/التسجيل:')}</span>
+            <input className="input" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ width: 135 }} />
+            <span className="muted" style={{ fontSize: 12 }}>{t('إلى:')}</span>
+            <input className="input" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ width: 135 }} />
+            {(dateFrom || dateTo) && (
+              <button className="btn sm ghost" onClick={() => { setDateFrom(''); setDateTo(''); }}>{t('إلغاء التصفية')}</button>
+            )}
+          </div>
+        </div>
         {q.isPending ? <SkeletonList n={3} /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
           : !q.items.length ? <EmptyState icon={<Package />} title={t('لا توجد أصول')} />
           : q.items.map((a) => { const [label, cls] = ASSET_STATUS[a.status] ?? [a.status, 'b-gray'];
@@ -295,7 +361,6 @@ export function AdminAssets() {
         <LoadMore q={q} />
       </section>
     </div>
-    {edit !== undefined && <AssetFormLoader edit={edit} onClose={() => setEdit(undefined)} />}
   </>;
 }
 /** Loads active asset types for the form (kept separate so the list renders without waiting on them). */
@@ -448,7 +513,34 @@ function SurveyForm({ edit, onClose }: { edit: SurveyRow | null; onClose: () => 
         <option value="text">{t('نص حر')}</option>
         <option value="rating">{t('تقييم (1-5)')}</option>
         <option value="choice">{t('اختيار من متعدد')}</option>
+        <option value="checklist">{t('فحص تواجد أصناف ✓ (Checklist مثل زينة)')}</option>
       </select>
+      {q.type === 'checklist' && (
+        <div className="col" style={{ gap: 6, marginTop: 4 }}>
+          <span className="muted" style={{ fontSize: 12 }}>
+            {t('قائمة الأصناف المطلوب فحص تواجدها (اكتب كل صنف في سطر أو مفصولة بفاصلة):')}
+          </span>
+          <textarea
+            className="input"
+            rows={3}
+            placeholder={t('مثال:\nمناديل كلاسيك 550 منديل\nمناديل مطبخ سوبر\nمناديل تواليت مضغوط\n...')}
+            value={(q.checklist_items || []).join('\n')}
+            onChange={(e) => {
+              const items = e.target.value.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+              updateQ(i, 'checklist_items', items as any);
+            }}
+          />
+          {(q.checklist_items?.length ?? 0) > 0 && (
+            <div className="row" style={{ flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+              {q.checklist_items!.map((it, idx) => (
+                <span key={idx} className="chip" style={{ fontSize: 11, background: '#E0F2FE', color: '#0369A1' }}>
+                  ✓ {it}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>)}
     <button type="button" className="btn ghost" onClick={addQ}><Plus size={16} /> {t('إضافة سؤال')}</button>
     <button className="btn" disabled={m.isPending || !questions.length}>
