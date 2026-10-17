@@ -45,6 +45,7 @@ export default function AdminLayout() {
 
   if (isLoading) return <LoadingSpinner />;
   if (!isAuthenticated) return <Navigate to="/login" replace state={{ from: pathname }} />;
+  if (supervisor?.force_password_change) return <Navigate to="/set-password" replace />;
   if (!canAdmin(supervisor)) return <Navigate to="/" replace />;
 
   return <div className="adm">

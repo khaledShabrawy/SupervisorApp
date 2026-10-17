@@ -19,9 +19,10 @@ import { t } from '@/i18n';
 const IS_ANDROID = import.meta.env.VITE_PLATFORM === 'android';
 
 export function RequireAuth() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, supervisor } = useAuth();
   if (isLoading) return <LoadingSpinner />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (supervisor?.force_password_change) return <Navigate to="/set-password" replace />;
   return <Shell />;
 }
 export function RequireAdmin({ children }: { children: ReactNode }) {
