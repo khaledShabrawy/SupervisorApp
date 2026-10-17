@@ -215,7 +215,7 @@ export function useProductsWithPrices(customerType: string | null) {
         master_brand: prod.master_brand ?? null,
         sub_brand: prod.sub_brand ?? null,
         unit: prod.unit ?? null,
-        unit_price: priceMap.get(prod.id) ?? Number(prod.price) || 0,
+        unit_price: priceMap.get(prod.id) ?? (Number(prod.price) || 0),
         is_active: prod.is_active !== false,
       })) as PricedProduct[];
     },
