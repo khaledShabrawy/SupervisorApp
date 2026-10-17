@@ -66,8 +66,9 @@ CREATE POLICY "price_lists_admin_write" ON public.price_lists
     AND get_my_role() IN ('admin', 'super_admin')
   );
 
--- ── 4. CUSTOMER TYPES SUPPORT ────────────────────────────────────────────────
--- Ensure customer_code index exists for quick barcode/code lookups
+-- ── 4. CUSTOMER TYPES & CODE SUPPORT ─────────────────────────────────────────
+-- Ensure customer_code column and index exist for quick barcode/code lookups
+ALTER TABLE IF EXISTS public.customers ADD COLUMN IF NOT EXISTS customer_code TEXT;
 CREATE INDEX IF NOT EXISTS idx_customers_code ON public.customers(company_id, customer_code);
 
 COMMENT ON TABLE public.price_lists IS 'Customer-specific and default price lists per tenant';
