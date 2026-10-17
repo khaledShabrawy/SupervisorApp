@@ -338,9 +338,26 @@ export function useSavePermissions() {
 export function useSaveProduct() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (p: { id?: string; name: string; category: string; sku: string; is_active: boolean }) => {
+    mutationFn: async (p: {
+      id?: string;
+      name: string;
+      category?: string;
+      sku?: string;
+      item_code?: string;
+      master_brand?: string;
+      sub_brand?: string;
+      is_active: boolean;
+    }) => {
       requireAdmin(sc);
-      const values = { name: p.name.trim(), category: p.category.trim() || null, sku_code: p.sku.trim() || null, is_active: p.is_active };
+      const values = {
+        name: p.name.trim(),
+        category: p.category?.trim() || null,
+        sku_code: p.sku?.trim() || null,
+        item_code: p.item_code?.trim() || p.sku?.trim() || null,
+        master_brand: p.master_brand?.trim() || null,
+        sub_brand: p.sub_brand?.trim() || null,
+        is_active: p.is_active,
+      };
       if (!values.name) throw new Error('اسم المنتج مطلوب.');
       const r = p.id
         ? await supabase.from('products').update(values).eq('id', p.id).eq('company_id', sc.companyId).select('id')
@@ -358,15 +375,17 @@ export const ASSET_STATUS: Record<string, [string, string]> = {
   active: ['يعمل', 'b-green'], defective: ['معطل', 'b-red'], under_maintenance: ['تحت الصيانة', 'b-yellow'], retired: ['خارج الخدمة', 'b-gray'],
 };
 export type AssetRow = { id: string; asset_code: string; asset_type_id: string; customer_id: string | null; serial_number: string | null;
-  model: string | null; status: string; is_active: boolean;
+  model: string | null; status: string; is_active: boolean; created_at?: string; installed_at?: string;
   asset_types: { name_ar: string; icon: string } | null; customers: { name: string } | null };
-export function useAssets(search: string) {
+export function useAssets(search: string, dateFrom?: string, dateTo?: string) {
   const sc = useScope();
-  return usePaged<AssetRow>(sc, 'assets', [search], async (from, to, signal) => {
-    let q = supabase.from('assets').select('id,asset_code,asset_type_id,customer_id,serial_number,model,status,is_active,asset_types(name_ar,icon),customers(name)')
+  return usePaged<AssetRow>(sc, 'assets', [search, dateFrom ?? '', dateTo ?? ''], async (from, to, signal) => {
+    let q = supabase.from('assets').select('id,asset_code,asset_type_id,customer_id,serial_number,model,status,is_active,created_at,installed_at,asset_types(name_ar,icon),customers(name)')
       .eq('company_id', sc.companyId);
     const s = search.trim().replace(/[%,()]/g, '');
     if (s) q = q.or(`asset_code.ilike.%${s}%,serial_number.ilike.%${s}%`);
+    if (dateFrom) q = q.gte('created_at', `${dateFrom}T00:00:00`);
+    if (dateTo) q = q.lte('created_at', `${dateTo}T23:59:59`);
     const { data, error } = await q.order('asset_code').range(from, to).abortSignal(signal);
     if (error) fail('تعذر تحميل الأصول.', error);
     return data as unknown as AssetRow[];
@@ -500,7 +519,7 @@ export function useSaveAdminCustomer() {
 }
 
 /* ---------- Surveys ---------- */
-export type SurveyQuestion = { text: string; type: 'text' | 'rating' | 'choice'; options?: string[] };
+export type SurveyQuestion = { text: string; type: 'text' | 'rating' | 'choice' | 'checklist'; options?: string[]; checklist_items?: string[] };
 export type SurveyRow = { id: string; title: string; questions: SurveyQuestion[];
   target_customer_type: string | null; is_mandatory: boolean; is_active: boolean;
   valid_from: string | null; valid_to: string | null };

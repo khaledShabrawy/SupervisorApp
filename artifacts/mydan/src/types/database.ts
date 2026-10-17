@@ -42,9 +42,18 @@ export interface AppSettings {
   branch_lock_mode?: 'auto_supervisor_branch' | 'manual_selection';
 }
 export interface Target {
-  id: ID; supervisor_id: ID; month: number; year: number;
+  id: ID; supervisor_id: ID | null; month: number; year: number;
   visits_target: number; audit_target: number;
   actual_visits: number; actual_audits: number; company_id: ID;
+  criteria?: string; scope_type?: 'per_user' | 'general';
+  target_scope?: 'all_branches' | 'specific_branch';
+  branch_id?: ID | null; target_amount?: number;
+}
+export interface Product {
+  id: ID; company_id: ID; name: string; category?: string | null;
+  sku_code?: string | null; item_code?: string | null;
+  master_brand?: string | null; sub_brand?: string | null;
+  is_active: boolean; created_at?: string;
 }
 export interface BeatPlan {
   id: ID; supervisor_id: ID; day_of_week: number; customer_id: ID; company_id: ID;
@@ -69,7 +78,7 @@ export interface SupervisorTrainingProgress {
   created_at: string; updated_at: string;
 }
 export interface TableMap {
-  supervisors: Supervisor; customers: Customer; regions: Region; visits: Visit; shelf_audit: ShelfAudit;
+  supervisors: Supervisor; customers: Customer; regions: Region; products: Product; visits: Visit; shelf_audit: ShelfAudit;
   notifications: Notification; app_settings: AppSettings;
   targets: Target; beat_plans: BeatPlan; attendance: Attendance;
   training_courses: TrainingCourse; training_lessons: TrainingLesson;

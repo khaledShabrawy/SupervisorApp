@@ -9,6 +9,7 @@ import { canAdmin } from '@/lib/policy';
 import { useSupervisors, useUpdateSupervisor } from '@/lib/data';
 import { notify } from '@/lib/toast';
 import { useAdminProducts, useSaveMonthlyTarget, useSaveSettings, type CatalogProduct } from '@/lib/screen-data';
+import { useBranches } from '@/lib/admin-data';
 import { PageTitle } from '@/components/Layout';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
 import EmptyState from '@/components/EmptyState';
@@ -197,27 +198,132 @@ export function SettingsForm() {
   </form>;
 }
 export function TargetForm() {
-  const q = useSupervisors(); const m = useSaveMonthlyTarget(); const now = new Date();
-  const [sid, setSid] = useState(''); const [month, setMonth] = useState(now.getMonth() + 1); const [year, setYear] = useState(now.getFullYear());
-  const [v, setV] = useState(''); const [a, setA] = useState('');
+  const q = useSupervisors();
+  const branches = useBranches();
+  const m = useSaveMonthlyTarget();
+  const now = new Date();
+
+  const [criteria, setCriteria] = useState<'visits' | 'shelf_audit' | 'orders' | 'new_opportunity'>('visits');
+  const [scopeType, setScopeType] = useState<'per_user' | 'general'>('per_user');
+  const [targetScope, setTargetScope] = useState<'all_branches' | 'specific_branch'>('all_branches');
+  const [branchId, setBranchId] = useState('');
+  const [sid, setSid] = useState('');
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+  const [v, setV] = useState('50');
+  const [a, setA] = useState('25');
+  const [targetAmount, setTargetAmount] = useState('');
+
   const retry = useRefetch(q.refetch);
-  const onSid = useInput(setSid); const onV = useInput(setV); const onA = useInput(setA);
+  const onSid = useInput(setSid);
+  const onV = useInput(setV);
+  const onA = useInput(setA);
   const onMonth = useCallback((e: ChangeEvent<HTMLSelectElement>) => setMonth(Number(e.target.value)), []);
   const onYear = useCallback((e: ChangeEvent<HTMLInputElement>) => setYear(Number(e.target.value)), []);
-  const nums = useMemo(() => [v, a].map(Number), [v, a]); const valid = sid && nums.every((n) => Number.isSafeInteger(n) && n >= 0) && v !== '' && a !== '';
-  const submit = useCallback((e: FormEvent) => { e.preventDefault(); if (!valid) return;
-    m.mutate({ supervisor_id: sid, month, year, visits_target: nums[0], audit_target: nums[1] }); }, [valid, m, sid, month, year, nums]);
+
+  const valid = (scopeType === 'general' || Boolean(sid)) &&
+    (targetScope === 'all_branches' || Boolean(branchId)) &&
+    (criteria === 'orders' ? (Number(targetAmount) > 0 || Number(v) > 0) : Number(v) >= 0);
+
+  const submit = useCallback((e: FormEvent) => {
+    e.preventDefault();
+    if (!valid) return;
+    m.mutate({
+      supervisor_id: scopeType === 'per_user' ? sid : null,
+      month,
+      year,
+      visits_target: Number(v) || 0,
+      audit_target: Number(a) || 0,
+      criteria,
+      scope_type: scopeType,
+      target_scope: targetScope,
+      branch_id: targetScope === 'specific_branch' ? branchId : null,
+      target_amount: Number(targetAmount) || 0,
+    });
+  }, [valid, m, sid, month, year, v, a, criteria, scopeType, targetScope, branchId, targetAmount]);
+
   if (q.isError) return <ErrorState error={q.error} onRetry={retry} />;
-  return <form className="card col" onSubmit={submit}>
-    <label className="f">{t('المشرف')}<select className="input" value={sid} onChange={onSid} disabled={q.isPending} data-testid="select-target-supervisor">
-      <option value="">{q.isPending ? t('جاري التحميل...') : t('اختر مشرفا')}</option>{q.items.map((s) => <SelectOption key={s.id} value={s.id} label={s.full_name} />)}</select></label>
-    <LoadMore q={q} />
-    <div className="row"><label className="f grow">{t('الشهر')}<select className="input" value={month} onChange={onMonth}>{MONTHS.map((n, i) => <SelectOption key={n} value={i + 1} label={n} />)}</select></label>
-      <label className="f grow">{t('السنة')}<input className="input" type="number" value={year} onChange={onYear} /></label></div>
-    <label className="f">{t('هدف الزيارات')}<input className="input" type="number" min="0" inputMode="numeric" value={v} onChange={onV} /></label>
-    <label className="f">{t('هدف مراجعات الرف')}<input className="input" type="number" min="0" step="1" inputMode="numeric" value={a} onChange={onA} /></label>
-    <button className="btn" disabled={!valid || m.isPending} data-testid="button-save-target">{m.isPending ? t('جاري الحفظ...') : t('حفظ الهدف')}</button>
-  </form>;
+
+  return (
+    <form className="card col" onSubmit={submit} style={{ gap: 12 }}>
+      {/* Criteria */}
+      <label className="f">
+        {t('نوع الهدف (Criteria) *')}
+        <select className="input" value={criteria} onChange={(e) => setCriteria(e.target.value as any)}>
+          <option value="visits">{t('زيارات ميدانية')}</option>
+          <option value="shelf_audit">{t('مراجعات الرف (Shelf Audits)')}</option>
+          <option value="orders">{t('فرص بيعية وأوردرات')}</option>
+          <option value="new_opportunity">{t('استقطاب عملاء جدد (Prospects)')}</option>
+        </select>
+      </label>
+
+      {/* Scope Parameters: Role/Target application */}
+      <div className="row" style={{ gap: 12 }}>
+        <label className="f grow">
+          {t('تطبيق الهدف')}
+          <select className="input" value={scopeType} onChange={(e) => setScopeType(e.target.value as any)}>
+            <option value="per_user">{t('لكل مستخدم على حدة (Individual)')}</option>
+            <option value="general">{t('هدف عام مشترك للجميع (General Team)')}</option>
+          </select>
+        </label>
+
+        <label className="f grow">
+          {t('نطاق الفروع')}
+          <select className="input" value={targetScope} onChange={(e) => setTargetScope(e.target.value as any)}>
+            <option value="all_branches">{t('كل الفروع')}</option>
+            <option value="specific_branch">{t('فرع محدد')}</option>
+          </select>
+        </label>
+      </div>
+
+      {targetScope === 'specific_branch' && (
+        <label className="f">
+          {t('اختر الفرع المستهدف *')}
+          <select className="input" value={branchId} onChange={useInput(setBranchId)} required>
+            <option value="">{t('اختر الفرع')}</option>
+            {branches.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </label>
+      )}
+
+      {scopeType === 'per_user' && (
+        <label className="f">
+          {t('المستخدم / المشرف المستهدف *')}
+          <select className="input" value={sid} onChange={onSid} disabled={q.isPending} required>
+            <option value="">{q.isPending ? t('جاري التحميل...') : t('اختر المستخدم')}</option>
+            {q.items.map((s) => <SelectOption key={s.id} value={s.id} label={s.full_name} />)}
+          </select>
+        </label>
+      )}
+
+      <div className="row">
+        <label className="f grow">{t('الشهر')}<select className="input" value={month} onChange={onMonth}>{MONTHS.map((n, i) => <SelectOption key={n} value={i + 1} label={n} />)}</select></label>
+        <label className="f grow">{t('السنة')}<input className="input" type="number" value={year} onChange={onYear} /></label>
+      </div>
+
+      <div className="row">
+        <label className="f grow">
+          {criteria === 'orders' ? t('هدف عدد الأوردرات') : t('هدف الزيارات')}
+          <input className="input" type="number" min="0" inputMode="numeric" value={v} onChange={onV} />
+        </label>
+        <label className="f grow">
+          {t('هدف مراجعات الرف')}
+          <input className="input" type="number" min="0" step="1" inputMode="numeric" value={a} onChange={onA} />
+        </label>
+      </div>
+
+      {criteria === 'orders' && (
+        <label className="f">
+          {t('هدف القيمة البيعية (بالجنيه)')}
+          <input className="input" type="number" min="0" value={targetAmount} onChange={useInput(setTargetAmount)} placeholder="مثال: 50000" />
+        </label>
+      )}
+
+      <button className="btn" disabled={!valid || m.isPending} data-testid="button-save-target" style={{ marginTop: 6 }}>
+        {m.isPending ? t('جاري الحفظ...') : t('حفظ الهدف')}
+      </button>
+    </form>
+  );
 }
 export default function AdminPanel() {
   const { supervisor } = useAuth(); const settings = useAppSettings(); const [tab, setTab] = useState<Tab>('sup');
