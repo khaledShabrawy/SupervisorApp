@@ -28,6 +28,15 @@ return ({
     outDir: 'dist/public',
     emptyOutDir: true,
     rollupOptions: {
+      onwarn(warning, defaultHandler) {
+        // TanStack's RSC boundary directive is irrelevant to this client-only Vite bundle.
+        const isReactQueryClientDirective =
+          warning.code === 'MODULE_LEVEL_DIRECTIVE' &&
+          warning.id?.includes('@tanstack/react-query/') &&
+          warning.message.includes('"use client"');
+        if (isReactQueryClientDirective) return;
+        defaultHandler(warning);
+      },
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
