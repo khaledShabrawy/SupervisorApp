@@ -4,6 +4,8 @@
 -- and price_lists table exists with multi-tenant RLS.
 -- ==============================================================================
 
+BEGIN;
+
 -- ── 1. HARDEN CUSTOMERS SELECT RLS ───────────────────────────────────────────
 -- Each supervisor sees only their own customers (or unassigned company customers).
 -- Admins, super_admins, and branch_managers see all company customers.
@@ -29,14 +31,9 @@ ALTER TABLE IF EXISTS public.products ADD COLUMN IF NOT EXISTS unit TEXT DEFAULT
 ALTER TABLE IF EXISTS public.products ADD COLUMN IF NOT EXISTS price NUMERIC(12,2) DEFAULT 0;
 ALTER TABLE IF EXISTS public.products ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
 
--- Backfill sku_code and item_code from sku if present
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'sku') THEN
-    UPDATE public.products SET sku_code = sku WHERE sku_code IS NULL AND sku IS NOT NULL;
-    UPDATE public.products SET item_code = sku WHERE item_code IS NULL AND sku IS NOT NULL;
-  END IF;
-END $$;
+-- Backfill sku_code and item_code if missing
+UPDATE public.products SET sku_code = item_code WHERE sku_code IS NULL AND item_code IS NOT NULL;
+UPDATE public.products SET item_code = sku_code WHERE item_code IS NULL AND sku_code IS NOT NULL;
 
 -- ── 3. PRICE LISTS TABLE & RLS ────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.price_lists (
@@ -74,3 +71,5 @@ CREATE POLICY "price_lists_admin_write" ON public.price_lists
 CREATE INDEX IF NOT EXISTS idx_customers_code ON public.customers(company_id, customer_code);
 
 COMMENT ON TABLE public.price_lists IS 'Customer-specific and default price lists per tenant';
+
+COMMIT;
