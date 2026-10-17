@@ -17,45 +17,142 @@ const invalidate = (qc: ReturnType<typeof useQueryClient>, sc: Scope, ...names: 
   Promise.all(names.map((n) => qc.invalidateQueries({ queryKey: [...sc.base, n] })));
 
 /* ---------- Dashboard ---------- */
-export function useAdminKpis() {
-  const sc = useScope();
-  return useQuery({
-    queryKey: [...sc.base, 'admin-kpis', todayStr()], enabled: sc.isAdmin, retry: 1,
-    queryFn: async ({ signal }) => {
-      const count = (table: string, build: (q: any) => any = (q) => q) => // eslint-disable-line @typescript-eslint/no-explicit-any
-        readExactCount((head) => build(supabase.from(table).select('id', { count: 'exact', head }).eq('company_id', sc.companyId)),
-          signal, 'تعذر حساب مؤشرات الإدارة.');
-      const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
-      const [supervisors, visitsToday, assets, openTickets, scores, geofenceStats] = await Promise.all([
-        count('supervisors', (q) => q.eq('is_active', true)),
-        count('visits', (q) => q.gte('visit_date', todayStr())),
-        count('assets', (q) => q.eq('is_active', true)),
-        count('asset_tickets', (q) => q.in('status', ['open', 'dispatched', 'in_progress'])),
-        supabase.from('shelf_audit').select('audit_score').eq('company_id', sc.companyId).eq('status', 'completed')
-          .gte('created_at', since).not('audit_score', 'is', null).limit(1000).abortSignal(signal),
-        supabase.from('visits').select('on_beat,geo_distance').eq('company_id', sc.companyId)
-          .gte('visit_date', since).not('on_beat', 'is', null).limit(1000).abortSignal(signal),
-      ]);
-      if (scores.error) fail('تعذر حساب متوسط PSS.', scores.error);
-      const list = (scores.data ?? []).map((r) => Number(r.audit_score));
-      const avgPss = list.length ? Math.round(list.reduce((a, b) => a + b, 0) / list.length) : null;
+export interface AdminKpiFilters {
+  dateFrom?: string;
+  dateTo?: string;
+  regionId?: string;
+  branchId?: string;
+  supervisorId?: string;
+}
 
-      const geoList = (geofenceStats.data ?? []).filter((r: any) => r.on_beat != null);
-      const onBeatCount = geoList.filter((r: any) => r.on_beat === true).length;
-      const geofenceRate = geoList.length ? Math.round((onBeatCount / geoList.length) * 100) : null;
-      const oorCount = geoList.length - onBeatCount;
+export function useAdminKpis(filters?: AdminKpiFilters) {
+  const sc = useScope();
+  const dateFrom = filters?.dateFrom || todayStr().slice(0, 8) + '01';
+  const dateTo = filters?.dateTo || todayStr();
+  const regionId = filters?.regionId || 'all';
+  const branchId = filters?.branchId || 'all';
+  const supervisorId = filters?.supervisorId || 'all';
+
+  return useQuery({
+    queryKey: [...sc.base, 'admin-kpis', dateFrom, dateTo, regionId, branchId, supervisorId],
+    enabled: sc.isAdmin,
+    retry: 1,
+    queryFn: async ({ signal }) => {
+      // 1. Resolve supervisor IDs matching branch/region filters
+      let supervisorIds: string[] | null = null;
+      if (supervisorId !== 'all') {
+        supervisorIds = [supervisorId];
+      } else if (branchId !== 'all') {
+        const { data: sups } = await supabase.from('supervisors')
+          .select('id').eq('company_id', sc.companyId).eq('branch_id', branchId).abortSignal(signal);
+        supervisorIds = (sups ?? []).map((s) => s.id);
+      } else if (regionId !== 'all') {
+        const { data: branches } = await supabase.from('branches')
+          .select('id').eq('company_id', sc.companyId).eq('region_id', regionId).abortSignal(signal);
+        const bIds = (branches ?? []).map((b) => b.id);
+        if (bIds.length > 0) {
+          const { data: sups } = await supabase.from('supervisors')
+            .select('id').eq('company_id', sc.companyId).in('branch_id', bIds).abortSignal(signal);
+          supervisorIds = (sups ?? []).map((s) => s.id);
+        } else {
+          supervisorIds = [];
+        }
+      }
+
+      const hasEmptySupFilter = supervisorIds !== null && supervisorIds.length === 0;
+
+      // 2. Fetch Active Supervisors count
+      let supsCount = 0;
+      if (!hasEmptySupFilter) {
+        let supQ = supabase.from('supervisors').select('id', { count: 'exact', head: true })
+          .eq('company_id', sc.companyId).eq('is_active', true);
+        if (supervisorIds) supQ = supQ.in('id', supervisorIds);
+        const countRes = await supQ.abortSignal(signal);
+        supsCount = countRes.count ?? 0;
+      }
+
+      // 3. Fetch Visits in Date Range
+      let visitsCount = 0;
+      let onBeatCount = 0;
+      let oorCount = 0;
+      let totalGeoCount = 0;
+      if (!hasEmptySupFilter) {
+        let vQ = supabase.from('visits').select('id,on_beat,geo_distance')
+          .eq('company_id', sc.companyId)
+          .gte('visit_date', dateFrom)
+          .lte('visit_date', dateTo);
+        if (supervisorIds) vQ = vQ.in('supervisor_id', supervisorIds);
+        const { data: visitsData } = await vQ.limit(2000).abortSignal(signal);
+        const vList = visitsData ?? [];
+        visitsCount = vList.length;
+        const geoList = vList.filter((r) => r.on_beat != null);
+        totalGeoCount = geoList.length;
+        onBeatCount = geoList.filter((r) => r.on_beat === true).length;
+        oorCount = totalGeoCount - onBeatCount;
+      }
+      const geofenceRate = totalGeoCount ? Math.round((onBeatCount / totalGeoCount) * 100) : null;
+
+      // 4. Fetch Targets for Target vs Achieved
+      let visitsTarget = 0;
+      const visitsAchieved = visitsCount;
+      let auditsTarget = 0;
+      let auditsAchieved = 0;
+
+      if (!hasEmptySupFilter) {
+        let tQ = supabase.from('targets').select('visits_target,audit_target,actual_visits,actual_audits')
+          .eq('company_id', sc.companyId);
+        if (supervisorIds) tQ = tQ.in('supervisor_id', supervisorIds);
+        const { data: targetsData } = await tQ.limit(500).abortSignal(signal);
+        for (const t of targetsData ?? []) {
+          visitsTarget += Number(t.visits_target) || 0;
+          auditsTarget += Number(t.audit_target) || 0;
+        }
+      }
+
+      const achievementRate = visitsTarget > 0
+        ? Math.round((visitsAchieved / visitsTarget) * 100)
+        : (visitsAchieved > 0 ? 100 : 0);
+
+      // 5. Shelf audit PSS average in period
+      let avgPss: number | null = null;
+      let auditsCount = 0;
+      if (!hasEmptySupFilter) {
+        let auditQ = supabase.from('shelf_audit').select('audit_score')
+          .eq('company_id', sc.companyId)
+          .eq('status', 'completed')
+          .gte('created_at', `${dateFrom}T00:00:00`)
+          .lte('created_at', `${dateTo}T23:59:59`)
+          .not('audit_score', 'is', null);
+        if (supervisorIds) auditQ = auditQ.in('supervisor_id', supervisorIds);
+        const { data: scoresData } = await auditQ.limit(1000).abortSignal(signal);
+        const sList = (scoresData ?? []).map((r) => Number(r.audit_score)).filter(Number.isFinite);
+        auditsCount = sList.length;
+        auditsAchieved = auditsCount;
+        avgPss = sList.length ? Math.round(sList.reduce((a, b) => a + b, 0) / sList.length) : null;
+      }
+
+      // 6. Assets & open tickets
+      const [assetsRes, ticketsRes] = await Promise.all([
+        supabase.from('assets').select('id', { count: 'exact', head: true }).eq('company_id', sc.companyId).eq('is_active', true).abortSignal(signal),
+        supabase.from('asset_tickets').select('id', { count: 'exact', head: true }).eq('company_id', sc.companyId).in('status', ['open', 'dispatched', 'in_progress']).abortSignal(signal),
+      ]);
 
       return {
-        supervisors,
-        visitsToday,
-        assets,
-        openTickets,
+        supervisors: supsCount,
+        visitsToday: visitsCount,
+        assets: assetsRes.count ?? 0,
+        openTickets: ticketsRes.count ?? 0,
         avgPss,
-        audits30d: list.length,
+        audits30d: auditsCount,
         geofenceRate,
         onBeatVisits: onBeatCount,
         oorVisits: oorCount,
-        totalGeoVisits: geoList.length,
+        totalGeoVisits: totalGeoCount,
+        visitsTarget,
+        visitsAchieved,
+        achievementRate,
+        auditsTarget,
+        auditsAchieved,
       };
     },
   });
@@ -344,20 +441,26 @@ export function useAuditLogs(tableFilter: string) {
 
 /* ---------- Admin Customers ---------- */
 export type AdminCustomerRow = {
-  id: string; name: string; type: string; customer_type: string | null;
+  id: string; customer_code?: string | null; name: string; type: string; customer_type: string | null;
   owner_name: string | null; phone: string | null; address: string;
   latitude: number | null; longitude: number | null; branch: string | null;
   supervisor_id: string | null; is_active: boolean;
   supervisors: { full_name: string } | null;
 };
-export function useAdminCustomers(search: string) {
+export function useAdminCustomers(search: string, supervisorId?: string, branch?: string) {
   const sc = useScope();
-  return usePaged<AdminCustomerRow>(sc, 'admin-customers', [search], async (from, to, signal) => {
+  return usePaged<AdminCustomerRow>(sc, 'admin-customers', [search, supervisorId ?? 'all', branch ?? 'all'], async (from, to, signal) => {
     const term = search.trim().replace(/[%,()]/g, '');
     let q = supabase.from('customers')
-      .select('id,name,type,customer_type,owner_name,phone,address,latitude,longitude,branch,supervisor_id,is_active,supervisors!supervisor_id(full_name)')
+      .select('id,customer_code,name,type,customer_type,owner_name,phone,address,latitude,longitude,branch,supervisor_id,is_active,supervisors!supervisor_id(full_name)')
       .eq('company_id', sc.companyId);
-    if (term) q = q.or(`name.ilike.%${term}%,phone.ilike.%${term}%,address.ilike.%${term}%`);
+    if (supervisorId && supervisorId !== 'all') {
+      q = q.eq('supervisor_id', supervisorId);
+    }
+    if (branch && branch !== 'all') {
+      q = q.eq('branch', branch);
+    }
+    if (term) q = q.or(`name.ilike.%${term}%,customer_code.ilike.%${term}%,phone.ilike.%${term}%,address.ilike.%${term}%`);
     const { data, error } = await q.order('name').order('id').range(from, to).abortSignal(signal);
     if (error) fail('تعذر تحميل العملاء.', error);
     return data as unknown as AdminCustomerRow[];
@@ -366,14 +469,25 @@ export function useAdminCustomers(search: string) {
 export function useSaveAdminCustomer() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (c: { id?: string; name: string; type: string; owner_name: string; phone: string;
+    mutationFn: async (c: { id?: string; customer_code?: string; name: string; type: string; owner_name: string; phone: string;
       address: string; latitude: number | null; longitude: number | null;
       branch: string; supervisor_id: string; is_active: boolean }) => {
       requireAdmin(sc);
       if (!c.name.trim() || !c.type.trim() || !c.address.trim()) throw new Error('الاسم والنوع والعنوان مطلوبة.');
-      const values = { name: c.name.trim(), type: c.type.trim(), owner_name: c.owner_name.trim() || null,
-        phone: c.phone.trim() || null, address: c.address.trim(), latitude: c.latitude, longitude: c.longitude,
-        branch: c.branch.trim() || null, supervisor_id: c.supervisor_id || null, is_active: c.is_active };
+      const values = {
+        name: c.name.trim(),
+        customer_code: c.customer_code?.trim() || null,
+        type: c.type.trim(),
+        customer_type: c.type.trim(),
+        owner_name: c.owner_name.trim() || null,
+        phone: c.phone.trim() || null,
+        address: c.address.trim(),
+        latitude: c.latitude,
+        longitude: c.longitude,
+        branch: c.branch.trim() || null,
+        supervisor_id: c.supervisor_id || null,
+        is_active: c.is_active,
+      };
       const r = c.id
         ? await supabase.from('customers').update(values).eq('id', c.id).eq('company_id', sc.companyId).select('id')
         : await supabase.from('customers').insert({ ...values, company_id: sc.companyId }).select('id');

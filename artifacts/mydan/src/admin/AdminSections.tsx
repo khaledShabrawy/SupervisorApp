@@ -123,9 +123,10 @@ export function AdminBranches() {
 }
 
 /* ---------- Customers ---------- */
-const CUST_TYPES = ['بقالة', 'سوبرماركت', 'هايبرماركت', 'كيوسك', 'محل جملة', 'ضيافة', 'أخرى'];
+const CUST_TYPES = ['بقالة', 'سوبرماركت', 'هايبرماركت', 'كيوسك', 'محل جملة', 'منظفات', 'صيدليات', 'ضيافة', 'أخرى'];
 function CustomerForm({ edit, sups, onClose }: { edit: AdminCustomerRow | null; sups: Supervisor[]; onClose: () => void }) {
   const m = useSaveAdminCustomer();
+  const [customerCode, setCustomerCode] = useState(edit?.customer_code ?? '');
   const [name, setName] = useState(edit?.name ?? ''); const [type, setType] = useState(edit?.type ?? CUST_TYPES[0]);
   const [ownerName, setOwnerName] = useState(edit?.owner_name ?? ''); const [phone, setPhone] = useState(edit?.phone ?? '');
   const [address, setAddress] = useState(edit?.address ?? ''); const [branch, setBranch] = useState(edit?.branch ?? '');
@@ -133,12 +134,15 @@ function CustomerForm({ edit, sups, onClose }: { edit: AdminCustomerRow | null; 
   const [supId, setSupId] = useState(edit?.supervisor_id ?? ''); const [active, setActive] = useState(edit?.is_active ?? true);
   const numOrNull = (v: string) => (v.trim() === '' || !Number.isFinite(Number(v)) ? null : Number(v));
   const submit = useCallback((e: FormEvent) => { e.preventDefault();
-    m.mutate({ id: edit?.id, name, type, owner_name: ownerName, phone, address,
+    m.mutate({ id: edit?.id, customer_code: customerCode, name, type, owner_name: ownerName, phone, address,
       latitude: numOrNull(lat), longitude: numOrNull(lng), branch, supervisor_id: supId, is_active: active },
       { onSuccess: onClose });
-  }, [m, edit, name, type, ownerName, phone, address, lat, lng, branch, supId, active, onClose]);
+  }, [m, edit, customerCode, name, type, ownerName, phone, address, lat, lng, branch, supId, active, onClose]);
   return <Modal title={edit ? t('تعديل العميل') : t('عميل جديد')} onClose={onClose} onSubmit={submit}>
-    <label className="f">{t('اسم العميل *')}<input className="input" required value={name} onChange={useInput(setName)} /></label>
+    <div className="row">
+      <label className="f grow">{t('كود العميل')}<input className="input" dir="ltr" value={customerCode} onChange={useInput(setCustomerCode)} placeholder="CUST-001" /></label>
+      <label className="f grow">{t('اسم العميل *')}<input className="input" required value={name} onChange={useInput(setName)} /></label>
+    </div>
     <div className="row">
       <label className="f grow">{t('النوع *')}<select className="input" required value={type} onChange={useInput(setType)}>
         {CUST_TYPES.map((tp) => <option key={tp} value={tp}>{tp}</option>)}</select></label>
@@ -160,19 +164,32 @@ function CustomerForm({ edit, sups, onClose }: { edit: AdminCustomerRow | null; 
   </Modal>;
 }
 export function AdminCustomers() {
-  const [search, setSearch] = useState(''); const q = useAdminCustomers(useDebouncedValue(search, 300));
-  const sups = useSupervisors(); const retry = useRefetch(q.refetch);
+  const [search, setSearch] = useState('');
+  const [supFilter, setSupFilter] = useState('all');
+  const sups = useSupervisors();
+  const q = useAdminCustomers(useDebouncedValue(search, 300), supFilter);
+  const retry = useRefetch(q.refetch);
   const deactivate = useDeactivateRecord('customers', 'admin-customers');
   const [edit, setEdit] = useState<AdminCustomerRow | null | undefined>(undefined);
   return <>
     <div className="row between"><h2>{t('العملاء')}</h2>
       <button className="btn" onClick={() => setEdit(null)}><Plus size={18} /> {t('عميل جديد')}</button></div>
-    <input className="input" placeholder={t('ابحث بالاسم أو الهاتف أو العنوان...')} value={search} onChange={useInput(setSearch)} style={{ maxWidth: 420 }} />
+    <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+      <input className="input grow" placeholder={t('ابحث بالاسم أو الكود أو الهاتف أو العنوان...')} value={search} onChange={useInput(setSearch)} style={{ maxWidth: 380 }} />
+      <select className="input" style={{ width: 200 }} value={supFilter} onChange={(e) => setSupFilter(e.target.value)}>
+        <option value="all">{t('كل المشرفين')}</option>
+        {sups.items.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+      </select>
+      {(supFilter !== 'all' || search) && (
+        <button className="btn sm ghost" onClick={() => { setSearch(''); setSupFilter('all'); }}>{t('إعادة ضبط')}</button>
+      )}
+    </div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
       : !q.items.length ? <EmptyState icon={<Store />} title={t('لا يوجد عملاء')} action={{ label: t('إضافة عميل'), onClick: () => setEdit(null) }} />
       : <div className="adm-table-wrap"><table className="adm-table">
-          <thead><tr><th>{t('الاسم')}</th><th>{t('النوع')}</th><th>{t('الهاتف')}</th><th>{t('المشرف')}</th><th>{t('الحالة')}</th><th /></tr></thead>
+          <thead><tr><th>{t('الكود')}</th><th>{t('الاسم')}</th><th>{t('النوع')}</th><th>{t('الهاتف')}</th><th>{t('المشرف')}</th><th>{t('الحالة')}</th><th /></tr></thead>
           <tbody>{q.items.map((c) => <tr key={c.id}>
+            <td dir="ltr" style={{ fontWeight: 600, color: 'var(--color-primary)', fontSize: 13, whiteSpace: 'nowrap' }}>{c.customer_code || '—'}</td>
             <td><div className="title">{c.name}</div><div className="muted" style={{ fontSize: 12 }}>{c.address}</div></td>
             <td>{c.type}</td>
             <td dir="ltr" style={{ textAlign: 'start' }}>{c.phone ?? '—'}</td>
@@ -530,12 +547,41 @@ export function AdminProspects() {
 /* ---------- Orders (Opportunity / Sales Leads) ---------- */
 export function AdminOrders() {
   const sups = useSupervisors();
+  const regions = useRegions();
+  const branches = useBranches();
   const [status, setStatus] = useState<string>('all');
+  const [regionId, setRegionId] = useState<string>('all');
+  const [branchId, setBranchId] = useState<string>('all');
   const [supId, setSupId] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<OrderRecord | null>(null);
 
-  const q = useAdminOrders({ status, supervisorId: supId, search });
+  // Cascading branches based on selected region
+  const filteredBranches = (branches.data ?? []).filter((b) =>
+    regionId === 'all' ? true : b.region_id === regionId
+  );
+
+  // Cascading supervisors based on selected branch/region
+  const filteredSupervisors = sups.items.filter((s) => {
+    if (branchId !== 'all') return s.branch_id === branchId;
+    if (regionId !== 'all') {
+      const allowedBranchIds = new Set(filteredBranches.map((b) => b.id));
+      return s.branch_id && allowedBranchIds.has(s.branch_id);
+    }
+    return true;
+  });
+
+  const q = useAdminOrders({
+    status,
+    supervisorId: supId,
+    branchId: branchId !== 'all' ? branchId : undefined,
+    regionId: regionId !== 'all' ? regionId : undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    search,
+  });
   const updateStatus = useUpdateOrderStatus();
   const retry = useRefetch(q.refetch);
 
@@ -584,30 +630,66 @@ export function AdminOrders() {
     </div>
 
     {/* Filters Row */}
-    <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center', marginTop: 8 }}>
-      <select className="input" style={{ width: 160 }} value={status} onChange={(e) => setStatus(e.target.value)}>
-        <option value="all">{t('كل الحالات')}</option>
-        <option value="pending">{t('قيد المتابعة')}</option>
-        <option value="delivered">{t('تم التسليم')}</option>
-      </select>
+    <div className="card col" style={{ marginTop: 12, padding: '12px 14px', gap: 10 }}>
+      <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+          <span className="muted" style={{ fontSize: 12 }}>{t('من:')}</span>
+          <input className="input" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ width: 140 }} />
+        </div>
+        <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+          <span className="muted" style={{ fontSize: 12 }}>{t('إلى:')}</span>
+          <input className="input" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ width: 140 }} />
+        </div>
 
-      <select className="input" style={{ width: 180 }} value={supId} onChange={(e) => setSupId(e.target.value)}>
-        <option value="all">{t('كل المشرفين')}</option>
-        {sups.items.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-      </select>
+        <select className="input" style={{ width: 150 }} value={regionId} onChange={(e) => {
+          setRegionId(e.target.value);
+          setBranchId('all');
+          setSupId('all');
+        }}>
+          <option value="all">{t('كل الأقاليم')}</option>
+          {regions.data?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+        </select>
+
+        <select className="input" style={{ width: 150 }} value={branchId} onChange={(e) => {
+          setBranchId(e.target.value);
+          setSupId('all');
+        }}>
+          <option value="all">{t('كل الفروع')}</option>
+          {filteredBranches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select>
+
+        <select className="input" style={{ width: 160 }} value={supId} onChange={(e) => setSupId(e.target.value)}>
+          <option value="all">{t('كل المشرفين')}</option>
+          {filteredSupervisors.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+        </select>
+
+        <select className="input" style={{ width: 150 }} value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="all">{t('كل الحالات')}</option>
+          <option value="pending">{t('قيد المتابعة')}</option>
+          <option value="delivered">{t('تم التسليم')}</option>
+        </select>
+
+        {(status !== 'all' || supId !== 'all' || branchId !== 'all' || regionId !== 'all' || dateFrom || dateTo || search) && (
+          <button className="btn sm ghost" onClick={() => {
+            setStatus('all');
+            setRegionId('all');
+            setBranchId('all');
+            setSupId('all');
+            setDateFrom('');
+            setDateTo('');
+            setSearch('');
+          }}>
+            {t('إعادة ضبط')}
+          </button>
+        )}
+      </div>
 
       <input
-        className="input grow"
+        className="input"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder={t('بحث باسم العميل أو المشرف أو الملاحظات...')}
+        placeholder={t('بحث باسم العميل أو الكود أو المشرف أو الملاحظات...')}
       />
-
-      {(status !== 'all' || supId !== 'all' || search) && (
-        <button className="btn sm ghost" onClick={() => { setStatus('all'); setSupId('all'); setSearch(''); }}>
-          {t('إعادة ضبط')}
-        </button>
-      )}
     </div>
 
     {/* Table */}

@@ -34,8 +34,10 @@ export interface OrderRecord {
     customer_type?: string | null;
     latitude?: number | null;
     longitude?: number | null;
+    branch?: string | null;
+    customer_code?: string | null;
   } | null;
-  supervisors?: { id: string; full_name: string; phone?: string | null } | null;
+  supervisors?: { id: string; full_name: string; phone?: string | null; branch_id?: string | null } | null;
 }
 
 export interface PricedProduct {
@@ -265,18 +267,37 @@ export function useVisitOrders(visitId: string) {
   });
 }
 
-export function useAdminOrders(filter?: { status?: string; supervisorId?: string; search?: string }) {
+export interface AdminOrdersFilter {
+  status?: string;
+  supervisorId?: string;
+  branchId?: string;
+  regionId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+}
+
+export function useAdminOrders(filter?: AdminOrdersFilter) {
   const sc = useScope();
   const query = useQuery({
-    queryKey: [...sc.base, 'admin-orders', filter?.status ?? 'all', filter?.supervisorId ?? 'all'],
+    queryKey: [
+      ...sc.base,
+      'admin-orders',
+      filter?.status ?? 'all',
+      filter?.supervisorId ?? 'all',
+      filter?.branchId ?? 'all',
+      filter?.regionId ?? 'all',
+      filter?.dateFrom ?? '',
+      filter?.dateTo ?? '',
+    ],
     queryFn: async () => {
       let q = supabase
         .from('orders')
         .select(`
           id, visit_id, supervisor_id, customer_id, company_id,
           items, total_amount, status, notes, order_date, delivered_at, created_at,
-          customers!customer_id (id, name, address, customer_type, latitude, longitude),
-          supervisors!supervisor_id (id, full_name, phone)
+          customers!customer_id (id, name, address, customer_type, latitude, longitude, branch, customer_code),
+          supervisors!supervisor_id (id, full_name, phone, branch_id)
         `)
         .eq('company_id', sc.companyId)
         .order('created_at', { ascending: false });
@@ -287,6 +308,12 @@ export function useAdminOrders(filter?: { status?: string; supervisorId?: string
       if (filter?.supervisorId && filter.supervisorId !== 'all') {
         q = q.eq('supervisor_id', filter.supervisorId);
       }
+      if (filter?.dateFrom) {
+        q = q.gte('order_date', filter.dateFrom);
+      }
+      if (filter?.dateTo) {
+        q = q.lte('order_date', filter.dateTo);
+      }
 
       const { data, error } = await q;
       if (error) {
@@ -296,23 +323,32 @@ export function useAdminOrders(filter?: { status?: string; supervisorId?: string
         throw new Error(error.message || t('تعذر تحميل جدول أوردرات الشركة.'));
       }
 
-      return (data ?? []).map((row: any) => ({
+      let orders = (data ?? []).map((row: any) => ({
         ...row,
         total_amount: Number(row.total_amount) || 0,
         items: parseOrderItems(row.items, row.total_amount),
       })) as OrderRecord[];
+
+      if (filter?.branchId && filter.branchId !== 'all') {
+        orders = orders.filter((o) => o.supervisors?.branch_id === filter.branchId);
+      }
+
+      return orders;
     },
   });
 
   const filteredData = useMemo(() => {
-    const list = query.data ?? [];
-    if (!filter?.search || !filter.search.trim()) return list;
-    const term = filter.search.trim().toLowerCase();
-    return list.filter((o) =>
-      o.customers?.name?.toLowerCase().includes(term) ||
-      o.supervisors?.full_name?.toLowerCase().includes(term) ||
-      o.notes?.toLowerCase().includes(term)
-    );
+    let list = query.data ?? [];
+    if (filter?.search && filter.search.trim()) {
+      const term = filter.search.trim().toLowerCase();
+      list = list.filter((o) =>
+        o.customers?.name?.toLowerCase().includes(term) ||
+        o.customers?.customer_code?.toLowerCase().includes(term) ||
+        o.supervisors?.full_name?.toLowerCase().includes(term) ||
+        o.notes?.toLowerCase().includes(term)
+      );
+    }
+    return list;
   }, [query.data, filter?.search]);
 
   const kpi = useMemo(() => computeOrdersKPI(filteredData), [filteredData]);
