@@ -24,6 +24,9 @@ const CustomerOption = memo(function CustomerOption({ customer, selected, onChan
   customer: Customer; selected: boolean; onChange: (c: Customer) => void;
 }) {
   const choose = useCallback(() => onChange(customer), [onChange, customer]);
-  return <button type="button" className={`chip ${selected ? 'on' : ''}`} style={{ textAlign: 'start', borderRadius: 12 }}
-    onClick={choose} data-testid={`pick-customer-${customer.id}`}>{customer.name}</button>;
+  return <button type="button" className={`chip ${selected ? 'on' : ''}`} style={{ textAlign: 'start', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 6 }}
+    onClick={choose} data-testid={`pick-customer-${customer.id}`}>
+    {customer.customer_code && <span className="badge b-blue" style={{ fontFamily: 'monospace', fontSize: 11, padding: '1px 6px' }}>{customer.customer_code}</span>}
+    <span>{customer.name}</span>
+  </button>;
 });

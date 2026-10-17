@@ -41,7 +41,13 @@ const NearCard = memo(function NearCard({ c, radius, busy, onLog }: { c: Ranked;
   const log = useCallback(() => onLog(c), [onLog, c]);
   return <div className="card col" data-testid={`card-near-${c.id}`}>
     <div className="row between">
-      <div className="grow"><div className="title">{c.name}</div>{c.address && <div className="muted">{c.address}</div>}</div>
+      <div className="grow">
+        <div className="title row" style={{ alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {c.customer_code && <span className="badge b-blue" style={{ fontFamily: 'monospace', fontSize: 11 }}>{c.customer_code}</span>}
+          <span>{c.name}</span>
+        </div>
+        {c.address && <div className="muted">{c.address}</div>}
+      </div>
       <span className={`badge ${inRange ? 'b-green' : 'b-gray'}`} title={inRange ? t('داخل نطاق الزيارة') : t('خارج نطاق الزيارة')}>{t('{d} كم', { d: c.distance_km.toFixed(2) })}</span>
     </div>
     <div className="row" style={{ flexWrap: 'wrap' }}>
@@ -119,9 +125,17 @@ export default function NewVisitScreen() {
       <div className="card col"><span className="title">{t('العميل')}</span>
         {existingId ? existing.isPending ? <SkeletonList n={1} />
           : existing.isError ? <ErrorState error={existing.error} onRetry={retryExisting} />
-          : <div>{customer?.name ?? t('تعذر العثور على بيانات العميل')}</div>
-          : customer ? <div className="row between"><div className="alert ok grow">{customer.name}</div>
-              {picked && <button className="btn sm ghost" onClick={clear}>{t('تغيير')}</button>}</div>
+          : <div className="row" style={{ alignItems: 'center', gap: 6 }}>
+              {customer?.customer_code && <span className="badge b-blue" style={{ fontFamily: 'monospace' }}>{customer.customer_code}</span>}
+              <strong>{customer?.name ?? t('تعذر العثور على بيانات العميل')}</strong>
+            </div>
+          : customer ? <div className="row between">
+              <div className="alert ok grow row" style={{ alignItems: 'center', gap: 6, margin: 0 }}>
+                {customer.customer_code && <span className="badge b-blue" style={{ fontFamily: 'monospace' }}>{customer.customer_code}</span>}
+                <span>{customer.name}</span>
+              </div>
+              {picked && <button className="btn sm ghost" onClick={clear}>{t('تغيير')}</button>}
+            </div>
           : pre.isPending ? <SkeletonList n={1} /> : null}
         {preId && pre.isError && <ErrorState error={pre.error} onRetry={retryPre} />}
         {customer && <NavigateButton c={customer} />}
