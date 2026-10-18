@@ -273,9 +273,9 @@ function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: 
       master_brand: masterBrand,
       sub_brand: subBrand,
       unit,
-      price: numOrNull(price),
+      price: numOrNull(price) ?? undefined,
       units_per_carton: numOrNull(unitsPerCarton) ?? 1,
-      carton_price: numOrNull(cartonPrice),
+      carton_price: numOrNull(cartonPrice) ?? undefined,
       is_active: active,
     }, { onSuccess: onClose });
   }, [m, edit, name, category, sku, itemCode, masterBrand, subBrand, unit, price, unitsPerCarton, cartonPrice, active, onClose]);
@@ -739,7 +739,7 @@ export function AdminProspects() {
     </div>
     <p className="muted" style={{ marginTop: 0 }}>{t('عملاء اكتُشفوا عبر المسح الميداني بالذكاء الاصطناعي. راجعهم وحوّلهم لعملاء نشطين.')}</p>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
-      : !q.data?.length ? <EmptyState icon={<Store />} title={t('لا يوجد عملاء محتملون')} description={t('استخدم المسح الميداني في التطبيق لاكتشاف عملاء جدد.')} />
+      : !q.data?.length ? <EmptyState icon={<Store />} title={t('لا يوجد عملاء محتملون')} text={t('استخدم المسح الميداني في التطبيق لاكتشاف عملاء جدد.')} />
       : <div className="adm-table-wrap"><table className="adm-table">
           <thead><tr><th>{t('الاسم')}</th><th>{t('النوع')}</th><th>{t('الموقع')}</th><th>{t('التاريخ')}</th><th /></tr></thead>
           <tbody>{q.data.map((c) => (

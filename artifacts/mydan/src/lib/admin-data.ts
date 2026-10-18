@@ -202,8 +202,9 @@ export function useBranches() {
       let res = await supabase.from('branches').select('id,name,region,region_id,manager_id,latitude,longitude,is_active')
         .eq('company_id', sc.companyId).order('name').abortSignal(signal);
       if (res.error && res.error.message.includes('region_id')) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         res = await supabase.from('branches').select('id,name,region,manager_id,latitude,longitude,is_active')
-          .eq('company_id', sc.companyId).order('name').abortSignal(signal);
+          .eq('company_id', sc.companyId).order('name').abortSignal(signal) as any;
       }
       if (res.error) fail('تعذر تحميل الفروع.', res.error);
       return res.data as Branch[];
@@ -427,7 +428,8 @@ export function useAssets(search: string, dateFrom?: string, dateTo?: string) {
       if (dateFrom) fallbackQ = fallbackQ.gte('created_at', `${dateFrom}T00:00:00`);
       if (dateTo) fallbackQ = fallbackQ.lte('created_at', `${dateTo}T23:59:59`);
       const fallbackRes = await fallbackQ.order('asset_code').range(from, to).abortSignal(signal);
-      data = fallbackRes.data;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data = fallbackRes.data as any;
       error = fallbackRes.error;
     }
     if (error) fail('تعذر تحميل الأصول.', error);
