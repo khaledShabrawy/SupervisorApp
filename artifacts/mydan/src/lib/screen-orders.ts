@@ -402,6 +402,18 @@ export function useAdminOrders(filter?: AdminOrdersFilter) {
       }
 
       if (filter?.regionId && filter.regionId !== 'all') {
+        const { data: regionBranches } = await supabase
+          .from('branches')
+          .select('id')
+          .eq('company_id', sc.companyId)
+          .eq('region', filter.regionId);
+        const regionBranchIds = new Set((regionBranches ?? []).map((b: any) => b.id));
+        orders = regionBranchIds.size > 0
+          ? orders.filter((o) => o.supervisors?.branch_id && regionBranchIds.has(o.supervisors.branch_id))
+          : [];
+      }
+
+      if (filter?.regionId && filter.regionId !== 'all') {
         const { data: bList } = await supabase
           .from('branches')
           .select('id')
