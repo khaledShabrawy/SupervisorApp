@@ -10,7 +10,7 @@ import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
 import { Chip, useMinuteTick, useRefetch } from './shared';
 import type { Notification } from '@/types/database';
 import { t } from '@/i18n';
-import { usePushSubscription } from '@/lib/push';
+import { usePushSubscription, VAPID_PUBLIC } from '@/lib/push';
 
 const Item = memo(function Item({ n, fresh, now, onRead }: { n: Notification; fresh: boolean; now: number; onRead: (id: string) => void }) {
   const click = useCallback(() => { if (!n.is_read) onRead(n.id); }, [n.is_read, n.id, onRead]);
@@ -21,7 +21,7 @@ const Item = memo(function Item({ n, fresh, now, onRead }: { n: Notification; fr
 });
 function PushBanner() {
   const { state, subscribe, unsubscribe } = usePushSubscription();
-  if (!('Notification' in window) || !import.meta.env.VITE_VAPID_PUBLIC_KEY) return null;
+  if (!('Notification' in window) || !VAPID_PUBLIC) return null;
   if (state === 'subscribed') return (
     <div className="card row" style={{ gap: 10, fontSize: 14, background: 'var(--color-success-light, #dcfce7)', color: 'var(--color-success, #16a34a)', border: 'none' }}>
       <Bell size={18} />
