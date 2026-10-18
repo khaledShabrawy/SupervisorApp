@@ -41,10 +41,30 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     queryKey: ['company-settings', companyId],
     enabled: isAuthenticated && !!companyId,
     queryFn: async ({ signal }) => {
-      const { data, error } = await supabase.from('app_settings').select(SETTINGS_COLUMNS)
-        .eq('company_id', companyId!).abortSignal(signal).single();
-      if (error) throw new Error(t('تعذر تحميل إعدادات الشركة. تحقق من وجود إعداد واحد للشركة وسياسات Supabase.'));
-      return validateSettings(data as AppSettings, companyId!);
+      try {
+        const { data, error } = await supabase.from('app_settings').select(SETTINGS_COLUMNS)
+          .eq('company_id', companyId!).abortSignal(signal).maybeSingle();
+        if (error || !data) {
+          console.warn('Company settings row missing in database, falling back to defaults for company:', companyId);
+          return {
+            ...publicDefaults,
+            id: `default-${companyId}`,
+            company_id: companyId!,
+            app_name: 'Mydan',
+            target_brand_name: 'Mydan',
+          };
+        }
+        return validateSettings(data as AppSettings, companyId!);
+      } catch (err) {
+        console.warn('Error loading company settings, falling back to defaults:', err);
+        return {
+          ...publicDefaults,
+          id: `default-${companyId}`,
+          company_id: companyId!,
+          app_name: 'Mydan',
+          target_brand_name: 'Mydan',
+        };
+      }
     },
     staleTime: 300_000, retry: 1,
   });
