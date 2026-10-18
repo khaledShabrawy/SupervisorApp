@@ -12,7 +12,7 @@ import { useAdminProducts, useSaveSettings, type CatalogProduct } from '@/lib/sc
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
   ASSET_STATUS, useAdminCustomers, useAdminSurveys, useAssets, useAuditLogs, useBranches, useBroadcast,
-  useDeactivateRecord, useSaveAdminCustomer, useSaveAsset, useSaveBranch, useSaveProduct, useSaveSurvey, useUploadLogo,
+  useDeactivateRecord, useSaveAdminCustomer, useSaveAsset, useDeleteAsset, useSaveBranch, useSaveProduct, useSaveSurvey, useUploadLogo,
   useRegions, useSaveRegion,
   type AdminCustomerRow, type AssetRow, type AuditRow, type Branch, type SurveyQuestion, type SurveyRow,
 } from '@/lib/admin-data';
@@ -385,6 +385,7 @@ export function AdminAssets() {
   const q = useAssets(useDebouncedValue(search, 300), dateFrom || undefined, dateTo || undefined);
   const retry = useRefetch(q.refetch);
   const [edit, setEdit] = useState<AssetRow | null | undefined>(undefined);
+  const deleteAsset = useDeleteAsset();
 
   const handleExportAssets = () => {
     if (!q.items.length) return;
@@ -443,10 +444,26 @@ export function AdminAssets() {
                 <div className="grow"><div className="title" dir="ltr" style={{ textAlign: 'start' }}>{a.asset_types?.icon} {a.asset_code}</div>
                   <div className="muted">{a.asset_types?.name_ar}{a.customers ? ` · ${a.customers.name}` : ''}{a.serial_number ? ` · ${a.serial_number}` : ''}</div></div>
                 <span className={`badge ${cls}`}>{t(label)}</span>
-                <button className="btn sm ghost" onClick={() => setEdit(a)}>{t('تعديل')}</button></div>; })}
+                <div className="row gap-1">
+                  <button className="btn sm ghost" onClick={() => setEdit(a)}>{t('تعديل')}</button>
+                  <button
+                    className="btn sm ghost danger"
+                    title={t('حذف')}
+                    disabled={deleteAsset.isPending}
+                    onClick={() => {
+                      if (window.confirm(t('هل أنت متأكد من حذف هذا الأصل؟'))) {
+                        deleteAsset.mutate(a.id);
+                      }
+                    }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>; })}
         <LoadMore q={q} />
       </section>
     </div>
+    {edit !== undefined && <AssetFormLoader edit={edit} onClose={() => setEdit(undefined)} />}
   </>;
 }
 /** Loads active asset types for the form (kept separate so the list renders without waiting on them). */

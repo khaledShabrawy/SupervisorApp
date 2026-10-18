@@ -2,14 +2,14 @@ import { memo, useCallback, useMemo, useState, type ChangeEvent, type FormEvent 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
-import { Package, ShieldCheck } from '@/components/Icons';
+import { Package, ShieldCheck, Trash2, X } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { canAdmin } from '@/lib/policy';
 import { useSupervisors, useUpdateSupervisor } from '@/lib/data';
 import { notify } from '@/lib/toast';
 import { useAdminProducts, useSaveMonthlyTarget, useSaveSettings, type CatalogProduct } from '@/lib/screen-data';
-import { useBranches } from '@/lib/admin-data';
+import { useBranches, useDeleteAssetType } from '@/lib/admin-data';
 import { PageTitle } from '@/components/Layout';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
 import EmptyState from '@/components/EmptyState';
@@ -57,6 +57,7 @@ function useSaveAssetType() {
 
 export function AssetTypes() {
   const q = useAssetTypes(); const m = useSaveAssetType(); const retry = useRefetch(q.refetch);
+  const del = useDeleteAssetType();
   const [show, setShow] = useState(false); const [edit, setEdit] = useState<AssetType | null>(null);
   const [nameAr, setNameAr] = useState(''); const [nameEn, setNameEn] = useState(''); const [icon, setIcon] = useState('📦'); const [color, setColor] = useState('#1A56DB'); const [qr, setQr] = useState(true);
   const openNew = useCallback(() => { setEdit(null); setNameAr(''); setNameEn(''); setIcon('📦'); setColor('#1A56DB'); setQr(true); setShow(true); }, []);
@@ -68,19 +69,51 @@ export function AssetTypes() {
   const save = useCallback((e: FormEvent) => { e.preventDefault(); if (!valid) return; m.mutate({ id: edit?.id, name_ar: nameAr, name_en: nameEn, icon, color, requires_qr: qr }, { onSuccess: close }); }, [m, edit, nameAr, nameEn, icon, color, qr, valid, close]);
   return <>
     <button className="btn sm" onClick={openNew}>{t('+ إضافة نوع أصل')}</button>
-    {show && <div className="card col"><div className="title">{edit ? t('تعديل نوع الأصل') : t('نوع أصل جديد')}</div>
-      <form className="col" onSubmit={save}>
-        <label className="f">{t('الاسم بالعربي *')}<input className="input" value={nameAr} onChange={onNameAr} placeholder={t('ثلاجة عرض')} /></label>
-        <label className="f">{t('الاسم بالإنجليزي')}<input className="input" value={nameEn} onChange={onNameEn} placeholder="Display Cooler" /></label>
-        <label className="f">{t('الأيقونة')}<input className="input" value={icon} onChange={onIcon} placeholder="🧊" /></label>
-        <label className="f">{t('اللون')}<div className="row"><input type="color" value={/^#[0-9a-f]{6}$/i.test(color) ? color : '#1A56DB'} onChange={onColor} style={{ width: 52, height: 48 }} /><input className="input" value={color} onChange={onColor} dir="ltr" /></div></label>
-        <label className="row" style={{ minHeight: 44 }}><input type="checkbox" checked={qr} onChange={onQr} style={{ width: 24, height: 24 }} /> {t('يتطلب QR Code')}</label>
-        <div className="row"><button className="btn" disabled={!valid || m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ')}</button><button type="button" className="btn ghost" onClick={close}>{t('إلغاء')}</button></div>
-      </form></div>}
+    {show && (
+      <div className="adm-modal-bg" onClick={close}>
+        <form className="adm-modal col" role="dialog" aria-modal="true" aria-label={edit ? t('تعديل نوع الأصل') : t('نوع أصل جديد')} onClick={(e) => e.stopPropagation()} onSubmit={save}>
+          <div className="row between">
+            <h2 style={{ margin: 0, fontSize: 18 }}>{edit ? t('تعديل نوع الأصل') : t('نوع أصل جديد')}</h2>
+            <button type="button" className="icon-btn" aria-label={t('إغلاق')} onClick={close}><X /></button>
+          </div>
+          <label className="f">{t('الاسم بالعربي *')}<input className="input" value={nameAr} onChange={onNameAr} placeholder={t('ثلاجة عرض')} /></label>
+          <label className="f">{t('الاسم بالإنجليزي')}<input className="input" value={nameEn} onChange={onNameEn} placeholder="Display Cooler" /></label>
+          <label className="f">{t('الأيقونة')}<input className="input" value={icon} onChange={onIcon} placeholder="🧊" /></label>
+          <label className="f">{t('اللون')}<div className="row"><input type="color" value={/^#[0-9a-f]{6}$/i.test(color) ? color : '#1A56DB'} onChange={onColor} style={{ width: 52, height: 48 }} /><input className="input" value={color} onChange={onColor} dir="ltr" /></div></label>
+          <label className="row" style={{ minHeight: 44 }}><input type="checkbox" checked={qr} onChange={onQr} style={{ width: 24, height: 24 }} /> {t('يتطلب QR Code')}</label>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn" disabled={!valid || m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ')}</button>
+            <button type="button" className="btn ghost" onClick={close}>{t('إلغاء')}</button>
+          </div>
+        </form>
+      </div>
+    )}
     {q.isPending ? <SkeletonList n={3} /> : q.isError ? <ErrorState error={q.error} onRetry={retry} /> : !q.data?.length ? <EmptyState icon={<Package />} title={t('لا توجد أنواع أصول')} action={{ label: t('إضافة نوع'), onClick: openNew }} /> :
       q.data.map((a) => <div key={a.id} className="card col" style={{ borderRight: `4px solid ${a.color}` }}>
-        <div className="row between"><div className="row" style={{ gap: 12 }}><span style={{ fontSize: 28 }}>{a.icon}</span><div><div className="title">{a.name_ar}</div>{a.name_en && <div className="muted" dir="ltr">{a.name_en}</div>}</div></div>
-          <button className="btn sm ghost" onClick={() => openEdit(a)}>{t('تعديل')}</button></div>
+        <div className="row between">
+          <div className="row" style={{ gap: 12 }}>
+            <span style={{ fontSize: 28 }}>{a.icon}</span>
+            <div>
+              <div className="title">{a.name_ar}</div>
+              {a.name_en && <div className="muted" dir="ltr">{a.name_en}</div>}
+            </div>
+          </div>
+          <div className="row gap-1">
+            <button className="btn sm ghost" onClick={() => openEdit(a)}>{t('تعديل')}</button>
+            <button
+              className="btn sm ghost danger"
+              title={t('حذف')}
+              disabled={del.isPending}
+              onClick={() => {
+                if (window.confirm(t('هل أنت متأكد من حذف نوع الأصل هذا؟'))) {
+                  del.mutate(a.id);
+                }
+              }}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </div>
         <div className="row" style={{ gap: 8 }}>{a.requires_qr && <span className="badge b-blue">{t('يتطلب QR')}</span>}<span className={`badge ${a.is_active ? 'b-green' : 'b-gray'}`}>{a.is_active ? t('نشط') : t('متوقف')}</span></div>
       </div>)}
   </>;
