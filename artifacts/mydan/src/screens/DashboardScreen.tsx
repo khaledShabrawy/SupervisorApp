@@ -1,12 +1,13 @@
 import { memo, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, ClipboardList, GraduationCap, MapPin, Plus, Route, ScanSearch, ShoppingCart, Target as TargetIcon } from '@/components/Icons';
+import { Camera, CheckCircle2, ClipboardList, Clock, GraduationCap, LogIn, LogOut, MapPin, Plus, Route, ScanSearch, ShoppingCart, Target as TargetIcon } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useRealtime } from '@/hooks/useRealtime';
 import { canAdmin } from '@/lib/policy';
 import { useScreenAllowed } from '@/lib/permissions';
-import { useScreenDashboard } from '@/lib/screen-data';
+import { useScreenDashboard, useAttendanceToday } from '@/lib/screen-data';
+import { useAttendanceAction } from '@/lib/data';
 import type { VisitRow } from '@/lib/data';
 import { KPICard } from '@/components/KPICard';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -16,6 +17,7 @@ import { PageTitle } from '@/components/Layout';
 import { fmtDate, fmtTime, num, todayStr } from '@/lib/format';
 import { Act, useRefetch } from './shared';
 import { t } from '@/i18n';
+import type { Attendance } from '@/types/database';
 
 const Recent = memo(function Recent({ v, onOpen }: { v: VisitRow; onOpen: (id: string) => void }) {
   return <Act id={v.id} onAct={onOpen} className="s-row" testId={`row-recent-${v.id}`}>
@@ -23,6 +25,65 @@ const Recent = memo(function Recent({ v, onOpen }: { v: VisitRow; onOpen: (id: s
     <StatusBadge status={v.status} />
   </Act>;
 });
+
+function AttendanceWidget() {
+  const { data: att, isPending } = useAttendanceToday();
+  const action = useAttendanceAction();
+  const busy = action.isPending;
+
+  if (isPending) return <div className="card" style={{ padding: '12px 16px', marginBottom: 8 }}><div className="skel" style={{ height: 36 }} /></div>;
+
+  const checkedIn = !!att?.check_in_time;
+  const checkedOut = !!att?.check_out_time;
+
+  if (checkedOut) {
+    return (
+      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 8, background: 'var(--color-success,#108981)', color: '#fff' }}>
+        <CheckCircle2 size={20} />
+        <span style={{ fontWeight: 600, fontSize: 14 }}>{t('تم إكمال يوم العمل اليوم')}</span>
+        <span style={{ marginRight: 'auto', fontSize: 12, opacity: 0.85 }}>{fmtTime(att!.check_in_time)} — {fmtTime(att!.check_out_time)}</span>
+      </div>
+    );
+  }
+
+  if (checkedIn) {
+    return (
+      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 8 }}>
+        <Clock size={18} style={{ color: 'var(--color-primary,#1A56DB)', flexShrink: 0 }} />
+        <div style={{ flexGrow: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t('تم تسجيل الحضور')}</div>
+          <div className="muted" style={{ fontSize: 12 }}>{fmtTime(att!.check_in_time)}</div>
+        </div>
+        <button
+          className="btn sm danger"
+          disabled={busy}
+          onClick={() => action.mutate({ kind: 'out', row: att as Attendance })}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          <LogOut size={15} /> {t('تسجيل انصراف')}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 8, borderRight: '4px solid var(--color-warning,#F59E0B)' }}>
+      <LogIn size={18} style={{ color: 'var(--color-warning,#F59E0B)', flexShrink: 0 }} />
+      <div style={{ flexGrow: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{t('لم تسجل حضورك اليوم')}</div>
+        <div className="muted" style={{ fontSize: 12 }}>{fmtDate(todayStr())}</div>
+      </div>
+      <button
+        className="btn sm primary"
+        disabled={busy}
+        onClick={() => action.mutate({ kind: 'in', row: null })}
+        style={{ whiteSpace: 'nowrap' }}
+      >
+        <LogIn size={15} /> {t('تسجيل حضور')}
+      </button>
+    </div>
+  );
+}
 
 export default function DashboardScreen() {
   const nav = useNavigate(); const { supervisor } = useAuth(); const settings = useAppSettings();
@@ -38,6 +99,7 @@ export default function DashboardScreen() {
   return <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
     <PageTitle>{settings.app_name}<span className="muted" style={{ fontSize: 14, fontWeight: 400 }}> · {fmtDate(todayStr())}</span></PageTitle>
     {q.isError ? <ErrorState error={q.error} onRetry={retry} /> : <>
+      <AttendanceWidget />
       <div className="s-kpis">
         <KPICard icon={<MapPin size={18} />} title={t('زيارات اليوم')} value={d && num(d.visits)} loading={L} />
         <KPICard icon={<Camera size={18} />} title={t('مراجعات الرف')} value={d && num(d.audits)} loading={L} color="#6D3FC0" />

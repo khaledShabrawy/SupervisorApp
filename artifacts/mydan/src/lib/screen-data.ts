@@ -8,7 +8,7 @@ import { canAdmin, validateSettings } from './policy';
 import { readAllRows, readExactCount } from './read-count';
 import { notify } from './toast';
 import { countTargetRecord } from './execution-records';
-import type { AppSettings, Customer, Target } from '@/types/database';
+import type { AppSettings, Attendance, Customer, Target } from '@/types/database';
 export { useUploadAudit, useRequestAuditAnalysis, useAuditResult, useVisitAudits } from './screen-audit';
 
 export type CatalogProduct = {
@@ -228,5 +228,25 @@ export function useSaveMonthlyTarget() {
       void qc.invalidateQueries({ queryKey: [...sc.base, 'dashboard'] });
     },
     onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+export function useAttendanceToday() {
+  const sc = useScope(), today = visitDateRange('today').start;
+  return useQuery({
+    queryKey: [...sc.base, 'attendance-today', today],
+    retry: 1,
+    queryFn: async ({ signal }) => {
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('id,attendance_date,check_in_time,check_out_time,check_in_lat,check_in_lng')
+        .eq('company_id', sc.companyId)
+        .eq('supervisor_id', sc.supervisorId)
+        .eq('attendance_date', today)
+        .abortSignal(signal)
+        .maybeSingle();
+      if (error) throw new Error('تعذر تحميل سجل الحضور.');
+      return (data ?? null) as Attendance | null;
+    },
   });
 }
