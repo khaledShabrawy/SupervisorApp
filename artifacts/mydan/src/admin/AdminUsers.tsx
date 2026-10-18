@@ -116,9 +116,13 @@ function EditSupervisorModal({ s, onClose }: { s: Supervisor; onClose: () => voi
 
 function PermissionsDrawer({ s, onClose }: { s: Supervisor; onClose: () => void }) {
   const q = useSupervisorPermissions(s.id); const m = useSavePermissions(); const retry = useRefetch(q.refetch);
-  const [values, setValues] = useState<Record<ScreenKey, boolean> | null>(null);
-  useEffect(() => { if (q.data) setValues(Object.fromEntries(SCREENS.map((x) => [x.key, isScreenAllowed(q.data, x.key)])) as Record<ScreenKey, boolean>); }, [q.data]);
-  const toggle = useCallback((k: ScreenKey, v: boolean) => setValues((p) => p && ({ ...p, [k]: v })), []);
+  const [overrides, setOverrides] = useState<Partial<Record<ScreenKey, boolean>>>({});
+  const initialValues = useMemo(() => {
+    if (!q.data) return null;
+    return Object.fromEntries(SCREENS.map((x) => [x.key, isScreenAllowed(q.data, x.key)])) as Record<ScreenKey, boolean>;
+  }, [q.data]);
+  const values = useMemo(() => (initialValues ? { ...initialValues, ...overrides } : null), [initialValues, overrides]);
+  const toggle = useCallback((k: ScreenKey, v: boolean) => setOverrides((p) => ({ ...p, [k]: v })), []);
   const save = useCallback(() => { if (values) m.mutate({ supervisorId: s.id, values }, { onSuccess: onClose }); }, [m, s.id, values, onClose]);
   useEffect(() => { const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   return <>

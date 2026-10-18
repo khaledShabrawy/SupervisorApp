@@ -196,14 +196,22 @@ export function useProductsWithPrices(customerType: string | null) {
 
       const products = productsRes.data ?? [];
 
-      // 2. Fetch prices if price_lists table exists
+      // 2. Fetch prices from price_lists or fallback to price_list
       const priceMap = new Map<string, number>();
       try {
-        const { data: prices } = await supabase
-          .from('price_list')
+        let pricesRes = await supabase
+          .from('price_lists')
           .select('product_id,customer_type,unit_price')
           .eq('company_id', sc.companyId);
 
+        if (pricesRes.error) {
+          pricesRes = await supabase
+            .from('price_list')
+            .select('product_id,customer_type,unit_price')
+            .eq('company_id', sc.companyId);
+        }
+
+        const prices = pricesRes.data;
         if (prices && prices.length > 0) {
           for (const p of prices) {
             if (p.customer_type === customerType || p.customer_type === 'default') {
@@ -215,7 +223,7 @@ export function useProductsWithPrices(customerType: string | null) {
           }
         }
       } catch {
-        // price_lists table may not exist; rely on product.price
+        // rely on product.price
       }
 
       return products.map((prod: any) => {
@@ -284,7 +292,7 @@ export function useSupervisorOrders(period: 'today' | 'week' | 'month' | 'all' =
         q = q.gte('created_at', `${monthAgo}T00:00:00`);
       }
 
-      const { data, error } = await q;
+      const { data, error } = await q.limit(200);
       if (error) throw new Error(t('تعذر تحميل أوردرات المشرف.'));
 
       return (data ?? []).map((row: any) => ({
@@ -391,6 +399,16 @@ export function useAdminOrders(filter?: AdminOrdersFilter) {
 
       if (filter?.branchId && filter.branchId !== 'all') {
         orders = orders.filter((o) => o.supervisors?.branch_id === filter.branchId);
+      }
+
+      if (filter?.regionId && filter.regionId !== 'all') {
+        const { data: bList } = await supabase
+          .from('branches')
+          .select('id')
+          .eq('company_id', sc.companyId)
+          .eq('region_id', filter.regionId);
+        const branchIdsInRegion = new Set((bList ?? []).map((b) => b.id));
+        orders = orders.filter((o) => o.supervisors?.branch_id && branchIdsInRegion.has(o.supervisors.branch_id));
       }
 
       return orders;
