@@ -47,15 +47,19 @@ export function useAdminKpis(filters?: AdminKpiFilters) {
           .select('id').eq('company_id', sc.companyId).eq('branch_id', branchId).abortSignal(signal);
         supervisorIds = (sups ?? []).map((s) => s.id);
       } else if (regionId !== 'all') {
-        const { data: branches } = await supabase.from('branches')
+        const { data: branches, error: bErr } = await supabase.from('branches')
           .select('id').eq('company_id', sc.companyId).eq('region_id', regionId).abortSignal(signal);
-        const bIds = (branches ?? []).map((b) => b.id);
-        if (bIds.length > 0) {
-          const { data: sups } = await supabase.from('supervisors')
-            .select('id').eq('company_id', sc.companyId).in('branch_id', bIds).abortSignal(signal);
-          supervisorIds = (sups ?? []).map((s) => s.id);
+        if (!bErr && branches) {
+          const bIds = branches.map((b) => b.id);
+          if (bIds.length > 0) {
+            const { data: sups } = await supabase.from('supervisors')
+              .select('id').eq('company_id', sc.companyId).in('branch_id', bIds).abortSignal(signal);
+            supervisorIds = (sups ?? []).map((s) => s.id);
+          } else {
+            supervisorIds = [];
+          }
         } else {
-          supervisorIds = [];
+          supervisorIds = null;
         }
       }
 
@@ -195,10 +199,14 @@ export function useBranches() {
   return useQuery({
     queryKey: [...sc.base, 'branches'], retry: 1,
     queryFn: async ({ signal }) => {
-      const { data, error } = await supabase.from('branches').select('id,name,region,region_id,manager_id,latitude,longitude,is_active')
+      let res = await supabase.from('branches').select('id,name,region,region_id,manager_id,latitude,longitude,is_active')
         .eq('company_id', sc.companyId).order('name').abortSignal(signal);
-      if (error) fail('تعذر تحميل الفروع.', error);
-      return data as Branch[];
+      if (res.error && res.error.message.includes('region_id')) {
+        res = await supabase.from('branches').select('id,name,region,manager_id,latitude,longitude,is_active')
+          .eq('company_id', sc.companyId).order('name').abortSignal(signal);
+      }
+      if (res.error) fail('تعذر تحميل الفروع.', res.error);
+      return res.data as Branch[];
     },
   });
 }
@@ -207,12 +215,25 @@ export function useSaveBranch() {
   return useMutation({
     mutationFn: async (b: Omit<Branch, 'id'> & { id?: string }) => {
       requireAdmin(sc);
-      const values = { name: b.name.trim(), region: b.region?.trim() || null, region_id: b.region_id || null, manager_id: b.manager_id || null,
-        latitude: b.latitude, longitude: b.longitude, is_active: b.is_active };
+      const values: Record<string, unknown> = {
+        name: b.name.trim(),
+        region: b.region?.trim() || null,
+        manager_id: b.manager_id || null,
+        latitude: b.latitude,
+        longitude: b.longitude,
+        is_active: b.is_active,
+      };
+      if (b.region_id) values.region_id = b.region_id;
       if (!values.name) throw new Error('اسم الفرع مطلوب.');
-      const r = b.id
+      let r = b.id
         ? await supabase.from('branches').update(values).eq('id', b.id).eq('company_id', sc.companyId).select('id')
         : await supabase.from('branches').insert({ ...values, company_id: sc.companyId }).select('id');
+      if (r.error && r.error.message.includes('region_id')) {
+        delete values.region_id;
+        r = b.id
+          ? await supabase.from('branches').update(values).eq('id', b.id).eq('company_id', sc.companyId).select('id')
+          : await supabase.from('branches').insert({ ...values, company_id: sc.companyId }).select('id');
+      }
       if (r.error) fail('تعذر حفظ الفرع.', r.error);
       if (!r.data?.length) throw new Error('لم يتم الحفظ. قد لا تملك الصلاحية.');
     },
@@ -398,7 +419,17 @@ export function useAssets(search: string, dateFrom?: string, dateTo?: string) {
     if (s) q = q.or(`asset_code.ilike.%${s}%,serial_number.ilike.%${s}%`);
     if (dateFrom) q = q.gte('created_at', `${dateFrom}T00:00:00`);
     if (dateTo) q = q.lte('created_at', `${dateTo}T23:59:59`);
-    const { data, error } = await q.order('asset_code').range(from, to).abortSignal(signal);
+    let { data, error } = await q.order('asset_code').range(from, to).abortSignal(signal);
+    if (error && error.message.includes('installed_at')) {
+      let fallbackQ = supabase.from('assets').select('id,asset_code,asset_type_id,customer_id,serial_number,model,status,is_active,created_at,asset_types(name_ar,icon),customers(name)')
+        .eq('company_id', sc.companyId);
+      if (s) fallbackQ = fallbackQ.or(`asset_code.ilike.%${s}%,serial_number.ilike.%${s}%`);
+      if (dateFrom) fallbackQ = fallbackQ.gte('created_at', `${dateFrom}T00:00:00`);
+      if (dateTo) fallbackQ = fallbackQ.lte('created_at', `${dateTo}T23:59:59`);
+      const fallbackRes = await fallbackQ.order('asset_code').range(from, to).abortSignal(signal);
+      data = fallbackRes.data;
+      error = fallbackRes.error;
+    }
     if (error) fail('تعذر تحميل الأصول.', error);
     return data as unknown as AssetRow[];
   }, sc.isAdmin);
