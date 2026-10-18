@@ -365,7 +365,7 @@ function AssetForm({ edit, types, onClose }: { edit: AssetRow | null; types: { i
   return <Modal title={edit ? t('تعديل الأصل') : t('أصل جديد')} onClose={onClose} onSubmit={submit}>
     <label className="f">{t('كود الأصل * (يُطبع كـ QR)')}<input className="input" dir="ltr" required value={code} onChange={useInput(setCode)} data-testid="input-asset-code" /></label>
     <label className="f">{t('النوع *')}<select className="input" required value={type} onChange={useInput(setType)}>
-      {types.map((t) => <option key={t.id} value={t.id}>{t.icon} {t.name_ar}</option>)}</select></label>
+      {types.map((tp) => <option key={tp.id} value={tp.id}>{tp.icon} {tp.name_ar}</option>)}</select></label>
     <label className="f">{t('الحالة')}<select className="input" value={status} onChange={useInput(setStatus)}>
       {Object.entries(ASSET_STATUS).map(([k, [l]]) => <option key={k} value={k}>{t(l)}</option>)}</select></label>
     <div className="row"><label className="f grow">{t('الرقم التسلسلي')}<input className="input" dir="ltr" value={serial} onChange={useInput(setSerial)} /></label>
@@ -507,7 +507,7 @@ export function AdminNotifications() {
       {!all && <div className="row" style={{ flexWrap: 'wrap' }}>{active.map((s) =>
         <button type="button" key={s.id} className={`chip ${picked.has(s.id) ? 'on' : ''}`} aria-pressed={picked.has(s.id)} onClick={() => togglePick(s.id)}>{s.full_name}</button>)}</div>}
       <LoadMore q={sups} />
-      <button className="btn" disabled={m.isPending} data-testid="button-broadcast"><Bell size={18} /> {m.isPending ? t('جاري الإرسال...') : t('إرسال')}</button>
+      <button className="btn" disabled={m.isPending || (!all && picked.size === 0)} data-testid="button-broadcast"><Bell size={18} /> {m.isPending ? t('جاري الإرسال...') : t('إرسال')}</button>
     </form>
   </>;
 }
@@ -618,6 +618,23 @@ function SurveyForm({ edit, onClose }: { edit: SurveyRow | null; onClose: () => 
         <option value="choice">{t('اختيار من متعدد')}</option>
         <option value="checklist">{t('فحص تواجد أصناف ✓ (Checklist مثل زينة)')}</option>
       </select>
+      {q.type === 'choice' && (
+        <div className="col" style={{ gap: 6, marginTop: 4 }}>
+          <span className="muted" style={{ fontSize: 12 }}>
+            {t('خيارات الإجابة (اكتب كل خيار في سطر أو مفصولة بفاصلة):')}
+          </span>
+          <textarea
+            className="input"
+            rows={3}
+            placeholder={t('مثال:\nنعم\nلا\nأحياناً')}
+            value={(q.options || []).join('\n')}
+            onChange={(e) => {
+              const opts = e.target.value.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+              updateQ(i, 'options', opts as any);
+            }}
+          />
+        </div>
+      )}
       {q.type === 'checklist' && (
         <div className="col" style={{ gap: 6, marginTop: 4 }}>
           <span className="muted" style={{ fontSize: 12 }}>
@@ -1214,6 +1231,7 @@ export function AdminOrders() {
                   className="btn success"
                   disabled={updateStatus.isPending}
                   onClick={() => {
+                    if (!window.confirm(t('تأكيد تسليم الطلب؟'))) return;
                     updateStatus.mutate({ id: selectedOrder.id, status: 'delivered' });
                     setSelectedOrder(null);
                   }}

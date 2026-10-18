@@ -405,7 +405,7 @@ export function useSaveProduct() {
 
 /* ---------- Assets ---------- */
 export const ASSET_STATUS: Record<string, [string, string]> = {
-  active: ['يعمل', 'b-green'], defective: ['معطل', 'b-red'], under_maintenance: ['تحت الصيانة', 'b-yellow'], retired: ['خارج الخدمة', 'b-gray'],
+  active: ['يعمل', 'b-green'], defective: ['معطل', 'b-red'], under_maintenance: ['تحت الصيانة', 'b-amber'], retired: ['خارج الخدمة', 'b-gray'],
 };
 export type AssetRow = { id: string; asset_code: string; asset_type_id: string; customer_id: string | null; serial_number: string | null;
   model: string | null; status: string; is_active: boolean; created_at?: string; installed_at?: string;
