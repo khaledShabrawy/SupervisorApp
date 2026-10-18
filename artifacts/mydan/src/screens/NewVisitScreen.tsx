@@ -25,10 +25,7 @@ function geoText(g: ReturnType<typeof geofence>, radius: number) {
     : t('خارج نطاق العميل: {d} م (المسموح {r} م)', { d: num(g.distance_m), r: num(radius) });
 }
 
-/** Field reps sometimes must log a visit away from the pin (wrong pin, closed shop); it is allowed but flagged off-route. */
-function confirmOffRoute(g: ReturnType<typeof geofence>, radius: number) {
-  return g.on_beat || window.confirm(`${geoText(g, radius)}\n${t('سيتم تسجيل الزيارة كزيارة خارج خط السير (OOR). متابعة؟')}`);
-}
+type OorPending = { c: Customer; g: ReturnType<typeof geofence>; note: string };
 
 const NavigateButton = memo(function NavigateButton({ c }: { c: Pick<Customer, 'latitude' | 'longitude' | 'name'> }) {
   if (c.latitude == null || c.longitude == null) return null;
@@ -87,6 +84,7 @@ export default function NewVisitScreen() {
   const existingId = params.get('visit'); const preId = existingId ? null : params.get('customer');
   const existing = useVisitToStart(existingId); const pre = useCustomerById(preId);
   const [picked, setPicked] = useState<Customer | null>(null);
+  const [oorPending, setOorPending] = useState<OorPending | null>(null);
   const customer = existingId ? existing.data?.customers ?? null : picked ?? pre.data ?? null;
   const [editedNotes, setNotes] = useState<string | null>(null);
   const notes = editedNotes ?? existing.data?.notes ?? '';
@@ -96,11 +94,23 @@ export default function NewVisitScreen() {
   const checkIn = useCallback((c: Customer, note: string) => {
     if (!supervisor || !here) return;
     const g = geofence(here, c, s.geofence_radius_m);
-    if (!confirmOffRoute(g, s.geofence_radius_m)) return;
-    m.mutate({ customer_id: c.id, latitude: here.latitude, longitude: here.longitude, notes: note,
-      geo_distance: g.distance_m, on_beat: g.on_beat, ...(existingId ? { existingId } : {}) },
-    { onSuccess: (visit) => nav(`/visits/${visit.id}`, { replace: true }) });
+    if (g.on_beat) {
+      m.mutate({ customer_id: c.id, latitude: here.latitude, longitude: here.longitude, notes: note,
+        geo_distance: g.distance_m, on_beat: true, ...(existingId ? { existingId } : {}) },
+      { onSuccess: (visit) => nav(`/visits/${visit.id}`, { replace: true }) });
+    } else {
+      setOorPending({ c, g, note });
+    }
   }, [supervisor, here, s.geofence_radius_m, m, existingId, nav]);
+  const confirmOor = useCallback(() => {
+    if (!oorPending || !here) return;
+    const { c, g, note } = oorPending;
+    setOorPending(null);
+    m.mutate({ customer_id: c.id, latitude: here.latitude, longitude: here.longitude, notes: note,
+      geo_distance: g.distance_m, on_beat: false, ...(existingId ? { existingId } : {}) },
+    { onSuccess: (visit) => nav(`/visits/${visit.id}`, { replace: true }) });
+  }, [oorPending, here, m, existingId, nav]);
+  const cancelOor = useCallback(() => setOorPending(null), []);
   const logNearest = useCallback((c: Ranked) => checkIn(c, ''), [checkIn]);
   const submit = useCallback(() => { if (customer) checkIn(customer, notes); }, [customer, notes, checkIn]);
 
@@ -160,5 +170,26 @@ export default function NewVisitScreen() {
       <div className="card col"><span className="title">{t('أو ابحث عن عميل بالاسم')}</span>
         <CustomerPicker value={picked} onChange={setPicked} /></div>
     </>}
+
+    {oorPending && (
+      <div role="dialog" aria-modal="true" aria-labelledby="oor-title"
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div className="card col" style={{ maxWidth: 420, width: '100%', gap: 16 }}>
+          <strong id="oor-title" style={{ fontSize: 16 }}>{t('تسجيل زيارة خارج النطاق')}</strong>
+          <div className="alert warn" style={{ margin: 0 }}>
+            {geoText(oorPending.g, s.geofence_radius_m)}
+          </div>
+          <p style={{ margin: 0, color: 'var(--color-muted, #6b7280)', fontSize: 14 }}>
+            {t('سيتم تسجيل الزيارة كزيارة خارج خط السير (OOR). هل تريد المتابعة؟')}
+          </p>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn ghost grow" onClick={cancelOor} data-testid="btn-oor-cancel">{t('إلغاء')}</button>
+            <button className="btn danger grow" onClick={confirmOor} data-testid="btn-oor-confirm"
+              disabled={m.isPending}>{t('تسجيل كـ OOR')}</button>
+          </div>
+        </div>
+      </div>
+    )}
   </div>;
 }
