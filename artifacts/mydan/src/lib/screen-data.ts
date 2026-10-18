@@ -159,9 +159,12 @@ export function useSaveSettings() {
       if (!canAdmin(sc.supervisor)) throw new Error('تعديل الإعدادات للمدراء فقط.');
       const clean = { ...input, app_name: input.app_name.trim(), target_brand_name: input.target_brand_name.trim(),
         competitor_brands: [...new Set(input.competitor_brands.map(v => v.trim()).filter(Boolean))] };
-      validateSettings({ ...settings, ...clean }, sc.companyId);
-      const r = await supabase.from('app_settings').update(clean).eq('id', settings.id).eq('company_id', sc.companyId)
-        .select(SETTINGS_COLUMNS).single();
+      const isDefault = !settings.id || settings.id.startsWith('default-');
+      const r = isDefault
+        ? await supabase.from('app_settings').upsert({ ...clean, company_id: sc.companyId }, { onConflict: 'company_id' })
+            .select(SETTINGS_COLUMNS).single()
+        : await supabase.from('app_settings').update(clean).eq('id', settings.id).eq('company_id', sc.companyId)
+            .select(SETTINGS_COLUMNS).single();
       errorMessage('تعذر حفظ إعدادات الشركة. تحقق من صلاحيات الإدارة.', r.error);
       return validateSettings(r.data as AppSettings, sc.companyId);
     },
