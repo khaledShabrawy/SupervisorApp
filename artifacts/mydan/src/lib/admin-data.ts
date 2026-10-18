@@ -453,6 +453,42 @@ export function useSaveAsset() {
     onError: (e: Error) => notify(e.message, 'error'),
   });
 }
+export function useDeleteAsset() {
+  const sc = useScope(); const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      requireAdmin(sc);
+      const { error } = await supabase.from('assets').delete().eq('id', id).eq('company_id', sc.companyId);
+      if (error) {
+        const { error: deactErr } = await supabase.from('assets').update({ is_active: false }).eq('id', id).eq('company_id', sc.companyId);
+        if (deactErr) fail(t('تعذر حذف الأصل.'), deactErr);
+        notify(t('تم تعطيل الأصل نظراً لوجود سجلات مرتبطة به.'), 'info');
+        return;
+      }
+      notify(t('تم حذف الأصل بنجاح.'), 'success');
+    },
+    onSuccess: () => { void invalidate(qc, sc, 'assets', 'admin-kpis'); },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+export function useDeleteAssetType() {
+  const sc = useScope(); const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      requireAdmin(sc);
+      const { error } = await supabase.from('asset_types').delete().eq('id', id).eq('company_id', sc.companyId);
+      if (error) {
+        const { error: deactErr } = await supabase.from('asset_types').update({ is_active: false }).eq('id', id).eq('company_id', sc.companyId);
+        if (deactErr) fail(t('تعذر حذف نوع الأصل.'), deactErr);
+        notify(t('تم تعطيل نوع الأصل نظراً لوجود أصول مرتبطة به.'), 'info');
+        return;
+      }
+      notify(t('تم حذف نوع الأصل بنجاح.'), 'success');
+    },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: [...sc.base, 'asset-types'] }); },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
 
 /* ---------- Broadcast notifications ---------- */
 export function useBroadcast() {
