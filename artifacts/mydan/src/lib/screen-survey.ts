@@ -193,6 +193,36 @@ export function useAdminProspects() {
   });
 }
 
+export type FieldSurveyRecord = {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  stores_found: number;
+  created_at: string;
+  latitude: number | null;
+  longitude: number | null;
+  supervisors: { full_name: string } | null;
+};
+
+export function useAdminFieldSurveys() {
+  const sc = useScope();
+  return useQuery({
+    queryKey: [...sc.base, 'admin-field-surveys'],
+    enabled: sc.isAdmin,
+    retry: 1,
+    queryFn: async ({ signal }) => {
+      const { data, error } = await supabase
+        .from('field_surveys')
+        .select('id,status,stores_found,created_at,latitude,longitude,supervisors(full_name)')
+        .eq('company_id', sc.companyId)
+        .order('created_at', { ascending: false })
+        .limit(200)
+        .abortSignal(signal);
+      if (error) throw new Error(error.message || 'تعذر تحميل سجلات المسح الميداني.');
+      return data as FieldSurveyRecord[];
+    },
+  });
+}
+
 export function useConvertProspect() {
   const sc = useScope(), qc = useQueryClient();
   return useMutation({

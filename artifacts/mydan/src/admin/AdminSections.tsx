@@ -2,7 +2,7 @@ import { useCallback, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
-import { Bell, CheckCheck, Download, FileText, MapPin, Package, Plus, ShoppingCart, Store, Trash2, X } from '@/components/Icons';
+import { Bell, Camera, CheckCheck, Download, FileText, MapPin, Package, Plus, ShoppingCart, Store, Trash2, X } from '@/components/Icons';
 import { exportToCsv } from '@/lib/csv-export';
 import { useAdminOrders, useUpdateOrderStatus, formatOrderWhatsAppMessage, openWhatsAppShare, type OrderRecord } from '@/lib/screen-orders';
 import { fmtDate, fmtTime, num } from '@/lib/format';
@@ -21,7 +21,7 @@ import EmptyState from '@/components/EmptyState';
 import type { Supervisor } from '@/types/database';
 import { AssetTypes, SettingsForm, TargetForm } from '@/screens/AdminPanel';
 import { useInput, useRefetch } from '@/screens/shared';
-import { useAdminProspects, useConvertProspect } from '@/lib/screen-survey';
+import { useAdminProspects, useAdminFieldSurveys, useConvertProspect, type FieldSurveyRecord } from '@/lib/screen-survey';
 import { t } from '@/i18n';
 
 function Modal({ title, onClose, onSubmit, children }: { title: string; onClose: () => void; onSubmit: (e: FormEvent) => void; children: React.ReactNode }) {
@@ -719,6 +719,63 @@ export function AdminProspects() {
             </tr>
           ))}</tbody>
         </table></div>}
+  </>;
+}
+
+/* ---------- Field Survey History ---------- */
+const FS_STATUS: Record<string, { label: string; cls: string }> = {
+  pending:    { label: 'في الانتظار',   cls: 'b-gray'  },
+  processing: { label: 'قيد المعالجة', cls: 'b-blue'  },
+  completed:  { label: 'مكتمل',        cls: 'b-green' },
+  failed:     { label: 'فشل',          cls: 'b-red'   },
+};
+export function AdminFieldSurveys() {
+  const q = useAdminFieldSurveys();
+  const retry = useRefetch(q.refetch);
+  const handleExport = useCallback(() => {
+    if (!q.data?.length) return;
+    exportToCsv<FieldSurveyRecord>('سجل-المسح-الميداني', [
+      { header: 'المشرف',         accessor: (r) => r.supervisors?.full_name ?? '' },
+      { header: 'الحالة',         key: 'status' },
+      { header: 'محلات مكتشفة',  key: 'stores_found' },
+      { header: 'التاريخ',        accessor: (r) => new Date(r.created_at).toLocaleDateString('ar-EG') },
+      { header: 'خط العرض',      key: 'latitude' },
+      { header: 'خط الطول',      key: 'longitude' },
+    ], q.data);
+  }, [q.data]);
+  return <>
+    <div className="row between">
+      <h2>{t('سجل المسح الميداني')}</h2>
+      <div className="row" style={{ gap: 8 }}>
+        {q.data && <span className="badge b-blue">{q.data.length}</span>}
+        {!!q.data?.length && <button className="btn sm ghost" onClick={handleExport}><Download size={15} /> {t('تصدير CSV')}</button>}
+      </div>
+    </div>
+    <p className="muted" style={{ marginTop: 0 }}>{t('سجلات المسح الميداني بالذكاء الاصطناعي — اكتشاف المحلات عبر الكاميرا.')}</p>
+    {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
+      : !q.data?.length
+        ? <EmptyState icon={<Camera />} title={t('لا توجد سجلات مسح')} description={t('استخدم المسح الميداني في التطبيق لاكتشاف عملاء جدد.')} />
+        : <div className="adm-table-wrap"><table className="adm-table">
+            <thead><tr>
+              <th>{t('المشرف')}</th>
+              <th>{t('الحالة')}</th>
+              <th>{t('المحلات')}</th>
+              <th>{t('التاريخ')}</th>
+              <th>{t('الموقع')}</th>
+            </tr></thead>
+            <tbody>{q.data.map((r) => {
+              const st = FS_STATUS[r.status] ?? { label: r.status, cls: 'b-gray' };
+              return <tr key={r.id}>
+                <td className="title">{r.supervisors?.full_name ?? '—'}</td>
+                <td><span className={`badge ${st.cls}`}>{t(st.label)}</span></td>
+                <td>{r.status === 'completed' ? <strong style={{ color: 'var(--color-success)' }}>{r.stores_found}</strong> : '—'}</td>
+                <td className="muted" style={{ fontSize: 12 }}>{new Date(r.created_at).toLocaleDateString('ar-EG')}</td>
+                <td className="muted" style={{ fontSize: 12 }} dir="ltr">
+                  {r.latitude && r.longitude ? `${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}` : '—'}
+                </td>
+              </tr>;
+            })}</tbody>
+          </table></div>}
   </>;
 }
 
