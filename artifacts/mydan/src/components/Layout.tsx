@@ -106,7 +106,7 @@ function Shell() {
       '/notifications': t('الإشعارات'), '/admin': t('لوحة الإدارة') } as Record<string, string>)[pathname] ?? 'Mydan'} | ${s.app_name}`;
     return () => { document.title = `Mydan | ${t('إدارة المشرفين الميدانيين')}`; };
   }, [pathname, s.app_name]);
-  if (!IS_ANDROID && admin) return <Navigate to="/admin" replace />;
+  if (!IS_ANDROID && admin && !pathname.startsWith('/admin')) return <Navigate to="/admin" replace />;
   return <div className="shell">
     <Realtime id={supervisor!.id} company={supervisor!.company_id} />
     <header className="topbar">
