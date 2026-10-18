@@ -8,6 +8,7 @@ import { canAdmin, validateSettings } from './policy';
 import { readAllRows, readExactCount } from './read-count';
 import { notify } from './toast';
 import { countTargetRecord } from './execution-records';
+import type { Customer, AppSettings, Target, Attendance } from '@/types/database';
 export type CustomerCardRow = Customer & { last_visit: string | null };
 export interface MonthProgress {
   month: number;
