@@ -40,3 +40,43 @@ export function geofence(gps: { latitude: number; longitude: number }, outlet: L
 
 export const mapsDirectionsUrl = (lat: number, lon: number) =>
   `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+
+/**
+ * Nearest Neighbour greedy TSP — O(N²), sufficient for ≤ 300 stops.
+ * Starts from (startLat, startLng), always picks the closest unvisited stop.
+ * Stops without coordinates are appended at the end unchanged.
+ */
+export function optimizeRoute<T extends Located>(rows: T[], startLat: number, startLng: number): T[] {
+  const withCoords = rows.filter((r): r is T & { latitude: number; longitude: number } =>
+    Number.isFinite(r.latitude) && Number.isFinite(r.longitude));
+  const noCoords = rows.filter((r) => !Number.isFinite(r.latitude) || !Number.isFinite(r.longitude));
+
+  const unvisited = [...withCoords];
+  const route: (T & { latitude: number; longitude: number })[] = [];
+  let curLat = startLat, curLng = startLng;
+
+  while (unvisited.length > 0) {
+    let nearestIdx = 0, nearestDist = Infinity;
+    for (let i = 0; i < unvisited.length; i++) {
+      const d = distanceKm(curLat, curLng, unvisited[i].latitude, unvisited[i].longitude);
+      if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
+    }
+    const [next] = unvisited.splice(nearestIdx, 1);
+    route.push(next);
+    curLat = next.latitude; curLng = next.longitude;
+  }
+
+  return [...route, ...noCoords];
+}
+
+/** Total route distance in km (rounded to 2 decimals) starting from (startLat, startLng). */
+export function totalRouteKm(rows: Located[], startLat: number, startLng: number): number {
+  let total = 0, curLat = startLat, curLng = startLng;
+  for (const r of rows) {
+    if (Number.isFinite(r.latitude) && Number.isFinite(r.longitude)) {
+      total += distanceKm(curLat, curLng, r.latitude!, r.longitude!);
+      curLat = r.latitude!; curLng = r.longitude!;
+    }
+  }
+  return Math.round(total * 100) / 100;
+}
