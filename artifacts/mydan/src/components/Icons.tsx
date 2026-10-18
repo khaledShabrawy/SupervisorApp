@@ -18,6 +18,7 @@ export const Search = icon([["path",{"d":"m21 21-4.34-4.34"}],["circle",{"cx":"1
 export const AlertTriangle = icon([["path",{"d":"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3 M12 9v4 M12 17h.01"}]]);
 export const ArrowRight = icon([["path",{"d":"M5 12h14 m-7-7 7 7-7 7"}]]);
 export const LogOut = icon([["path",{"d":"m16 17 5-5-5-5 M21 12H9 M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"}]]);
+export const LogIn = icon([["path",{"d":"M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4 m-4-7-5 5 5 5 M3 12h12"}]]);
 export const Settings2 = icon([["path",{"d":"M14 17H5 M19 7h-9"}],["circle",{"cx":"17","cy":"17","r":"3"}],["circle",{"cx":"7","cy":"7","r":"3"}]]);
 export const X = icon([["path",{"d":"M18 6 6 18 M6 6l12 12"}]]);
 export const AlertCircle = icon([["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"M12 8v4 M12 16h.01"}]]);
