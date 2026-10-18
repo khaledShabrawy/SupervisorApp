@@ -10,6 +10,7 @@ export const SCREENS = [
   { key: 'my_reports', label: 'تقاريري والأهداف', path: '/targets', byDefault: true },
   { key: 'notifications', label: 'الإشعارات', path: '/notifications', byDefault: true },
   { key: 'beat_plan', label: 'خطة المسار', path: '/beat-plan', byDefault: false },
+  { key: 'field_survey', label: 'مسح ميداني AI', path: '/field-survey', byDefault: false },
 ] as const;
 export type ScreenKey = typeof SCREENS[number]['key'];
 
