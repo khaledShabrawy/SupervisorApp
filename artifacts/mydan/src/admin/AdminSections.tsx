@@ -366,6 +366,9 @@ function AssetForm({ edit, types, onClose }: { edit: AssetRow | null; types: { i
     <label className="f">{t('كود الأصل * (يُطبع كـ QR)')}<input className="input" dir="ltr" required value={code} onChange={useInput(setCode)} data-testid="input-asset-code" /></label>
     <label className="f">{t('النوع *')}<select className="input" required value={type} onChange={useInput(setType)}>
       {types.map((tp) => <option key={tp.id} value={tp.id}>{tp.icon} {tp.name_ar}</option>)}</select></label>
+    {edit && !types.find((tp) => tp.id === type) && (
+      <div className="alert warn" style={{ fontSize: 12 }}>{t('نوع الأصل الأصلي غير متاح — اختر نوعاً آخر.')}</div>
+    )}
     <label className="f">{t('الحالة')}<select className="input" value={status} onChange={useInput(setStatus)}>
       {Object.entries(ASSET_STATUS).map(([k, [l]]) => <option key={k} value={k}>{t(l)}</option>)}</select></label>
     <div className="row"><label className="f grow">{t('الرقم التسلسلي')}<input className="input" dir="ltr" value={serial} onChange={useInput(setSerial)} /></label>
