@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
     if (permError) console.error("permissions upsert failed", permError.message);
   }
 
-  await admin.from("audit_logs").insert({ company_id: companyId, table_name: "supervisors", action: "invite",
+  await admin.from("audit_logs").insert({ company_id: companyId, table_name: "supervisors", action: "INSERT",
     performed_by: auth.user.id, new_data: { supervisor_id: sup.id, email, role, branch_id: branchId } })
     .then(({ error }) => error && console.warn("audit log skipped", error.message));
 

@@ -23,10 +23,42 @@ export interface Visit {
   notes: string | null; company_id: ID;
   on_beat?: boolean | null; geo_distance?: number | null;
 }
+/** Shape of the JSONB column ai_detailed_report in shelf_audit.
+ *  Full payload comes from the analyze-shelf Edge Function (AuditSchema + metadata).
+ *  Partial payload is written by the client-side fallback (issues + recommendations only).
+ *  Null before first analysis. */
+export interface AiDetailedReport {
+  issues: string[];
+  recommendations: string[];
+  audit_summary_ar?: string;
+  score?: number;
+  target_brand_metrics?: {
+    brand_present: boolean;
+    facings: number;
+    share_of_shelf_percentage: number;
+    out_of_stock: boolean;
+    oos_items: string[];
+  };
+  competitor_metrics?: {
+    competitor_presence_detected: boolean;
+    competitor_share_pct: number;
+    brands_detected: string[];
+  };
+  posm_present?: boolean;
+  price_tag_visible?: boolean;
+  detailed_report?: {
+    brand_analysis: string;
+    competitor_analysis: string;
+    display_quality: string;
+    action_priority: string;
+  };
+  model?: string;
+  engine?: 'google-gemini' | 'anthropic';
+}
 export interface ShelfAudit {
   id: ID; visit_id: ID; supervisor_id: ID; photo_url: string | null;
   audit_summary_ar: string | null; audit_score: number | null;
-  ai_detailed_report: any; status: 'pending' | 'processing' | 'completed' | 'failed';
+  ai_detailed_report: AiDetailedReport | null; status: 'pending' | 'processing' | 'completed' | 'failed';
   audited_at: string | null; company_id: ID;
 }
 export interface Notification {
