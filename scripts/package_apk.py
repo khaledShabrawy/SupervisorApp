@@ -24,11 +24,35 @@ def main():
     zipalign_bin = os.path.join(sdk_build_tools, "zipalign.exe")
     apksigner_bin = os.path.join(sdk_build_tools, "apksigner.bat")
     jdk_dir = r"C:\Program Files\Microsoft\jdk-21.0.12.101-hotspot"
-    keystore_path = r"C:\Users\Khaled.Mahmoud\.android\debug.keystore"
+    keystore_path = r"C:\Users\Khaled.Mahmoud\.android\mydan-release.keystore"
+    key_alias = "mydan"
+    store_pass = "mydan2026"
+    key_pass = "mydan2026"
 
-    for required_file in [zipalign_bin, apksigner_bin, keystore_path]:
+    for required_file in [zipalign_bin, apksigner_bin]:
         if not os.path.exists(required_file):
-            raise FileNotFoundError(f"Required tool or keystore missing: {required_file}")
+            raise FileNotFoundError(f"Required tool missing: {required_file}")
+
+    # Auto-generate release keystore on first run so Play Protect sees a unique cert (not the shared debug key)
+    if not os.path.exists(keystore_path):
+        log(f"Release keystore not found — generating at {keystore_path}...")
+        keytool_bin = os.path.join(jdk_dir, "bin", "keytool.exe")
+        if not os.path.exists(keytool_bin):
+            raise FileNotFoundError(f"keytool not found at {keytool_bin}")
+        kt_cmd = [
+            keytool_bin, "-genkey", "-v",
+            "-keystore", keystore_path,
+            "-alias", key_alias,
+            "-keyalg", "RSA", "-keysize", "2048",
+            "-validity", "10000",
+            "-dname", "CN=Mydan App,OU=Mobile,O=Mydan,L=Cairo,ST=Cairo,C=EG",
+            "-storepass", store_pass,
+            "-keypass", key_pass,
+        ]
+        kt_res = subprocess.run(kt_cmd, capture_output=True, text=True)
+        if kt_res.returncode != 0:
+            raise RuntimeError(f"keytool failed: {kt_res.stderr}\n{kt_res.stdout}")
+        log(f"   Release keystore generated successfully at {keystore_path}")
 
     local_dist = os.path.abspath(r"artifacts\mydan\dist\public")
     local_manifest = os.path.join(local_dist, "asset-manifest.json")
@@ -134,13 +158,13 @@ def main():
             raise RuntimeError(f"zipalign failed: {res.stderr}\n{res.stdout}")
         log("   zipalign completed successfully.")
 
-        log("6. Signing APK using apksigner with debug.keystore (v1, v2 and v3 schemes)...")
+        log("6. Signing APK using apksigner with release keystore (v1, v2 and v3 schemes)...")
         apksigner_cmd = [
             apksigner_bin, "sign",
             "--ks", keystore_path,
-            "--ks-pass", "pass:android",
-            "--ks-key-alias", "androiddebugkey",
-            "--key-pass", "pass:android",
+            "--ks-pass", f"pass:{store_pass}",
+            "--ks-key-alias", key_alias,
+            "--key-pass", f"pass:{key_pass}",
             "--v1-signing-enabled", "true",
             "--v2-signing-enabled", "true",
             "--v3-signing-enabled", "true",
