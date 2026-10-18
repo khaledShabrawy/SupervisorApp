@@ -53,9 +53,9 @@ export const Chip = memo(function Chip({ value, label, active, onSelect, role, t
   const click = useCallback(() => onSelect(value), [onSelect, value]);
   return <button type="button" role={role} aria-selected={role ? active : undefined} aria-pressed={role ? undefined : active} className={`chip ${active ? 'on' : ''}`} onClick={click} data-testid={testId}>{label}</button>;
 });
-export const Act = memo(function Act({ id, onAct, className, children, disabled, testId, label }: { id: string; onAct: (id: string) => void; className: string; children: ReactNode; disabled?: boolean; testId?: string; label?: string }) {
+export const Act = memo(function Act({ id, onAct, className, children, disabled, testId, label, style }: { id: string; onAct: (id: string) => void; className: string; children: ReactNode; disabled?: boolean; testId?: string; label?: string; style?: React.CSSProperties }) {
   const click = useCallback(() => onAct(id), [onAct, id]);
-  return <button type="button" className={className} onClick={click} disabled={disabled} data-testid={testId} aria-label={label}>{children}</button>;
+  return <button type="button" className={className} style={style} onClick={click} disabled={disabled} data-testid={testId} aria-label={label}>{children}</button>;
 });
 export const SelectOption = memo(function SelectOption({ value, label }: { value: string | number; label: string }) {
   return <option value={value}>{label}</option>;

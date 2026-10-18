@@ -80,7 +80,7 @@ const ProductRow = memo(function ProductRow({
             style={{ fontSize: 12, padding: '2px 10px', height: 28 }}
             onClick={() => onSetUnit(product.id, 'كرتونة')}
           >
-            📦 {t('كرتونة ({n} ق)', { n: product.units_per_carton })}
+            📦 {t('كرتونة ({n} ق)', { n: product.units_per_carton ?? 1 })}
           </button>
         </div>
       )}

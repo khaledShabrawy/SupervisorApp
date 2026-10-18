@@ -50,7 +50,7 @@ export default function TargetsScreen() {
         <Card label={t('الزيارات')} actual={cur.actual_visits} target={cur.visits_target} fmt={num} />
         <Card label={t('مراجعات الرف')} actual={cur.actual_audits} target={cur.audit_target} fmt={num} />
         <PageTitle>{t('الأشهر السابقة')}</PageTitle>
-        <div className="card s-hist">{hist.length === 0 ? <div className="muted">{t('لا بيانات سابقة.')}</div> : hist.map((r) => <Month key={`${r.year}-${r.month}`} r={r} />)}</div>
+        <div className="card s-hist">{hist.length === 0 ? <div className="muted">{t('لا بيانات سابقة.')}</div> : hist.map((r: MonthProgress) => <Month key={`${r.year}-${r.month}`} r={r} />)}</div>
         <p className="muted">{t('الأشرطة تعرض الإنجاز حتى ١٠٠٪، وتظهر النسب الأعلى في الأرقام.')}</p>
       </>}
   </div>;

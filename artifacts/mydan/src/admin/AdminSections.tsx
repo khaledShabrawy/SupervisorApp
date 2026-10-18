@@ -1,4 +1,4 @@
-import { useCallback, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useCallback, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
@@ -754,7 +754,7 @@ export function AdminFieldSurveys() {
     <p className="muted" style={{ marginTop: 0 }}>{t('سجلات المسح الميداني بالذكاء الاصطناعي — اكتشاف المحلات عبر الكاميرا.')}</p>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
       : !q.data?.length
-        ? <EmptyState icon={<Camera />} title={t('لا توجد سجلات مسح')} description={t('استخدم المسح الميداني في التطبيق لاكتشاف عملاء جدد.')} />
+        ? <EmptyState icon={<Camera />} title={t('لا توجد سجلات مسح')} text={t('استخدم المسح الميداني في التطبيق لاكتشاف عملاء جدد.')} />
         : <div className="adm-table-wrap"><table className="adm-table">
             <thead><tr>
               <th>{t('المشرف')}</th>

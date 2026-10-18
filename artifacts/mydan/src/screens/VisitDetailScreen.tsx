@@ -229,7 +229,7 @@ export default function VisitDetailScreen() {
           <div className="card col">
             <div className="row between">
               <div className="title row" style={{ fontSize: 18, alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                {detail.data.customers?.customer_code && <span className="badge b-blue" style={{ fontFamily: 'monospace', fontSize: 12 }}>{detail.data.customers.customer_code}</span>}
+                {(detail.data.customers as any)?.customer_code && <span className="badge b-blue" style={{ fontFamily: 'monospace', fontSize: 12 }}>{(detail.data.customers as any).customer_code}</span>}
                 <span>{detail.data.customers?.name ?? t('عميل غير معروف')}</span>
               </div>
               <StatusBadge status={detail.data.status} />

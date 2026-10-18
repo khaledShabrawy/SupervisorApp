@@ -686,7 +686,7 @@ export function useEditSupervisorProfile() {
       const { data: existing } = await supabase.from('supervisors').select('role,branch_id').eq('id', id).eq('company_id', sc.companyId).single();
       if (existing?.role === 'super_admin') throw new Error(t('لا يمكن تعديل المدير الأعلى.'));
       if (sc.supervisor.role === 'branch_manager') {
-        if (role === 'admin' || role === 'super_admin') {
+        if ((role as string) === 'admin' || (role as string) === 'super_admin') {
           throw new Error(t('مدير الفرع لا يملك صلاحية تعيين رتبة مدير.'));
         }
         if (existing?.branch_id && existing.branch_id !== sc.supervisor.branch_id) {

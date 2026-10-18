@@ -8,7 +8,15 @@ import { canAdmin, validateSettings } from './policy';
 import { readAllRows, readExactCount } from './read-count';
 import { notify } from './toast';
 import { countTargetRecord } from './execution-records';
-import type { AppSettings, Attendance, Customer, Target } from '@/types/database';
+export type CustomerCardRow = Customer & { last_visit: string | null };
+export interface MonthProgress {
+  month: number;
+  year: number;
+  visits_target: number;
+  audit_target: number;
+  actual_visits: number;
+  actual_audits: number;
+}
 export { useUploadAudit, useRequestAuditAnalysis, useAuditResult, useVisitAudits } from './screen-audit';
 
 export type CatalogProduct = {
