@@ -93,16 +93,46 @@ export function useAttendanceAction() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
     mutationFn: async (a: { kind: 'in' | 'out'; row: Attendance | null }) => {
+      const timestamp = nowIso(); const today = todayStr();
+      if (!navigator.onLine) {
+        enqueueOfflineAction({
+          type: 'attendance_action', companyId: sc.companyId, supervisorId: sc.supervisorId,
+          payload: a.kind === 'in'
+            ? { kind: 'in', attendance_date: today, check_in_time: timestamp }
+            : { kind: 'out', attendance_date: today, check_out_time: timestamp },
+        });
+        return;
+      }
       if (a.kind === 'in') {
-        const { error } = await supabase.from('attendance').insert({ supervisor_id: sc.supervisorId, company_id: sc.companyId, attendance_date: todayStr(), check_in_time: nowIso() });
-        if (error) fail('تعذر تسجيل الحضور.', error);
+        const { error } = await supabase.from('attendance').insert({
+          supervisor_id: sc.supervisorId, company_id: sc.companyId,
+          attendance_date: today, check_in_time: timestamp,
+        });
+        if (error) {
+          enqueueOfflineAction({
+            type: 'attendance_action', companyId: sc.companyId, supervisorId: sc.supervisorId,
+            payload: { kind: 'in', attendance_date: today, check_in_time: timestamp },
+          });
+        }
       } else {
-        const { error } = await supabase.from('attendance').update({ check_out_time: nowIso() }).eq('id', a.row!.id)
-          .eq('company_id', sc.companyId).eq('supervisor_id', sc.supervisorId).select('id').single();
-        if (error) fail('تعذر تسجيل الانصراف.', error);
+        const { error } = await supabase.from('attendance').update({ check_out_time: timestamp })
+          .eq('id', a.row!.id).eq('company_id', sc.companyId).eq('supervisor_id', sc.supervisorId).select('id').single();
+        if (error) {
+          enqueueOfflineAction({
+            type: 'attendance_action', companyId: sc.companyId, supervisorId: sc.supervisorId,
+            payload: { kind: 'out', attendance_date: today, check_out_time: timestamp },
+          });
+        }
       }
     },
-    onSuccess: (_d, v) => { notify(v.kind === 'in' ? 'تم تسجيل الحضور' : 'تم تسجيل الانصراف', 'success'); void inv(qc, sc, 'dashboard'); },
+    onSuccess: (_d, v) => {
+      const online = navigator.onLine;
+      const msg = v.kind === 'in'
+        ? (online ? t('تم تسجيل الحضور') : t('📶 تم حفظ الحضور دون اتصال. سيُرفع عند توفر الشبكة'))
+        : (online ? t('تم تسجيل الانصراف') : t('📶 تم حفظ الانصراف دون اتصال. سيُرفع عند توفر الشبكة'));
+      notify(msg, 'success');
+      void inv(qc, sc, 'dashboard', 'attendance-today');
+    },
     onError: (e: Error) => notify(e.message, 'error'),
   });
 }

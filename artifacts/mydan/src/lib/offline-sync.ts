@@ -7,7 +7,9 @@ export type OfflineActionType =
   | 'create_visit'
   | 'update_visit_status'
   | 'set_visit_outcome'
-  | 'save_order';
+  | 'save_order'
+  | 'attendance_action'
+  | 'submit_survey';
 
 export interface OfflineAction {
   id: string;
@@ -136,6 +138,36 @@ export async function uploadPendingOfflineActions(): Promise<{
         if (error) throw error;
       } else if (item.type === 'save_order') {
         const { error } = await supabase.from('orders').insert(item.payload);
+        if (error) throw error;
+      } else if (item.type === 'attendance_action') {
+        const { kind, attendance_date, check_in_time, check_out_time, check_in_lat, check_in_lng } = item.payload as {
+          kind: 'in' | 'out'; attendance_date: string;
+          check_in_time?: string; check_out_time?: string;
+          check_in_lat?: number | null; check_in_lng?: number | null;
+        };
+        if (kind === 'in') {
+          const { error } = await supabase.from('attendance').insert({
+            supervisor_id: item.supervisorId, company_id: item.companyId,
+            attendance_date,
+            check_in_time: check_in_time ?? new Date().toISOString(),
+            check_in_lat: check_in_lat ?? null, check_in_lng: check_in_lng ?? null,
+          });
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('attendance')
+            .update({ check_out_time: check_out_time ?? new Date().toISOString() })
+            .eq('company_id', item.companyId).eq('supervisor_id', item.supervisorId)
+            .eq('attendance_date', attendance_date);
+          if (error) throw error;
+        }
+      } else if (item.type === 'submit_survey') {
+        const { survey_id, visit_id, answers, submitted_at } = item.payload as {
+          survey_id: string; visit_id: string; answers: Record<string, unknown>; submitted_at: string;
+        };
+        const { error } = await supabase.from('survey_responses').insert({
+          company_id: item.companyId, supervisor_id: item.supervisorId,
+          survey_id, visit_id, answers, submitted_at,
+        });
         if (error) throw error;
       }
 
