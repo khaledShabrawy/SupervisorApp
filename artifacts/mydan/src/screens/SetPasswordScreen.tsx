@@ -14,6 +14,7 @@ export default function SetPasswordScreen() {
   const onPw = useInput(setPw); const onPw2 = useInput(setPw2);
   useEffect(() => {
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     // Check session immediately and also listen to onAuthStateChange in case token exchange is in flight
     supabase.auth.getSession().then(({ data }) => {
       if (!alive) return;
@@ -21,22 +22,22 @@ export default function SetPasswordScreen() {
         setReady(true);
       } else {
         // Give token exchange up to 1200ms before concluding link is missing/expired
-        const timer = setTimeout(async () => {
+        timer = setTimeout(async () => {
           if (!alive) return;
           const { data: retryData } = await supabase.auth.getSession();
           if (alive) setReady(!!retryData.session);
         }, 1200);
-        return () => clearTimeout(timer);
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!alive) return;
       if (session) setReady(true);
     });
 
     return () => {
       alive = false;
+      if (timer) clearTimeout(timer);
       subscription.unsubscribe();
     };
   }, []);

@@ -169,7 +169,7 @@ export function useProductsWithPrices(customerType: string | null) {
     queryKey: [...sc.base, 'products-with-prices', customerType ?? 'all'],
     queryFn: async () => {
       // 1. Attempt full column selection
-      let productsRes = await supabase
+      let productsRes: any = await supabase
         .from('products')
         .select('id,name,category,sku_code,item_code,master_brand,sub_brand,price,unit,units_per_carton,carton_price,is_active')
         .eq('company_id', sc.companyId)

@@ -1,5 +1,6 @@
 import { useCallback, useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
 import { AlertCircle, Eye, EyeOff } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';

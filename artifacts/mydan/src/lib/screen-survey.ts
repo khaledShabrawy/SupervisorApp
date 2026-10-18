@@ -218,7 +218,7 @@ export function useAdminFieldSurveys() {
         .limit(200)
         .abortSignal(signal);
       if (error) throw new Error(error.message || 'تعذر تحميل سجلات المسح الميداني.');
-      return data as FieldSurveyRecord[];
+      return (data ?? []) as unknown as FieldSurveyRecord[];
     },
   });
 }
