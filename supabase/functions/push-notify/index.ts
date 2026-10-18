@@ -7,7 +7,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const VAPID_SUBJECT  = 'mailto:admin@mydan.app';
-const VAPID_PUBLIC   = 'BEJuGXGBkQ9jvLb5DEh-dY3jsVsRGWHDbHrAXJamefa8izvXCRyH0QqK7YB1Xt68WoHS7v25ie8_gGYDvae-sAM';
+const VAPID_PUBLIC   = Deno.env.get("VAPID_PUBLIC_KEY") ?? 'BPXw8FvbaqXnGgBAKe3YWGqopPU2F80WBzWxq3en1qALgRWpjNwn7CBFuJyphseJv8A4t5_3ttkKUxbiTSJu1XE';
 const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
 
 // ── Utility: base64url helpers ─────────────────────────────────────────────
@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const privateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+  const privateKey = Deno.env.get('VAPID_PRIVATE_KEY') ?? '4jb5ZrqvebZNv9uM1TXFi7IVGFXWSxOP_AY7MwSMO8M';
   if (!privateKey) return new Response('VAPID_PRIVATE_KEY not set', { status: 500 });
 
   // ── Step 1: Verify caller JWT via Supabase Auth ───────────────────────────

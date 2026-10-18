@@ -47,3 +47,43 @@ self.addEventListener('fetch', event => {
     event.respondWith(caches.match(request).then(cached => cached || fetch(request)));
   }
 });
+
+/* ── Web Push Event Listeners ── */
+self.addEventListener('push', event => {
+  let payload = { title: 'ميدان', body: 'لديك إشعار جديد' };
+  if (event.data) {
+    try {
+      payload = event.data.json();
+    } catch {
+      payload.body = event.data.text() || payload.body;
+    }
+  }
+  const title = payload.title || 'تطبيق ميدان';
+  const options = {
+    body: payload.body || '',
+    icon: new URL('icons/icon-192.png', BASE).href,
+    badge: new URL('icons/icon-192.png', BASE).href,
+    dir: 'rtl',
+    lang: 'ar',
+    vibrate: [200, 100, 200],
+    data: { url: payload.url || './' },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || './';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      for (const client of clientList) {
+        if (client.url && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});

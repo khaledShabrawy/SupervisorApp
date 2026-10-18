@@ -3,7 +3,8 @@ import { supabase } from './supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCallback, useEffect, useState } from 'react';
 
-const VAPID_PUBLIC = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
+export const VAPID_PUBLIC = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) ||
+  'BPXw8FvbaqXnGgBAKe3YWGqopPU2F80WBzWxq3en1qALgRWpjNwn7CBFuJyphseJv8A4t5_3ttkKUxbiTSJu1XE';
 
 function urlB64ToUint8(base64: string): Uint8Array<ArrayBuffer> {
   const b64 = base64.replace(/-/g, '+').replace(/_/g, '/');
