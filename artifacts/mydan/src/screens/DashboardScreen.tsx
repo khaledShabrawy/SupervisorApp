@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useRealtime } from '@/hooks/useRealtime';
 import { canAdmin } from '@/lib/policy';
+import { useScreenAllowed } from '@/lib/permissions';
 import { useScreenDashboard } from '@/lib/screen-data';
 import type { VisitRow } from '@/lib/data';
 import { KPICard } from '@/components/KPICard';
@@ -27,6 +28,7 @@ export default function DashboardScreen() {
   const nav = useNavigate(); const { supervisor } = useAuth(); const settings = useAppSettings();
   const q = useScreenDashboard(); const d = q.data; const L = q.isPending;
   const admin = canAdmin(supervisor);
+  const fieldSurveyAllowed = useScreenAllowed('field_survey');
   const retry = useRefetch(q.refetch);
   useRealtime('visits', supervisor ? (admin ? `company_id=eq.${supervisor.company_id}` : `supervisor_id=eq.${supervisor.id}`) : undefined, retry);
   const go = useCallback((p: string) => nav(p), [nav]);
@@ -47,7 +49,7 @@ export default function DashboardScreen() {
         <Act id="/training" onAct={go} className="s-act" style={{ background: '#7C3AED', color: '#fff' }}><GraduationCap /> {t('أكاديمية التدريب')}</Act>
         <Act id="/orders" onAct={go} className="s-act" style={{ background: '#0F1B2D', color: '#fff' }}><ShoppingCart /> {t('الأوردرات')}</Act>
         <Act id="/beat-plan" onAct={go} className="s-act s-purple"><Route /> {t('خطة الزيارات')}</Act>
-        <Act id="/field-survey" onAct={go} className="s-act" style={{ background: 'var(--color-success)', color: '#fff' }}><ScanSearch /> {t('مسح ميداني')}</Act>
+        {fieldSurveyAllowed && <Act id="/field-survey" onAct={go} className="s-act" style={{ background: 'var(--color-success)', color: '#fff' }}><ScanSearch /> {t('مسح ميداني')}</Act>}
       </div>
       <PageTitle>{t('آخر الزيارات')}</PageTitle>
       {L ? <div className="skel" style={{ height: 70 }} /> : d!.recent.length === 0

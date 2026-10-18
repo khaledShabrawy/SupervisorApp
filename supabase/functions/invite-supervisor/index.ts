@@ -12,7 +12,7 @@ const reply = (status: number, body: Record<string, unknown>) =>
 const err = (status: number, error_ar: string) => reply(status, { error_ar });
 
 const ROLES = ["supervisor", "senior_supervisor", "branch_manager", "admin"];
-const SCREENS = ["new_visit", "shelf_audit", "competitor_products", "my_reports", "notifications", "beat_plan"];
+const SCREENS = ["new_visit", "shelf_audit", "competitor_products", "my_reports", "notifications", "beat_plan", "field_survey"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });

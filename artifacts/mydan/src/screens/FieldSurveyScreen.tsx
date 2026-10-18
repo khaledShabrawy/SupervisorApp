@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState, type ChangeEvent } from
 import { Camera, CheckCircle2, MapPin, RefreshCw, Save, ScanSearch, Store, Trash2 } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRealtime } from '@/hooks/useRealtime';
+import { useScreenAllowed } from '@/lib/permissions';
 import { PageTitle } from '@/components/Layout';
 import { notify } from '@/lib/toast';
 import { t } from '@/i18n';
@@ -91,6 +92,17 @@ const StoreCard = memo(function StoreCard({
 
 export default function FieldSurveyScreen() {
   const { supervisor } = useAuth();
+  const allowed = useScreenAllowed('field_survey');
+  if (!allowed) return (
+    <div className="page" aria-label={t('مسح ميداني')}>
+      <PageTitle>{t('مسح ميداني')}</PageTitle>
+      <div className="card" style={{ textAlign: 'center', padding: 32 }}>
+        <span style={{ color: 'var(--color-danger,#EF4444)', fontSize: 15 }}>
+          ⛔ {t('ليس لديك صلاحية الوصول لهذه الشاشة. تواصل مع المدير.')}
+        </span>
+      </div>
+    </div>
+  );
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
