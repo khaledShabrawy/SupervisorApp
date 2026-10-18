@@ -200,7 +200,7 @@ export function useProductsWithPrices(customerType: string | null) {
       const priceMap = new Map<string, number>();
       try {
         const { data: prices } = await supabase
-          .from('price_lists')
+          .from('price_list')
           .select('product_id,customer_type,unit_price')
           .eq('company_id', sc.companyId);
 
@@ -375,7 +375,7 @@ export function useAdminOrders(filter?: AdminOrdersFilter) {
         q = q.lte('order_date', filter.dateTo);
       }
 
-      const { data, error } = await q;
+      const { data, error } = await q.limit(500);
       if (error) {
         if (error.code === '42703' || error.message?.includes('items') || error.message?.includes('total_amount')) {
           throw new Error('يرجى تطبيق ملف التحديث (10_orders_opportunity.sql) في Supabase SQL Editor لتفعيل حقول الأوردرات.');
