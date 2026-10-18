@@ -469,7 +469,7 @@ export function AdminAssets() {
 /** Loads active asset types for the form (kept separate so the list renders without waiting on them). */
 function AssetFormLoader({ edit, onClose }: { edit: AssetRow | null; onClose: () => void }) {
   const q = useAssetTypeOptions();
-  if (q.isPending) return null;
+  if (q.isPending) return <Modal title={t('جاري التحميل...')} onClose={onClose} onSubmit={(e) => { e.preventDefault(); }}><SkeletonList n={3} /></Modal>;
   if (!q.data?.length) return <Modal title={t('لا توجد أنواع أصول')} onClose={onClose} onSubmit={(e) => { e.preventDefault(); onClose(); }}>
     <div className="alert warn">{t('أضف نوع أصل واحدًا على الأقل من قسم "أنواع الأصول" أولاً.')}</div><button className="btn">{t('حسنًا')}</button></Modal>;
   return <AssetForm edit={edit} types={q.data} onClose={onClose} />;
@@ -626,13 +626,22 @@ function SurveyForm({ edit, onClose }: { edit: SurveyRow | null; onClose: () => 
           <textarea
             className="input"
             rows={3}
-            placeholder={t('مثال:\nنعم\nلا\nأحياناً')}
+            placeholder={t('مثال:\nممتاز\nجيد جداً\nمتوسط\nضعيف')}
             value={(q.options || []).join('\n')}
             onChange={(e) => {
               const opts = e.target.value.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
               updateQ(i, 'options', opts as any);
             }}
           />
+          {(q.options?.length ?? 0) > 0 && (
+            <div className="row" style={{ flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+              {q.options!.map((opt, idx) => (
+                <span key={idx} className="chip" style={{ fontSize: 11 }}>
+                  {opt}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
       {q.type === 'checklist' && (
