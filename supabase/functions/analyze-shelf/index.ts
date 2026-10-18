@@ -201,6 +201,27 @@ Deno.serve(async (req) => {
   }
   if (!audit.photo_url) return json(400, { error: "audit has no photo" });
   if (audit.status === "processing") return json(409, { error: "analysis already running" });
+  if (audit.status === "completed")  return json(409, { error: "audit already analyzed" });
+
+  // Rate limiting: daily cap + concurrent cap per company (configurable via Supabase Secrets).
+  const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0);
+  const maxPerDay     = parseInt(Deno.env.get("MAX_AUDITS_PER_DAY")    ?? "100", 10);
+  const maxConcurrent = parseInt(Deno.env.get("MAX_CONCURRENT_AUDITS") ?? "5",   10);
+  const [{ count: todayCompleted }, { count: inFlight }] = await Promise.all([
+    admin.from("shelf_audit")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", caller.company_id)
+      .eq("status", "completed")
+      .gte("audited_at", todayStart.toISOString()),
+    admin.from("shelf_audit")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", caller.company_id)
+      .eq("status", "processing"),
+  ]);
+  if ((todayCompleted ?? 0) >= maxPerDay)
+    return json(429, { error: `تم تجاوز الحد اليومي لتحليلات الذكاء الاصطناعي (${maxPerDay} تحليل/يوم). يُجدَّد عند منتصف الليل.` });
+  if ((inFlight ?? 0) >= maxConcurrent)
+    return json(429, { error: `يوجد ${inFlight} تحليلات قيد المعالجة حالياً. يرجى الانتظار قليلاً.` });
 
   const path = storagePath(audit.photo_url);
   if (!path.startsWith(`${audit.company_id}/`)) return json(400, { error: "photo outside company folder" });
