@@ -86,8 +86,8 @@ def main():
             with zipfile.ZipFile(temp_unaligned_apk, "w") as dst_zip:
                 for item in src_zip.infolist():
                     name = item.filename
-                    # Skip old signature files
-                    if name.startswith("META-INF/") and (name.endswith(".SF") or name.endswith(".RSA") or name.endswith(".DSA") or name == "META-INF/MANIFEST.MF"):
+                    # Strip all old signature and metadata files in META-INF so apksigner generates a clean, fully protected v1/v2/v3 signature
+                    if name.startswith("META-INF/"):
                         continue
                     # Skip old assets/public/assets/*
                     if name.startswith("assets/public/assets/"):
@@ -134,7 +134,7 @@ def main():
             raise RuntimeError(f"zipalign failed: {res.stderr}\n{res.stdout}")
         log("   zipalign completed successfully.")
 
-        log("6. Signing APK using apksigner with debug.keystore (v1 and v2 schemes)...")
+        log("6. Signing APK using apksigner with debug.keystore (v1, v2 and v3 schemes)...")
         apksigner_cmd = [
             apksigner_bin, "sign",
             "--ks", keystore_path,
@@ -143,7 +143,7 @@ def main():
             "--key-pass", "pass:android",
             "--v1-signing-enabled", "true",
             "--v2-signing-enabled", "true",
-            "--v3-signing-enabled", "false",
+            "--v3-signing-enabled", "true",
             "--out", temp_signed_apk,
             temp_aligned_apk
         ]
