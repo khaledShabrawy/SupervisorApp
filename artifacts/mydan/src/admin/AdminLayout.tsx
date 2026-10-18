@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { BarChart3, Bell, Building2, ClipboardList, Download, FileText, GraduationCap, Home, LogOut, MapPin, Package, PieChart, ScanSearch, Settings2, ShieldCheck, ShoppingCart, Store, Target, Users } from '@/components/Icons';
+import { BarChart3, Bell, Building2, Camera, ClipboardList, Download, FileText, GraduationCap, Home, LogOut, MapPin, Package, PieChart, ScanSearch, Settings2, ShieldCheck, ShoppingCart, Store, Target, Users } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { canAdmin } from '@/lib/policy';
@@ -31,6 +31,7 @@ export const ADMIN_NAV = [
   { to: '/admin/bulk-import', label: t('استيراد جماعي'), icon: Download },
   { to: '/admin/reports', label: t('التقارير المخصصة'), icon: PieChart },
   { to: '/admin/prospects', label: t('العملاء المحتملون'), icon: ScanSearch },
+  { to: '/admin/field-surveys', label: t('سجل المسح الميداني'), icon: Camera },
 ] as const;
 
 /** Auth + role gate for /admin/*; renders the desktop admin shell instead of the mobile one. */

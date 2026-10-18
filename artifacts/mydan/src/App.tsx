@@ -36,12 +36,13 @@ const AdminLayout = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminLayou
 const AdminDashboard = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminDashboard'));
 const AdminTraining = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminTraining'));
 const AdminUsers = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminUsers'));
-const section = (name: 'AdminBranches' | 'AdminCustomers' | 'AdminProducts' | 'AdminTargets' | 'AdminAssets' | 'AdminSurveys' | 'AdminNotifications' | 'AdminSettings' | 'AdminAuditLogs' | 'AdminProspects' | 'AdminOrders') =>
+const section = (name: 'AdminBranches' | 'AdminCustomers' | 'AdminProducts' | 'AdminTargets' | 'AdminAssets' | 'AdminSurveys' | 'AdminNotifications' | 'AdminSettings' | 'AdminAuditLogs' | 'AdminProspects' | 'AdminOrders' | 'AdminFieldSurveys') =>
   lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminSections').then((m) => ({ default: m[name] })));
 const AdminBranches = section('AdminBranches'), AdminCustomers = section('AdminCustomers'), AdminProducts = section('AdminProducts'),
   AdminTargets = section('AdminTargets'), AdminAssets = section('AdminAssets'), AdminSurveys = section('AdminSurveys'),
   AdminNotifications = section('AdminNotifications'), AdminSettings = section('AdminSettings'), AdminAuditLogs = section('AdminAuditLogs'),
-  AdminProspects = section('AdminProspects'), AdminOrders = section('AdminOrders');
+  AdminProspects = section('AdminProspects'), AdminOrders = section('AdminOrders'),
+  AdminFieldSurveys = section('AdminFieldSurveys');
 const BulkImport = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/BulkTemplates').then(m => ({ default: m.BulkTemplates })));
 const AdminCompanies = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminCompanies'));
 const AdminReports = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminReports'));
@@ -90,6 +91,7 @@ function App() {
                         <Route path="training" element={<AdminTraining />} />
                         <Route path="reports" element={<AdminReports />} />
                         <Route path="prospects" element={<AdminProspects />} />
+                        <Route path="field-surveys" element={<AdminFieldSurveys />} />
                       </Route>
                     </Route>
                   )}

@@ -1,11 +1,12 @@
 import { memo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Camera, CheckCheck, ClipboardList, Plus, ShoppingCart } from '@/components/Icons';
+import { Camera, CheckCheck, ClipboardList, Plus, ScanSearch, ShoppingCart } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useScope, useSetVisitOutcome, useUpdateVisitStatus } from '@/lib/data';
 import { useVisitOrders, formatOrderWhatsAppMessage, openWhatsAppShare } from '@/lib/screen-orders';
 import { isVisitOutcome, mapsDirectionsUrl, VISIT_OUTCOMES, type VisitOutcome } from '@/lib/visit-geo';
+import { useScreenAllowed } from '@/lib/permissions';
 import { num } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { notify } from '@/lib/toast';
@@ -163,6 +164,7 @@ export default function VisitDetailScreen() {
   const nav = useNavigate();
   const { supervisor } = useAuth();
   const settings = useAppSettings();
+  const fieldSurveyAllowed = useScreenAllowed('field_survey');
   const detail = useVisitDetail(id ?? '');
   const completeTask = useCompleteTask();
   const checkOut = useUpdateVisitStatus();
@@ -209,6 +211,8 @@ export default function VisitDetailScreen() {
     const p = new URLSearchParams({ visit: id ?? '', customer: c?.id ?? '', name: c?.name ?? '', type: c?.customer_type ?? '' });
     nav(`/orders/new?${p}`);
   }, [nav, id, detail.data]);
+
+  const goFieldSurvey = useCallback(() => nav('/field-survey'), [nav]);
 
   if (!id) return (
     <div className="page">
@@ -261,6 +265,7 @@ export default function VisitDetailScreen() {
                 <button className="btn sm ghost grow" onClick={goShelfAudit} style={{ whiteSpace: 'nowrap', minWidth: 90 }}><Camera size={16} /> {t('مراجعة الرف')}</button>
                 <button className="btn sm ghost grow" onClick={goCompetitors} style={{ whiteSpace: 'nowrap', minWidth: 80 }}><Plus size={16} /> {t('منافسين')}</button>
                 <button className="btn sm ghost grow" onClick={goOrder} data-testid="button-quick-order" style={{ whiteSpace: 'nowrap', minWidth: 70 }}><ShoppingCart size={16} /> {t('أوردر')}</button>
+                {fieldSurveyAllowed && <button className="btn sm ghost grow" onClick={goFieldSurvey} style={{ whiteSpace: 'nowrap', minWidth: 80 }}><ScanSearch size={16} /> {t('مسح ميداني')}</button>}
               </div>
             </div>
           )}
