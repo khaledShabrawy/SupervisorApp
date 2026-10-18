@@ -1,11 +1,39 @@
 import type { ReactNode } from 'react';
-import { useScreenAllowed, type ScreenKey } from '@/lib/permissions';
+import { useMyPermissions, isScreenAllowed, type ScreenKey } from '@/lib/permissions';
+import { useScope } from '@/lib/data';
 import EmptyState from './EmptyState';
+import LoadingSpinner from './LoadingSpinner';
 import { ShieldAlert } from './Icons';
 import { t } from '@/i18n';
 
-/** UI gate for per-supervisor screen permissions. Data access itself is enforced by RLS. */
+/** UI gate for per-supervisor screen permissions. Fails closed: denies access until permissions are confirmed. */
 export function RequireScreen({ screen, children }: { screen: ScreenKey; children: ReactNode }) {
-  if (useScreenAllowed(screen)) return <>{children}</>;
-  return <div className="page"><EmptyState icon={<ShieldAlert />} title={t('هذه الشاشة غير مفعّلة لحسابك')} text={t('تواصل مع مدير النظام لتفعيلها.')} /></div>;
+  const sc = useScope();
+  const q = useMyPermissions();
+
+  if (sc.isAdmin) return <>{children}</>;
+
+  if (q.isPending) return <LoadingSpinner />;
+
+  if (q.isError) return (
+    <div className="page">
+      <EmptyState
+        icon={<ShieldAlert />}
+        title={t('تعذر التحقق من الصلاحيات')}
+        text={t('لا يمكن عرض هذه الشاشة. تحقق من الاتصال وأعد المحاولة.')}
+      />
+    </div>
+  );
+
+  if (!isScreenAllowed(q.data, screen)) return (
+    <div className="page">
+      <EmptyState
+        icon={<ShieldAlert />}
+        title={t('هذه الشاشة غير مفعّلة لحسابك')}
+        text={t('تواصل مع مدير النظام لتفعيلها.')}
+      />
+    </div>
+  );
+
+  return <>{children}</>;
 }

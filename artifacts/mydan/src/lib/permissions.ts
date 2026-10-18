@@ -35,9 +35,10 @@ export function useMyPermissions() {
   });
 }
 
-/** True while loading or on error, so a flaky read never locks a supervisor out mid-visit. */
+/** Returns true only when permissions are confirmed. Fails closed on load/error (security guardrail #2). */
 export function useScreenAllowed(key: ScreenKey): boolean {
   const sc = useScope(); const q = useMyPermissions();
-  if (sc.isAdmin || !q.data) return true;
+  if (sc.isAdmin) return true;
+  if (!q.data) return false;
   return isScreenAllowed(q.data, key);
 }
