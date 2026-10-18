@@ -77,8 +77,8 @@ export function useDashboard() {
         exact(sc, 'visits', signal, (q) => byDate(q).eq('status', 'in_progress')),
         exact(sc, 'visits', signal, (q) => byDate(q).eq('status', 'pending')),
         exact(sc, 'customers', signal, (q) => q.eq('is_active', true)),
-        supabase.from('attendance').select('id,supervisor_id,date,check_in,check_out,company_id').eq('company_id', sc.companyId).eq('supervisor_id', sc.supervisorId)
-          .eq('date', today).abortSignal(signal).maybeSingle(),
+        supabase.from('attendance').select('id,supervisor_id,company_id,attendance_date,check_in_time,check_out_time,check_in_lat,check_in_lng,selfie_url,notes').eq('company_id', sc.companyId).eq('supervisor_id', sc.supervisorId)
+          .eq('attendance_date', today).abortSignal(signal).maybeSingle(),
         sc.scope(supabase.from('visits').select(VISIT_JOIN)).eq('status', 'in_progress')
           .order('check_in_time', { ascending: false }).limit(5).abortSignal(signal),
       ]);
@@ -94,10 +94,10 @@ export function useAttendanceAction() {
   return useMutation({
     mutationFn: async (a: { kind: 'in' | 'out'; row: Attendance | null }) => {
       if (a.kind === 'in') {
-        const { error } = await supabase.from('attendance').insert({ supervisor_id: sc.supervisorId, company_id: sc.companyId, date: todayStr(), check_in: nowIso() });
+        const { error } = await supabase.from('attendance').insert({ supervisor_id: sc.supervisorId, company_id: sc.companyId, attendance_date: todayStr(), check_in_time: nowIso() });
         if (error) fail('تعذر تسجيل الحضور.', error);
       } else {
-        const { error } = await supabase.from('attendance').update({ check_out: nowIso() }).eq('id', a.row!.id)
+        const { error } = await supabase.from('attendance').update({ check_out_time: nowIso() }).eq('id', a.row!.id)
           .eq('company_id', sc.companyId).eq('supervisor_id', sc.supervisorId).select('id').single();
         if (error) fail('تعذر تسجيل الانصراف.', error);
       }

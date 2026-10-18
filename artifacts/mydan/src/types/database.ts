@@ -62,8 +62,14 @@ export interface BeatPlan {
   id: ID; supervisor_id: ID; day_of_week: number; customer_id: ID; company_id: ID;
 }
 export interface Attendance {
-  id: ID; supervisor_id: ID; date: string; check_in: string | null;
-  check_out: string | null; company_id: ID;
+  id: ID; supervisor_id: ID; company_id: ID;
+  attendance_date: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  check_in_lat: number | null;
+  check_in_lng: number | null;
+  selfie_url: string | null;
+  notes: string | null;
 }
 export interface TrainingCourse {
   id: ID; company_id: ID; title: string; description: string | null;
