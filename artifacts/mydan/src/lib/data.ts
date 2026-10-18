@@ -333,13 +333,17 @@ export function useShelfAudits() {
     const { data, error } = await sc.scope(supabase.from('shelf_audit').select(AUDIT_COLUMNS))
       .order('created_at', { ascending: false, nullsFirst: true }).order('id').range(from, to).abortSignal(signal);
     if (error) fail('تعذر تحميل سجلات الرف.', error);
-    return Promise.all((data as ShelfAudit[]).map(async (audit) => {
+    const rows = data as ShelfAudit[];
+    const paths = rows.map(a => a.photo_url).filter((p): p is string => !!p && !/^https:\/\//.test(p));
+    const signedMap: Record<string, string> = {};
+    if (paths.length) {
+      const { data: signed } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, 600);
+      (signed ?? []).forEach(({ path, signedUrl }) => { if (path && signedUrl) signedMap[path] = signedUrl; });
+    }
+    return rows.map(audit => {
       if (!audit.photo_url || /^https:\/\//.test(audit.photo_url)) return audit;
-      const { data: photo, error: photoError } = await supabase.storage.from(PHOTO_BUCKET)
-        .createSignedUrl(audit.photo_url, 600);
-      if (photoError || !photo) fail('تعذر تحميل صورة الرف الخاصة.', photoError);
-      return { ...audit, photo_url: photo.signedUrl };
-    }));
+      return { ...audit, photo_url: signedMap[audit.photo_url] ?? audit.photo_url };
+    });
   });
 }
 export function useSubmitAudit() {
