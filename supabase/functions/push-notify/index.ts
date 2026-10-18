@@ -6,8 +6,9 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const VAPID_SUBJECT = 'mailto:admin@mydan.app';
-const VAPID_PUBLIC  = 'BEJuGXGBkQ9jvLb5DEh-dY3jsVsRGWHDbHrAXJamefa8izvXCRyH0QqK7YB1Xt68WoHS7v25ie8_gGYDvae-sAM';
+const VAPID_SUBJECT  = 'mailto:admin@mydan.app';
+const VAPID_PUBLIC   = 'BEJuGXGBkQ9jvLb5DEh-dY3jsVsRGWHDbHrAXJamefa8izvXCRyH0QqK7YB1Xt68WoHS7v25ie8_gGYDvae-sAM';
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
 
 // ── Utility: base64url helpers ─────────────────────────────────────────────
 function b64urlToUint8(s: string): Uint8Array {
@@ -111,7 +112,7 @@ async function sendOne(
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
-      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization,content-type,apikey' },
+      headers: { 'Access-Control-Allow-Origin': ALLOWED_ORIGIN, 'Access-Control-Allow-Headers': 'authorization,content-type,apikey' },
     });
   }
 
@@ -170,7 +171,7 @@ Deno.serve(async (req) => {
 
   if (!subs?.length) {
     return new Response(JSON.stringify({ sent: 0 }), {
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
     });
   }
 
@@ -181,6 +182,6 @@ Deno.serve(async (req) => {
   const sent = results.filter((r) => r.status === 'fulfilled' && (r.value as { ok: boolean }).ok).length;
 
   return new Response(JSON.stringify({ sent, total: subs.length }), {
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
   });
 });
