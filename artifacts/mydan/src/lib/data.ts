@@ -270,6 +270,27 @@ export function useLocatedCustomers() {
     },
   });
 }
+
+/** Nearest customers via server-side Haversine RPC (mdn_nearest_customers_v1).
+ *  Replaces the 2,000-row client-side download; DB returns only the N closest rows. */
+export function useNearestCustomers(lat: number | null, lng: number | null, limit: number | 'all') {
+  const sc = useScope();
+  return useQuery({
+    queryKey: [...sc.base, 'customers', 'nearest', lat, lng, limit],
+    enabled: lat != null && lng != null,
+    staleTime: 30_000,
+    retry: 1,
+    queryFn: async ({ signal }) => {
+      const { data, error } = await supabase.rpc('mdn_nearest_customers_v1', {
+        p_lat:   lat!,
+        p_lng:   lng!,
+        p_limit: limit === 'all' ? 0 : limit,
+      }).abortSignal(signal);
+      if (error) fail('تعذر تحميل العملاء القريبين.', error);
+      return (data ?? []) as (Customer & { distance_km: number })[];
+    },
+  });
+}
 export function useVisitToStart(id: string | null) {
   const sc = useScope();
   return useQuery({

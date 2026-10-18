@@ -5,9 +5,9 @@ import { ArrowRight, LocateFixed, MapPin, Play, ShieldCheck, Store } from '@/com
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useGeolocation } from '@/hooks/useGeolocation';
-import { useCreateVisit, useLocatedCustomers, useVisitToStart } from '@/lib/data';
+import { useCreateVisit, useNearestCustomers, useVisitToStart } from '@/lib/data';
 import { useCustomerById } from '@/lib/screen-data';
-import { geofence, mapsDirectionsUrl, nearestCustomers, NEAREST_LIMITS, type NearestLimit } from '@/lib/visit-geo';
+import { geofence, mapsDirectionsUrl, NEAREST_LIMITS, type NearestLimit } from '@/lib/visit-geo';
 import { ErrorState, SkeletonList } from '@/components/States';
 import EmptyState from '@/components/EmptyState';
 import { CustomerPicker } from '@/components/CustomerPicker';
@@ -58,11 +58,13 @@ const NearCard = memo(function NearCard({ c, radius, busy, onLog }: { c: Ranked;
 });
 
 function NearestCustomers({ gps, busy, onLog }: { gps: Gps; busy: boolean; onLog: (c: Ranked) => void }) {
-  const s = useAppSettings(); const q = useLocatedCustomers(); const retry = useRefetch(q.refetch);
+  const s = useAppSettings();
   const [limit, setLimit] = useState<NearestLimit>(5);
+  const q = useNearestCustomers(gps.latitude, gps.longitude, limit);
+  const retry = useRefetch(q.refetch);
+  const ranked = (q.data ?? []) as Ranked[];
   const onLimit = useCallback((e: ChangeEvent<HTMLSelectElement>) =>
     setLimit(e.target.value === 'all' ? 'all' : Number(e.target.value) as NearestLimit), []);
-  const ranked = useMemo(() => q.data ? nearestCustomers(q.data, gps.latitude, gps.longitude, limit) : [], [q.data, gps, limit]);
   return <div className="col">
     <div className="row between">
       <span className="title"><MapPin size={18} style={{ display: 'inline', marginInlineEnd: 6 }} />{t('العملاء الأقرب إليك')}</span>
