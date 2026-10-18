@@ -25,7 +25,7 @@ const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as co
 type MediaType = typeof MEDIA_TYPES[number];
 
 const cors = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 const json = (status: number, body: unknown) =>

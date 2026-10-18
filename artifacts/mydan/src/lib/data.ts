@@ -438,7 +438,7 @@ export function useBeatPlan(day: number) {
 export function useNotifications(unreadOnly: boolean) {
   const sc = useScope();
   return usePaged<Notification>(sc, 'notifications', ['list', unreadOnly], async (from, to, signal) => {
-    let q = supabase.from('notifications').select(NOTIFICATION_COLUMNS).eq('supervisor_id', sc.supervisorId);
+    let q = supabase.from('notifications').select(NOTIFICATION_COLUMNS).eq('supervisor_id', sc.supervisorId).eq('company_id', sc.companyId);
     if (unreadOnly) q = q.eq('is_read', false);
     const { data, error } = await q.order('created_at', { ascending: false }).order('id').range(from, to).abortSignal(signal);
     if (error) fail('تعذر تحميل الإشعارات.', error);
@@ -451,7 +451,7 @@ export function useUnreadCount() {
     queryKey: [...sc.base, 'notifications', 'unread'], retry: 1, refetchInterval: 120_000,
     queryFn: async ({ signal }) => {
       return readExactCount(head => supabase.from('notifications').select('id', { count: 'exact', head })
-        .eq('supervisor_id', sc.supervisorId).eq('is_read', false), signal, 'تعذر عد الإشعارات.');
+        .eq('supervisor_id', sc.supervisorId).eq('company_id', sc.companyId).eq('is_read', false), signal, 'تعذر عد الإشعارات.');
     },
   });
 }
@@ -459,7 +459,7 @@ export function useMarkRead() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string | 'all') => {
-      let q = supabase.from('notifications').update({ is_read: true }).eq('supervisor_id', sc.supervisorId);
+      let q = supabase.from('notifications').update({ is_read: true }).eq('supervisor_id', sc.supervisorId).eq('company_id', sc.companyId);
       q = id === 'all' ? q.eq('is_read', false) : q.eq('id', id);
       const { error } = await q;
       if (error) fail('تعذر تحديث الإشعارات.', error);

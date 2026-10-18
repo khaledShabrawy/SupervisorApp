@@ -8,7 +8,7 @@ import { compressImage } from './image-compression';
 import type { ShelfAudit } from '@/types/database';
 
 export const ANALYZE_ENDPOINT = import.meta.env.VITE_SHELF_AUDIT_FUNCTION ||
-  (SUPABASE_URL ? `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/analyze-shelf` : 'https://ywdlrrdkjbtpfgacuuoy.supabase.co/functions/v1/analyze-shelf');
+  `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/analyze-shelf`;
 async function currentSession(userId: string) {
   const { data, error } = await supabase.auth.getSession();
   if (error || !data.session || data.session.user.id !== userId) throw new Error('جلسة الدخول غير صالحة. أعد تسجيل الدخول.');
