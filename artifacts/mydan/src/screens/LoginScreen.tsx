@@ -1,4 +1,4 @@
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useState, useEffect, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { AlertCircle, Eye, EyeOff } from '@/components/Icons';
@@ -28,6 +28,32 @@ export default function LoginScreen() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMsg, setForgotMsg] = useState<string | null>(null);
   const [forgotBusy, setForgotBusy] = useState(false);
+
+  const isStandalone = typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as unknown as { standalone?: boolean }).standalone);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (installPrompt) {
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice?.outcome === 'accepted') {
+        setInstallPrompt(null);
+      }
+    } else {
+      setShowInstallHelp((prev) => !prev);
+    }
+  };
 
   if (isAuthenticated) {
     if (supervisor?.force_password_change) {
@@ -104,6 +130,33 @@ export default function LoginScreen() {
             {t('العودة لتسجيل الدخول')}
           </button>
         </form>
+      )}
+
+      {!isStandalone && !IS_ANDROID && (
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border, #e2e8f0)', textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={handleInstall}
+            className="btn ghost sm block"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              width: '100%',
+              color: 'var(--color-primary, #1A56DB)',
+              fontWeight: 600,
+            }}
+          >
+            <span aria-hidden="true">📲</span>
+            <span>{t('تثبيت تطبيق ميدان على الهاتف')}</span>
+          </button>
+          {showInstallHelp && (
+            <p className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: 1.5, textAlign: 'center' }}>
+              {t('لتثبيت التطبيق مباشرة: افتح خيارات المتصفح (⋮) أعلى الشاشة واختر "تثبيت التطبيق" أو "إضافة إلى الشاشة الرئيسية".')}
+            </p>
+          )}
+        </div>
       )}
     </div>
   </main>;
