@@ -191,6 +191,8 @@ export function useProductsWithPrices(customerType: string | null) {
         productsRes = await supabase
           .from('products')
           .select('id,name,category,is_active')
+          .eq('company_id', sc.companyId)
+          .eq('is_active', true)
           .limit(100);
       }
 
@@ -413,15 +415,6 @@ export function useAdminOrders(filter?: AdminOrdersFilter) {
           : [];
       }
 
-      if (filter?.regionId && filter.regionId !== 'all') {
-        const { data: bList } = await supabase
-          .from('branches')
-          .select('id')
-          .eq('company_id', sc.companyId)
-          .eq('region_id', filter.regionId);
-        const branchIdsInRegion = new Set((bList ?? []).map((b) => b.id));
-        orders = orders.filter((o) => o.supervisors?.branch_id && branchIdsInRegion.has(o.supervisors.branch_id));
-      }
 
       return orders;
     },
