@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.mydan.app',
+  appId: 'com.mydan.supervisor',
   appName: 'Mydan',
   // vite.config.ts builds into dist/public (not dist).
   webDir: 'dist/public',
