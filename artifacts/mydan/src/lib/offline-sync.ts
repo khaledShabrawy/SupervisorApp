@@ -112,7 +112,9 @@ export async function uploadPendingOfflineActions(): Promise<{
           }).eq('id', existingId);
           if (error) throw error;
         } else {
-          const { error } = await supabase.from('visits').insert({
+          const clientId: string | undefined = item.payload.id;
+          const isValidUUID = clientId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId);
+          const visitRow: Record<string, any> = {
             supervisor_id: item.supervisorId,
             company_id: item.companyId,
             customer_id,
@@ -123,7 +125,9 @@ export async function uploadPendingOfflineActions(): Promise<{
             longitude,
             notes: notes || null,
             ...geo,
-          });
+          };
+          if (isValidUUID) visitRow.id = clientId;
+          const { error } = await supabase.from('visits').insert(visitRow);
           if (error) throw error;
         }
       } else if (item.type === 'update_visit_status') {

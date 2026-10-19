@@ -53,19 +53,23 @@ export function SyncActionBar() {
     setIsUploading(true);
     try {
       const result = await uploadPendingOfflineActions();
-      if (result.syncedCount > 0) {
+      if (result.total === 0) {
+        await qc.invalidateQueries();
+        notify(t('✅ جميع البيانات محدثة ومرفوعة بالفعل.'), 'info');
+      } else if (result.syncedCount > 0 && result.failedCount === 0) {
         notify(
           t('✅ تم رفع ومزامنة {n} عملية مسجلة بنجاح!', { n: result.syncedCount }),
           'success'
         );
-        // Refresh local cache to reflect synced data
         await qc.invalidateQueries();
-      } else if (result.total === 0) {
-        // Nothing was pending, but force a fresh query sync
+      } else if (result.syncedCount > 0 && result.failedCount > 0) {
+        notify(
+          t('⚠️ تم رفع {s} عملية بنجاح، وتعذر رفع {f} عملية. حاول مجدداً.', { s: result.syncedCount, f: result.failedCount }),
+          'error'
+        );
         await qc.invalidateQueries();
-        notify(t('✅ جميع البيانات محدثة ومرفوعة بالفعل.'), 'info');
       } else {
-        notify(t('⚠️ تعذر رفع بعض البيانات. حاول مجدداً لاحقاً.'), 'error');
+        notify(t('⚠️ تعذر رفع البيانات. تحقق من الاتصال أو راجع المدير.'), 'error');
       }
     } catch (err: any) {
       notify(err?.message || t('تعذر رفع البيانات المعلقة.'), 'error');
