@@ -107,6 +107,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [signOut]);
 
   useEffect(() => {
+    // Cold-start guard: sessionStorage clears on every fresh app open (APK killed / tab closed).
+    // If no marker exists this is a cold start → sign out any persisted session and force login.
+    const COLD_KEY = 'mydan_session_alive';
+    let isColdStart = false;
+    try { isColdStart = !sessionStorage.getItem(COLD_KEY); sessionStorage.setItem(COLD_KEY, '1'); } catch { isColdStart = true; }
+    if (isColdStart) {
+      void supabase.auth.signOut({ scope: 'local' });
+      setLoading(false);
+      return;
+    }
+
     let alive = true;
     const initialEpoch = generation.current;
     const timers = new Set<ReturnType<typeof setTimeout>>();
