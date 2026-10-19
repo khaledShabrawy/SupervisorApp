@@ -494,13 +494,7 @@ export function useSaveOrder() {
 
       const { error } = await supabase.from('orders').insert(payload);
       if (error) {
-        enqueueOfflineAction({
-          type: 'save_order',
-          companyId: sc.companyId,
-          supervisorId: sc.supervisorId,
-          payload,
-        });
-        return total;
+        throw new Error(error.message || t('تعذر حفظ الأوردر. تحقق من الصلاحيات أو تواصل مع المدير.'));
       }
       return total;
     },

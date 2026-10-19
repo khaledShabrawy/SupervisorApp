@@ -209,13 +209,14 @@ export function useCreateVisit() {
       // geo_distance/on_beat feed the OOR (out-of-route) KPIs in the reporting views.
       const geo = { geo_distance: v.geo_distance, on_beat: v.on_beat };
       if (!navigator.onLine) {
+        const offlineId = v.existingId || (typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `offline-${Date.now()}`);
         enqueueOfflineAction({
           type: 'create_visit',
           companyId: sc.companyId,
           supervisorId: sc.supervisorId,
-          payload: { ...v, ...geo, check_in_time: nowIso(), visit_date: todayStr() },
+          payload: { ...v, ...geo, id: offlineId, check_in_time: nowIso(), visit_date: todayStr() },
         });
-        return { id: v.existingId || `offline-${Date.now()}` };
+        return { id: offlineId };
       }
       if (v.existingId) {
         const { data, error } = await sc.scope(supabase.from('visits').update({
@@ -239,13 +240,14 @@ export function useCreateVisit() {
         status: 'in_progress', check_in_time: nowIso(), latitude: v.latitude, longitude: v.longitude, notes: v.notes.trim() || null, ...geo,
       }).select('id').single();
       if (error) {
+        const offlineId = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `offline-${Date.now()}`;
         enqueueOfflineAction({
           type: 'create_visit',
           companyId: sc.companyId,
           supervisorId: sc.supervisorId,
-          payload: { ...v, ...geo, check_in_time: nowIso(), visit_date: todayStr() },
+          payload: { ...v, ...geo, id: offlineId, check_in_time: nowIso(), visit_date: todayStr() },
         });
-        return { id: `offline-${Date.now()}` };
+        return { id: offlineId };
       }
       return data as { id: string };
     },

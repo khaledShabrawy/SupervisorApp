@@ -761,6 +761,11 @@ export const EN: Record<string, string> = {
   'أنت غير متصل بالإنترنت': 'You are offline',
   'عاد الاتصال بالإنترنت': 'Connection restored',
   'رفع البيانات': 'Upload Data',
+  '✅ جميع البيانات محدثة ومرفوعة بالفعل.': '✅ All data is already up to date.',
+  '✅ تم رفع ومزامنة {n} عملية مسجلة بنجاح!': '✅ Successfully synced {n} recorded operation(s)!',
+  '⚠️ تم رفع {s} عملية بنجاح، وتعذر رفع {f} عملية. حاول مجدداً.': '⚠️ {s} operation(s) synced; {f} failed. Try again.',
+  '⚠️ تعذر رفع البيانات. تحقق من الاتصال أو راجع المدير.': '⚠️ Upload failed. Check your connection or contact the admin.',
+  'تعذر حفظ الأوردر. تحقق من الصلاحيات أو تواصل مع المدير.': 'Could not save order. Check permissions or contact the admin.',
 
   // ---------- Competitor photo ----------
   'إضافة صورة (اختياري)': 'Add photo (optional)',
