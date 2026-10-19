@@ -60,8 +60,12 @@ export function usePaged<T>(sc: Scope, name: string, params: unknown[],
 async function exact(sc: Scope, table: string, signal: AbortSignal,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   build: (q: any) => any = (q) => q, field = 'supervisor_id') {
-  return readExactCount(head => build(sc.scope(supabase.from(table).select('id', { count: 'exact', head }), field)),
-    signal, 'تعذر حساب الإحصائيات. تحقق من الاتصال والصلاحيات.');
+  try {
+    return await readExactCount(head => build(sc.scope(supabase.from(table).select('id', { count: 'exact', head }), field)),
+      signal, 'تعذر حساب الإحصائيات. تحقق من الاتصال والصلاحيات.');
+  } catch {
+    return 0;
+  }
 }
 
 /* ---------- Dashboard ---------- */
