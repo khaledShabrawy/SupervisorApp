@@ -203,16 +203,13 @@ export default function ShelfAuditScreen() {
     try {
       await supabase.from('shelf_audit').update({
         status: 'completed',
-        audit_score: 85,
-        audit_summary_ar: 'تم فحص صورة الرف والتأكد من التواجد والعرض التجاري بنجاح.',
-        ai_detailed_report: {
-          issues: ['تأكد من توافر بطاقات الأسعار لجميع الأصناف المعروضة.'],
-          recommendations: ['الحفاظ على ترتيب العرض الأمامي (Front Facing) وزيادة المساحة المخصصة للأصناف سريعة الدوران.'],
-        },
+        audit_score: null,
+        audit_summary_ar: 'تم حفظ صورة الرف. لم يتم إجراء تحليل بالذكاء الاصطناعي.',
+        ai_detailed_report: { issues: [], recommendations: [] },
       }).eq('id', auditId);
       void refetch();
       void visitAudits.refetch();
-      notify(t('تم إصدار تقرير الرف بنجاح'), 'success');
+      notify(t('تم إغلاق تقرير الرف'), 'success');
     } catch (e: any) {
       notify(e.message || 'تعذر إصدار التقرير', 'error');
     }
