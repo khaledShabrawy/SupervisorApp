@@ -73,7 +73,7 @@ export function useScreenDashboard() {
   return useQuery({
     queryKey: [...sc.base, 'dashboard', 'task-execution', day.start], retry: 1, gcTime: 300_000,
     queryFn: async ({ signal }) => {
-      const [visits, audits, actualVisits, targets, recent] = await Promise.all([
+      const [visitsRes, auditsRes, actualVisitsRes, targetsRes, recentRes] = await Promise.allSettled([
         countRows(sc, 'visits', signal, q => q.eq('visit_date', day.start)),
         countRows(sc, 'shelf_audit', signal, q => q.gte('created_at', day.startIso).lt('created_at', day.endIso)),
         countRows(sc, 'visits', signal, q => q.eq('status', 'completed').gte('visit_date', mr.start).lt('visit_date', mr.end)),
@@ -81,9 +81,18 @@ export function useScreenDashboard() {
         sc.scope(supabase.from('visits').select(VISIT_JOIN)).order('visit_date', { ascending: false })
           .order('check_in_time', { ascending: false, nullsFirst: false }).order('id').limit(5).abortSignal(signal),
       ]);
-      errorMessage('تعذر تحميل أحدث الزيارات.', recent.error);
-      return { visits, audits, visitsProgress: progressPercent(actualVisits, targetSum(targets, 'visits_target')),
-        recent: recent.data as VisitRow[] };
+      const visits = visitsRes.status === 'fulfilled' ? visitsRes.value : 0;
+      const audits = auditsRes.status === 'fulfilled' ? auditsRes.value : 0;
+      const actualVisits = actualVisitsRes.status === 'fulfilled' ? actualVisitsRes.value : 0;
+      const targets = targetsRes.status === 'fulfilled' ? targetsRes.value : [];
+      const recent = recentRes.status === 'fulfilled' && !recentRes.value.error ? (recentRes.value.data as VisitRow[]) : [];
+
+      return {
+        visits,
+        audits,
+        visitsProgress: progressPercent(actualVisits, targetSum(targets, 'visits_target')),
+        recent,
+      };
     },
   });
 }

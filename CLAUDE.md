@@ -4,7 +4,8 @@
 ## 1. System Overview & Single Source of Truth
 - **Product:** ميدان (Mydan v1.0) — Enterprise FMCG Field Force Automation & Shelf Intelligence.
 - **Tech Stack:** React 18, TypeScript, Vite, Tailwind CSS, Supabase (PostgreSQL 17.11, Auth, Realtime, Storage, Edge Functions).
-- **Live Deployed App:** `https://supabase-scalable-cross.replit.app` (Existing Repl: `Supabase Scalable Cross`).
+- **Live Deployed App (Production):** `https://mydan.digityoucan.com` (Cloudflare Pages Production).
+- **Target App Domain:** ONLY `https://mydan.digityoucan.com`. Do NOT use or reference replit.app.
 - **Live Database State:** 24 ACTIVE base tables with Row Level Security (RLS) + 5 Power BI Views.
 - **Frontend Current Progress:** React PWA (~85% complete). Target: 9 Mobile Screens + Standalone Web Admin.
 - **AI Vision Engine:** Supabase Edge Function `analyze-shelf` (v2) integrated with Claude Vision API (Sonnet 4.6).
