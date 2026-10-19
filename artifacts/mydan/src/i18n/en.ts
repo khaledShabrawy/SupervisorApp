@@ -143,6 +143,7 @@ export const EN: Record<string, string> = {
   'تعذر تسجيل الدخول.': 'Could not sign in.',
   'تعذر إنهاء الجلسة. تحقق من الاتصال وأعد المحاولة.': 'Could not sign out. Check your connection and retry.',
   'جلسة الدخول غير صالحة. أعد تسجيل الدخول.': 'Invalid session. Please sign in again.',
+  'انتهت مهلة الجلسة لعدم النشاط (١٥ ساعة). يرجى تسجيل الدخول مجدداً.': 'Session timed out due to inactivity (15 hours). Please sign in again.',
   'كلمة المرور يجب ألا تقل عن 8 أحرف.': 'Password must be at least 8 characters.',
   'كلمتا المرور غير متطابقتين.': 'Passwords do not match.',
   'كلمة المرور ضعيفة أو مسرّبة سابقًا. اختر كلمة أخرى.': 'This password is weak or has been leaked before. Choose another one.',
