@@ -86,7 +86,7 @@ export default function LoginScreen() {
       <div className="row" style={{ justifyContent: 'flex-end' }}><LanguageToggle className="btn sm ghost" /></div>
       {settings.logo_url ? <img className="s-login-logo" src={settings.logo_url} alt={settings.app_name} loading="lazy" /> : <div className="s-login-logo" aria-hidden="true">{settings.app_name.slice(0, 1)}</div>}
       <h1 style={{ margin: 0, fontSize: 28 }}>{settings.app_name}</h1>
-      <p className="muted" style={{ margin: 0 }}>{t('نظام إدارة المشرفين الميدانيين')}</p>
+      <p className="muted" style={{ margin: 0 }}>{settings.app_tagline || t('أتمتة قوة المبيعات الميدانية بالذكاء الاصطناعي')}</p>
       {profileFailed ? <>
         <div className="alert err row" role="alert"><AlertCircle /><span>{t(error)}</span></div>
         <button className="btn block" data-testid="button-retry" onClick={retry}>{t('إعادة المحاولة')}</button>
@@ -149,7 +149,7 @@ export default function LoginScreen() {
             }}
           >
             <span aria-hidden="true">📲</span>
-            <span>{t('تثبيت تطبيق ميدان على الهاتف')}</span>
+            <span>{t('تثبيت تطبيق Mydan على الهاتف')}</span>
           </button>
           {showInstallHelp && (
             <p className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: 1.5, textAlign: 'center' }}>
