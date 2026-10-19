@@ -27,6 +27,7 @@ export default function LoginScreen() {
   const [forgot, setForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMsg, setForgotMsg] = useState<string | null>(null);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
   const [forgotBusy, setForgotBusy] = useState(false);
 
   const isStandalone = typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as unknown as { standalone?: boolean }).standalone);
@@ -73,6 +74,7 @@ export default function LoginScreen() {
         redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}set-password`,
       });
       if (resetErr) throw resetErr;
+      setForgotSuccess(true);
       setForgotMsg(t('تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني بنجاح.'));
     } catch (err) {
       setForgotMsg(err instanceof Error ? err.message : t('تعذر إرسال رابط الاستعادة.'));
@@ -122,11 +124,11 @@ export default function LoginScreen() {
             {t('أدخل بريدك الإلكتروني المسجل وسنرسل لك رابطاً لإعادة تعيين كلمة المرور.')}
           </p>
           <input className="input" type="email" dir="ltr" placeholder={t('البريد الإلكتروني')} required value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} />
-          {forgotMsg && <div className={`alert ${forgotMsg.includes('نجاح') ? 'ok' : 'err'}`}>{forgotMsg}</div>}
+          {forgotMsg && <div className={`alert ${forgotSuccess ? 'ok' : 'err'}`}>{forgotMsg}</div>}
           <button className="btn block" disabled={forgotBusy}>
             {forgotBusy ? t('جاري الإرسال...') : t('إرسال رابط الاستعادة')}
           </button>
-          <button type="button" className="btn ghost block" onClick={() => { setForgot(false); setForgotMsg(null); }}>
+          <button type="button" className="btn ghost block" onClick={() => { setForgot(false); setForgotMsg(null); setForgotSuccess(false); }}>
             {t('العودة لتسجيل الدخول')}
           </button>
         </form>
