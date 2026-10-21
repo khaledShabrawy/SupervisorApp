@@ -373,7 +373,13 @@ export function useAdminOrders(filter?: AdminOrdersFilter) {
         .order('created_at', { ascending: false });
 
       if (filter?.status && filter.status !== 'all') {
-        q = q.eq('status', filter.status);
+        if (filter.status === 'delivered') {
+          q = q.in('status', ['delivered', 'completed', 'Delivered', 'Completed']);
+        } else if (filter.status === 'pending') {
+          q = q.in('status', ['pending', 'in_progress', 'Pending']);
+        } else {
+          q = q.eq('status', filter.status);
+        }
       }
       if (filter?.supervisorId && filter.supervisorId !== 'all') {
         q = q.eq('supervisor_id', filter.supervisorId);

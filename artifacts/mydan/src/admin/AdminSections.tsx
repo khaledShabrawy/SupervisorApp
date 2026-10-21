@@ -12,7 +12,7 @@ import { useAdminProducts, useSaveSettings, type CatalogProduct } from '@/lib/sc
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
   ASSET_STATUS, useAdminCustomers, useAdminSurveys, useAssets, useAuditLogs, useBranches, useBroadcast,
-  useDeactivateRecord, useSaveAdminCustomer, useSaveAsset, useDeleteAsset, useSaveBranch, useSaveProduct, useSaveSurvey, useUploadLogo,
+  useDeactivateRecord, useToggleActiveRecord, useSaveAdminCustomer, useSaveAsset, useDeleteAsset, useSaveBranch, useSaveProduct, useSaveSurvey, useUploadLogo,
   useRegions, useSaveRegion,
   type AdminCustomerRow, type AssetRow, type AuditRow, type Branch, type SurveyQuestion, type SurveyRow,
 } from '@/lib/admin-data';
@@ -170,6 +170,7 @@ export function AdminCustomers() {
   const sups = useSupervisors();
   const q = useAdminCustomers(useDebouncedValue(search, 300), supFilter);
   const retry = useRefetch(q.refetch);
+  const toggleActive = useToggleActiveRecord('customers', 'admin-customers');
   const deactivate = useDeactivateRecord('customers', 'admin-customers');
   const [edit, setEdit] = useState<AdminCustomerRow | null | undefined>(undefined);
 
@@ -235,7 +236,11 @@ export function AdminCustomers() {
             <td><span className={`badge ${c.is_active ? 'b-green' : 'b-gray'}`}>{c.is_active ? t('نشط') : t('متوقف')}</span></td>
             <td className="row gap-1">
               <button className="btn sm ghost" onClick={() => setEdit(c)}>{t('تعديل')}</button>
-              {c.is_active && <button className="btn sm ghost danger" title={t('تعطيل')} onClick={() => { if (confirm(t('تعطيل العميل؟'))) deactivate.mutate(c.id); }}><Trash2 size={14} /></button>}
+              {c.is_active ? (
+                <button className="btn sm ghost danger" title={t('تعطيل')} onClick={() => { if (confirm(t('تعطيل العميل؟'))) toggleActive.mutate({ id: c.id, is_active: false }); }}><Trash2 size={14} /></button>
+              ) : (
+                <button className="btn sm ghost success" title={t('تفعيل')} onClick={() => { if (confirm(t('إعادة تفعيل العميل؟'))) toggleActive.mutate({ id: c.id, is_active: true }); }}>{t('تفعيل')}</button>
+              )}
             </td>
           </tr>)}</tbody>
         </table></div>}
@@ -273,9 +278,9 @@ function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: 
       master_brand: masterBrand,
       sub_brand: subBrand,
       unit,
-      price: numOrNull(price),
+      price: numOrNull(price) ?? undefined,
       units_per_carton: numOrNull(unitsPerCarton) ?? 1,
-      carton_price: numOrNull(cartonPrice),
+      carton_price: numOrNull(cartonPrice) ?? undefined,
       is_active: active,
     }, { onSuccess: onClose });
   }, [m, edit, name, category, sku, itemCode, masterBrand, subBrand, unit, price, unitsPerCarton, cartonPrice, active, onClose]);
@@ -306,7 +311,8 @@ export function AdminProducts() {
   const [availability, setAvailability] = useState<'all' | 'active' | 'inactive'>('all');
   const q = useAdminProducts(availability);
   const retry = useRefetch(q.refetch);
-  const deactivate = useDeactivateRecord('products', 'admin-products');
+  const toggleActive = useToggleActiveRecord('products', 'products');
+  const deactivate = useDeactivateRecord('products', 'products');
   const [edit, setEdit] = useState<CatalogProduct | null | undefined>(undefined);
 
   return <>
@@ -343,7 +349,11 @@ export function AdminProducts() {
             <td><span className={`badge ${p.is_active ? 'b-green' : 'b-gray'}`}>{p.is_active ? t('متاح') : t('متوقف')}</span></td>
             <td className="row gap-1">
               <button className="btn sm ghost" onClick={() => setEdit(p)}>{t('تعديل')}</button>
-              {p.is_active && <button className="btn sm ghost danger" title={t('تعطيل')} onClick={() => { if (confirm(t('تعطيل المنتج؟'))) deactivate.mutate(p.id); }}><Trash2 size={14} /></button>}
+              {p.is_active ? (
+                <button className="btn sm ghost danger" title={t('تعطيل')} onClick={() => { if (confirm(t('تعطيل المنتج؟'))) toggleActive.mutate({ id: p.id, is_active: false }); }}><Trash2 size={14} /></button>
+              ) : (
+                <button className="btn sm ghost success" title={t('تفعيل')} onClick={() => { if (confirm(t('إعادة تفعيل المنتج؟'))) toggleActive.mutate({ id: p.id, is_active: true }); }}>{t('تفعيل')}</button>
+              )}
             </td></tr>)}</tbody>
         </table></div>}
     <LoadMore q={q} />
@@ -389,6 +399,7 @@ export function AdminAssets() {
   const retry = useRefetch(q.refetch);
   const [edit, setEdit] = useState<AssetRow | null | undefined>(undefined);
   const deleteAsset = useDeleteAsset();
+  const toggleActive = useToggleActiveRecord('assets', 'assets');
 
   const handleExportAssets = () => {
     if (!q.items.length) return;
@@ -449,6 +460,11 @@ export function AdminAssets() {
                 <span className={`badge ${cls}`}>{t(label)}</span>
                 <div className="row gap-1">
                   <button className="btn sm ghost" onClick={() => setEdit(a)}>{t('تعديل')}</button>
+                  {a.is_active !== false ? (
+                    <button className="btn sm ghost danger" title={t('تعطيل')} onClick={() => { if (confirm(t('تعطيل الأصل؟'))) toggleActive.mutate({ id: a.id, is_active: false }); }}><Trash2 size={14} /></button>
+                  ) : (
+                    <button className="btn sm ghost success" title={t('تفعيل')} onClick={() => { if (confirm(t('إعادة تفعيل الأصل؟'))) toggleActive.mutate({ id: a.id, is_active: true }); }}>{t('تفعيل')}</button>
+                  )}
                   <button
                     className="btn sm ghost danger"
                     title={t('حذف')}
@@ -739,7 +755,7 @@ export function AdminProspects() {
     </div>
     <p className="muted" style={{ marginTop: 0 }}>{t('عملاء اكتُشفوا عبر المسح الميداني بالذكاء الاصطناعي. راجعهم وحوّلهم لعملاء نشطين.')}</p>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
-      : !q.data?.length ? <EmptyState icon={<Store />} title={t('لا يوجد عملاء محتملون')} description={t('استخدم المسح الميداني في التطبيق لاكتشاف عملاء جدد.')} />
+      : !q.data?.length ? <EmptyState icon={<Store />} title={t('لا يوجد عملاء محتملون')} text={t('استخدم المسح الميداني في التطبيق لاكتشاف عملاء جدد.')} />
       : <div className="adm-table-wrap"><table className="adm-table">
           <thead><tr><th>{t('الاسم')}</th><th>{t('النوع')}</th><th>{t('الموقع')}</th><th>{t('التاريخ')}</th><th /></tr></thead>
           <tbody>{q.data.map((c) => (
@@ -888,7 +904,7 @@ export function AdminOrders() {
               .join(' ; '),
         },
         { header: t('الإجمالي (ج.م)'), accessor: (o) => o.total_amount },
-        { header: t('الحالة'), accessor: (o) => (o.status === 'delivered' ? t('تم التسليم') : t('قيد المتابعة')) },
+        { header: t('الحالة'), accessor: (o) => { const s = String(o.status).toLowerCase(); return (s === 'delivered' || s === 'completed') ? t('تم التسليم') : t('قيد المتابعة'); } },
         { header: t('تاريخ التسليم'), accessor: (o) => (o.delivered_at ? fmtDate(o.delivered_at) : '') },
         { header: t('ملاحظات'), accessor: (o) => o.notes || '' },
       ],
@@ -1036,7 +1052,8 @@ export function AdminOrders() {
           </thead>
           <tbody>
             {q.data.map((o) => {
-              const isDelivered = o.status === 'delivered';
+              const orderStatus = String(o.status).toLowerCase();
+              const isDelivered = (orderStatus === 'delivered' || orderStatus === 'completed');
               const totalUnits = o.items.reduce((s, it) => s + it.quantity, 0);
 
               return (

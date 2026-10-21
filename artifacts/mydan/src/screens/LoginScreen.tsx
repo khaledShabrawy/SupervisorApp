@@ -17,10 +17,86 @@ export default function LoginScreen() {
   const [show, setShow] = useState(false); const [busy, setBusy] = useState(false); const [local, setLocal] = useState<string | null>(null);
   const onEmail = useInput(setEmail); const onPass = useInput(setPassword);
   const toggle = useCallback(() => setShow((v) => !v), []);
+
+  const [failCount, setFailCount] = useState<number>(() => {
+    try {
+      const stored = localStorage.getItem('mydan_login_fail_count');
+      return stored ? parseInt(stored, 10) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [lockoutUntil, setLockoutUntil] = useState<number>(() => {
+    try {
+      const stored = localStorage.getItem('mydan_login_lockout_until');
+      return stored ? parseInt(stored, 10) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [remainingLockout, setRemainingLockout] = useState<number>(0);
+
+  useEffect(() => {
+    if (lockoutUntil <= Date.now()) {
+      setRemainingLockout(0);
+      return;
+    }
+    const updateCountdown = () => {
+      const diff = Math.max(0, Math.ceil((lockoutUntil - Date.now()) / 1000));
+      setRemainingLockout(diff);
+      if (diff <= 0) {
+        try {
+          localStorage.removeItem('mydan_login_lockout_until');
+        } catch {
+          // ignore
+        }
+      }
+    };
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutUntil]);
+
   const submit = useCallback(async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true); setLocal(null);
-    try { await signIn(email, password); } catch (x) { setLocal(x instanceof Error ? x.message : t('تعذر تسجيل الدخول.')); } finally { setBusy(false); }
-  }, [signIn, email, password]);
+    e.preventDefault();
+    if (remainingLockout > 0) return;
+    setBusy(true); setLocal(null);
+    try {
+      await signIn(email, password);
+      try {
+        localStorage.removeItem('mydan_login_fail_count');
+        localStorage.removeItem('mydan_login_lockout_until');
+      } catch {
+        // ignore
+      }
+    } catch (x) {
+      const nextFails = failCount + 1;
+      setFailCount(nextFails);
+      try {
+        localStorage.setItem('mydan_login_fail_count', String(nextFails));
+      } catch {
+        // ignore
+      }
+      if (nextFails >= 5) {
+        const lockUntil = Date.now() + 60 * 1000;
+        setLockoutUntil(lockUntil);
+        try {
+          localStorage.setItem('mydan_login_lockout_until', String(lockUntil));
+          localStorage.removeItem('mydan_login_fail_count');
+        } catch {
+          // ignore
+        }
+        setFailCount(0);
+        setLocal(t('تم تجاوز عدد محاولات الدخول المسموح بها. يرجى الانتظار 60 ثانية قبل المحاولة مجدداً.'));
+      } else {
+        const msg = x instanceof Error ? x.message : t('تعذر تسجيل الدخول.');
+        const remainingAttempts = 5 - nextFails;
+        setLocal(`${msg} (${t('المحاولات المتبقية')}: ${remainingAttempts})`);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }, [signIn, email, password, remainingLockout, failCount]);
   const retry = useCallback(() => { void retryProfile(); }, [retryProfile]);
   const out = useCallback(() => { void signOut().catch(() => undefined); }, [signOut]);
   const IS_ANDROID = import.meta.env.VITE_PLATFORM === 'android';
@@ -113,7 +189,14 @@ export default function LoginScreen() {
           )}
 
           {(local || error) && <div className="alert err" role="alert">{t(local ?? error ?? '')}</div>}
-          <button className="btn block" disabled={busy} data-testid="button-login">{busy && <span className="loading-spinner" aria-hidden="true" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: 'currentColor' }} />}{busy ? t('جاري الدخول...') : t('تسجيل الدخول')}</button>
+          <button className="btn block" disabled={busy || remainingLockout > 0} data-testid="button-login">
+            {busy && <span className="loading-spinner" aria-hidden="true" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: 'currentColor' }} />}
+            {busy
+              ? t('جاري الدخول...')
+              : remainingLockout > 0
+              ? `${t('يرجى الانتظار')} (${remainingLockout} ${t('ثانية')})`
+              : t('تسجيل الدخول')}
+          </button>
         </form>
       ) : (
         <form onSubmit={handleForgot} className="col" style={{ gap: 12, textAlign: 'start' }}>

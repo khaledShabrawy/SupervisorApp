@@ -9,7 +9,7 @@ export const SCREENS = [
   { key: 'competitor_products', label: 'منتجات المنافسين', path: '/competitors', byDefault: true },
   { key: 'my_reports', label: 'تقاريري والأهداف', path: '/targets', byDefault: true },
   { key: 'notifications', label: 'الإشعارات', path: '/notifications', byDefault: true },
-  { key: 'beat_plan', label: 'خطة المسار', path: '/beat-plan', byDefault: false },
+  { key: 'beat_plan', label: 'خطة المسار', path: '/beat-plan', byDefault: true },
   { key: 'field_survey', label: 'مسح ميداني AI', path: '/field-survey', byDefault: false },
 ] as const;
 export type ScreenKey = typeof SCREENS[number]['key'];

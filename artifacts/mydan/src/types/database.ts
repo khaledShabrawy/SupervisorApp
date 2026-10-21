@@ -2,7 +2,7 @@ export type ID = string;
 export type VisitStatus = 'pending' | 'in_progress' | 'completed' | 'skipped';
 export interface Supervisor {
   id: ID; user_id: ID; full_name: string; phone: string | null;
-  role: 'admin' | 'supervisor' | 'senior_supervisor' | 'branch_manager' | 'super_admin'; branch_id: ID | null;
+  role: 'admin' | 'supervisor' | 'senior_supervisor' | 'branch_manager' | 'super_admin' | 'manager'; branch_id: ID | null;
   company_id: ID; is_active: boolean;
   force_password_change?: boolean; password_changed_at?: string | null;
   device_id?: string | null;
@@ -73,6 +73,7 @@ export interface AppSettings {
   allow_password_change?: boolean; allow_forgot_password?: boolean;
   password_expiry_enabled?: boolean; password_expiry_days?: number;
   branch_lock_mode?: 'auto_supervisor_branch' | 'manual_selection';
+  app_tagline?: string;
 }
 export interface Target {
   id: ID; supervisor_id: ID | null; month: number; year: number;

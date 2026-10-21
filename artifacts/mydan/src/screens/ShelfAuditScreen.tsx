@@ -154,6 +154,7 @@ export default function ShelfAuditScreen() {
 
     // 1. Immediately show photo preview & make button active
     setFile(raw);
+    notify(t('تم التقاط الصورة بنجاح'), 'success');
 
     // 2. Optimistically compress for upload bandwidth saving
     try {
@@ -175,6 +176,7 @@ export default function ShelfAuditScreen() {
       setParams({ visit: effectiveVisitId, audit: a.id }, { replace: true });
       setFile(null);
       await request.mutateAsync(a);
+      await result.refetch();
       setReqKey((k) => k + 1);
       void visitAudits.refetch();
     } catch (err) {
@@ -304,6 +306,28 @@ export default function ShelfAuditScreen() {
                 boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
               }}
             />
+            <div
+              style={{
+                position: 'absolute',
+                top: 12,
+                right: 12,
+                background: 'rgba(16, 137, 129, 0.92)',
+                color: '#fff',
+                padding: '5px 12px',
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                backdropFilter: 'blur(4px)',
+                zIndex: 2,
+              }}
+            >
+              <CheckCircle2 size={16} />
+              <span>{t('تم التقاط الصورة بنجاح')}</span>
+            </div>
             <div
               style={{
                 position: 'absolute',

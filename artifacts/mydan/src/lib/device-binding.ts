@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Supervisor } from '@/types/database';
 import { notify } from '@/lib/toast';
+import { useScope } from '@/lib/data';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { t } from '@/i18n';
 
@@ -57,6 +58,7 @@ export function useDeviceBinding(supervisor: Supervisor | null) {
         .from('supervisors')
         .update({ device_id: currentDeviceId })
         .eq('id', supervisor.id)
+        .eq('company_id', supervisor.company_id)
         .then(({ error }) => {
           if (error) {
             console.warn('Could not auto-bind device:', error);
@@ -90,12 +92,14 @@ export function useDeviceBinding(supervisor: Supervisor | null) {
  */
 export function useResetDeviceBinding() {
   const qc = useQueryClient();
+  const sc = useScope();
   return useMutation({
     mutationFn: async (supervisorId: string) => {
       const { error } = await supabase
         .from('supervisors')
         .update({ device_id: null })
-        .eq('id', supervisorId);
+        .eq('id', supervisorId)
+        .eq('company_id', sc.companyId);
       if (error) throw new Error(error.message || t('تعذر إلغاء اقتران الجهاز.'));
     },
     onSuccess: () => {

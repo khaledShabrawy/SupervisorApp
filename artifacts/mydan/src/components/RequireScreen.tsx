@@ -11,7 +11,8 @@ export function RequireScreen({ screen, children }: { screen: ScreenKey; childre
   const sc = useScope();
   const q = useMyPermissions();
 
-  if (sc.isAdmin) return <>{children}</>;
+  if (sc.isAdmin || sc.supervisor?.role === 'branch_manager' || sc.supervisor?.role === 'manager') return <>{children}</>;
+  if (screen === 'beat_plan' && ['admin', 'super_admin', 'branch_manager', 'manager'].includes(sc.supervisor?.role ?? '')) return <>{children}</>;
 
   if (q.isPending) return <LoadingSpinner />;
 
