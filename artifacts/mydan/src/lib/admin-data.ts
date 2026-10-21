@@ -199,7 +199,7 @@ export function useBranches() {
   return useQuery({
     queryKey: [...sc.base, 'branches'], retry: 1,
     queryFn: async ({ signal }) => {
-      let res = await supabase.from('branches').select('id,name,region,region_id,manager_id,latitude,longitude,is_active')
+      let res: any = await supabase.from('branches').select('id,name,region,region_id,manager_id,latitude,longitude,is_active')
         .eq('company_id', sc.companyId).order('name').abortSignal(signal);
       if (res.error && res.error.message.includes('region_id')) {
         res = await supabase.from('branches').select('id,name,region,manager_id,latitude,longitude,is_active')
@@ -250,14 +250,14 @@ export function useInviteSupervisor() {
     mutationFn: async (input: { email: string; full_name: string; phone: string; role: InviteRole; branch_id?: string;
       company_id?: string; permissions?: Record<ScreenKey, boolean> }) => {
       requireAdmin(sc);
-      if (sc.supervisor.role === 'branch_manager' && input.role === 'admin') {
+      if (((sc.supervisor.role as string) === 'branch_manager' || (sc.supervisor.role as string) === 'manager') && input.role === 'admin') {
         throw new Error(t('مدير الفرع لا يملك صلاحية دعوة رتبة مدير.'));
       }
       const targetCompanyId = (sc.supervisor.role === 'super_admin' && input.company_id)
         ? input.company_id
         : sc.companyId;
 
-      const effectiveBranchId = sc.supervisor.role === 'branch_manager' && sc.supervisor.branch_id
+      const effectiveBranchId = ((sc.supervisor.role as string) === 'branch_manager' || (sc.supervisor.role as string) === 'manager') && sc.supervisor.branch_id
         ? sc.supervisor.branch_id
         : (input.branch_id || null);
 
@@ -419,7 +419,7 @@ export function useAssets(search: string, dateFrom?: string, dateTo?: string) {
     if (s) q = q.or(`asset_code.ilike.%${s}%,serial_number.ilike.%${s}%`);
     if (dateFrom) q = q.gte('created_at', `${dateFrom}T00:00:00`);
     if (dateTo) q = q.lte('created_at', `${dateTo}T23:59:59`);
-    let { data, error } = await q.order('asset_code').range(from, to).abortSignal(signal);
+    let { data, error }: { data: any; error: any } = await q.order('asset_code').range(from, to).abortSignal(signal);
     if (error && error.message.includes('installed_at')) {
       let fallbackQ = supabase.from('assets').select('id,asset_code,asset_type_id,customer_id,serial_number,model,status,is_active,created_at,asset_types(name_ar,icon),customers(name)')
         .eq('company_id', sc.companyId);
@@ -437,12 +437,21 @@ export function useAssets(search: string, dateFrom?: string, dateTo?: string) {
 export function useSaveAsset() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (a: { id?: string; asset_code: string; asset_type_id: string; customer_id: string; serial_number: string; model: string; status: string }) => {
+    mutationFn: async (a: { id?: string; asset_code: string; asset_type_id: string; customer_id: string; serial_number: string; model: string; status: string; is_active?: boolean }) => {
       requireAdmin(sc);
-      const values = { asset_code: a.asset_code.trim(), asset_type_id: a.asset_type_id, customer_id: a.customer_id || null,
-        serial_number: a.serial_number.trim() || null, model: a.model.trim() || null, status: a.status };
+      const values: Record<string, unknown> = {
+        asset_code: a.asset_code.trim(),
+        asset_type_id: a.asset_type_id,
+        customer_id: a.customer_id || null,
+        serial_number: a.serial_number.trim() || null,
+        model: a.model.trim() || null,
+        status: a.status,
+      };
+      if (typeof a.is_active === 'boolean') {
+        values.is_active = a.is_active;
+      }
       if (!values.asset_code || !values.asset_type_id) throw new Error('كود الأصل ونوعه مطلوبان.');
-      if (!(values.status in ASSET_STATUS)) throw new Error('حالة الأصل غير صالحة.');
+      if (typeof values.status !== 'string' || !(values.status in ASSET_STATUS)) throw new Error('حالة الأصل غير صالحة.');
       const r = a.id
         ? await supabase.from('assets').update(values).eq('id', a.id).eq('company_id', sc.companyId).select('id')
         : await supabase.from('assets').insert({ ...values, company_id: sc.companyId }).select('id');
@@ -730,18 +739,30 @@ export function useSaveCompany() {
   });
 }
 
-/* ---------- Generic soft-delete (deactivate record) ---------- */
-export function useDeactivateRecord(table: 'branches' | 'customers' | 'products', queryKey: string) {
+/* ---------- Generic activate / deactivate record ---------- */
+export function useToggleActiveRecord(table: 'branches' | 'customers' | 'products' | 'assets', queryKey: string) {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
       requireAdmin(sc);
-      const { error } = await supabase.from(table).update({ is_active: false }).eq('id', id).eq('company_id', sc.companyId);
-      if (error) fail(t('تعذر التعطيل.'), error);
+      const { error } = await supabase.from(table).update({ is_active }).eq('id', id).eq('company_id', sc.companyId);
+      if (error) fail(t('تعذر التحديث.'), error);
     },
-    onSuccess: () => { notify(t('تم تعطيل السجل'), 'success'); void invalidate(qc, sc, queryKey); },
+    onSuccess: (_, vars) => {
+      notify(vars.is_active ? t('تم التفعيل بنجاح') : t('تم التعطيل بنجاح'), 'success');
+      void invalidate(qc, sc, queryKey);
+    },
     onError: (e: Error) => notify(e.message, 'error'),
   });
+}
+
+export function useDeactivateRecord(table: 'branches' | 'customers' | 'products' | 'assets', queryKey: string) {
+  const toggle = useToggleActiveRecord(table, queryKey);
+  return {
+    ...toggle,
+    mutate: (id: string) => toggle.mutate({ id, is_active: false }),
+    mutateAsync: (id: string) => toggle.mutateAsync({ id, is_active: false }),
+  };
 }
 
 /* ---------- Edit supervisor profile (admin-side, full fields) ---------- */
@@ -752,7 +773,7 @@ export function useEditSupervisorProfile() {
       requireAdmin(sc);
       const { data: existing } = await supabase.from('supervisors').select('role,branch_id').eq('id', id).eq('company_id', sc.companyId).single();
       if (existing?.role === 'super_admin') throw new Error(t('لا يمكن تعديل المدير الأعلى.'));
-      if (sc.supervisor.role === 'branch_manager') {
+      if ((sc.supervisor.role as string) === 'branch_manager' || (sc.supervisor.role as string) === 'manager') {
         if ((role as string) === 'admin' || (role as string) === 'super_admin') {
           throw new Error(t('مدير الفرع لا يملك صلاحية تعيين رتبة مدير.'));
         }
@@ -760,7 +781,7 @@ export function useEditSupervisorProfile() {
           throw new Error(t('لا يمكنك تعديل مشرفين تابعين لفروع أخرى.'));
         }
       }
-      const effectiveBranchId = sc.supervisor.role === 'branch_manager' && sc.supervisor.branch_id
+      const effectiveBranchId = ((sc.supervisor.role as string) === 'branch_manager' || (sc.supervisor.role as string) === 'manager') && sc.supervisor.branch_id
         ? sc.supervisor.branch_id
         : (branch_id || null);
 

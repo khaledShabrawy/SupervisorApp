@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
 const isAndroid = mode === 'android';
 return ({
   root,
+  envDir: root,
   base,
   esbuild: { jsx: 'automatic' },
   resolve: { alias: { '@': path.resolve(root, 'src') }, dedupe: ['react', 'react-dom'] },

@@ -1,0 +1,8 @@
+{
+	"appId": "com.mydan.app",
+	"appName": "Mydan",
+	"webDir": "dist/public",
+	"android": {
+		"allowMixedContent": false
+	}
+}

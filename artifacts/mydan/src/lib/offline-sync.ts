@@ -131,14 +131,18 @@ export async function uploadPendingOfflineActions(): Promise<{
           if (error) throw error;
         }
       } else if (item.type === 'update_visit_status') {
-        const { id, status, check_out_time } = item.payload;
+        const { id, status, check_out_time, company_id } = item.payload;
         const patch: Record<string, any> = { status };
         if (status === 'completed') patch.check_out_time = check_out_time || new Date().toISOString();
-        const { error } = await supabase.from('visits').update(patch).eq('id', id);
+        let u = supabase.from('visits').update(patch).eq('id', id);
+        if (company_id) u = u.eq('company_id', company_id);
+        const { error } = await u;
         if (error) throw error;
       } else if (item.type === 'set_visit_outcome') {
-        const { id, outcome } = item.payload;
-        const { error } = await supabase.from('visits').update({ visit_outcome: outcome }).eq('id', id);
+        const { id, outcome, company_id } = item.payload;
+        let u = supabase.from('visits').update({ visit_outcome: outcome }).eq('id', id);
+        if (company_id) u = u.eq('company_id', company_id);
+        const { error } = await u;
         if (error) throw error;
       } else if (item.type === 'save_order') {
         const { error } = await supabase.from('orders').insert(item.payload);

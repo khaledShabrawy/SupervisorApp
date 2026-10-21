@@ -251,6 +251,8 @@ export function TargetForm() {
   const onSid = useInput(setSid);
   const onV = useInput(setV);
   const onA = useInput(setA);
+  const onBranchId = useInput(setBranchId);
+  const onTargetAmount = useInput(setTargetAmount);
   const onMonth = useCallback((e: ChangeEvent<HTMLSelectElement>) => setMonth(Number(e.target.value)), []);
   const onYear = useCallback((e: ChangeEvent<HTMLInputElement>) => setYear(Number(e.target.value)), []);
 
@@ -312,7 +314,7 @@ export function TargetForm() {
       {targetScope === 'specific_branch' && (
         <label className="f">
           {t('اختر الفرع المستهدف *')}
-          <select className="input" value={branchId} onChange={useInput(setBranchId)} required>
+          <select className="input" value={branchId} onChange={onBranchId} required>
             <option value="">{t('اختر الفرع')}</option>
             {branches.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
@@ -348,7 +350,7 @@ export function TargetForm() {
       {criteria === 'orders' && (
         <label className="f">
           {t('هدف القيمة البيعية (بالجنيه)')}
-          <input className="input" type="number" min="0" value={targetAmount} onChange={useInput(setTargetAmount)} placeholder="مثال: 50000" />
+          <input className="input" type="number" min="0" value={targetAmount} onChange={onTargetAmount} placeholder="مثال: 50000" />
         </label>
       )}
 

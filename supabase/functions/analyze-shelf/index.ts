@@ -203,11 +203,13 @@ Deno.serve(async (req) => {
   if (audit.status === "processing") return json(409, { error: "analysis already running" });
   if (audit.status === "completed")  return json(409, { error: "audit already analyzed" });
 
-  // Rate limiting: daily cap + concurrent cap per company (configurable via Supabase Secrets).
+  // Rate limiting: daily cap + concurrent cap per company + hourly cap per supervisor.
   const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0);
-  const maxPerDay     = parseInt(Deno.env.get("MAX_AUDITS_PER_DAY")    ?? "100", 10);
-  const maxConcurrent = parseInt(Deno.env.get("MAX_CONCURRENT_AUDITS") ?? "5",   10);
-  const [{ count: todayCompleted }, { count: inFlight }] = await Promise.all([
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const maxPerDay     = parseInt(Deno.env.get("MAX_AUDITS_PER_DAY")       ?? "100", 10);
+  const maxConcurrent = parseInt(Deno.env.get("MAX_CONCURRENT_AUDITS")    ?? "5",   10);
+  const maxPerHour    = parseInt(Deno.env.get("MAX_AUDITS_PER_HOUR_USER") ?? "20",  10);
+  const [{ count: todayCompleted }, { count: inFlight }, { count: userHourly }] = await Promise.all([
     admin.from("shelf_audit")
       .select("id", { count: "exact", head: true })
       .eq("company_id", caller.company_id)
@@ -217,7 +219,13 @@ Deno.serve(async (req) => {
       .select("id", { count: "exact", head: true })
       .eq("company_id", caller.company_id)
       .eq("status", "processing"),
+    admin.from("shelf_audit")
+      .select("id", { count: "exact", head: true })
+      .eq("supervisor_id", caller.id)
+      .gte("audited_at", oneHourAgo),
   ]);
+  if ((userHourly ?? 0) >= maxPerHour)
+    return json(429, { error: `تجاوزت الحد المسموح به لتحليلات الذكاء الاصطناعي (${maxPerHour} تحليل/ساعة). يرجى الانتظار قليلاً.` });
   if ((todayCompleted ?? 0) >= maxPerDay)
     return json(429, { error: `تم تجاوز الحد اليومي لتحليلات الذكاء الاصطناعي (${maxPerDay} تحليل/يوم). يُجدَّد عند منتصف الليل.` });
   if ((inFlight ?? 0) >= maxConcurrent)

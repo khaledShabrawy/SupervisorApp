@@ -60,6 +60,39 @@ function parseCSV(text: string): string[][] {
 
 type ImportResult = { success: number; failed: number; errors: string[] };
 
+async function batchInsert<T extends Record<string, unknown>>(
+  table: string,
+  items: { data: T; rowNum: number; name?: string }[],
+  result: ImportResult,
+  batchSize = 50
+) {
+  for (let i = 0; i < items.length; i += batchSize) {
+    const chunk = items.slice(i, i + batchSize);
+    const records = chunk.map((c) => c.data);
+    const { error } = await (supabase.from(table as any) as any).insert(records);
+    if (!error) {
+      result.success += chunk.length;
+    } else {
+      // Fallback row-by-row on this batch to isolate failing rows
+      for (const item of chunk) {
+        const { error: itemErr } = await (supabase.from(table as any) as any).insert(item.data);
+        if (itemErr) {
+          result.failed++;
+          result.errors.push(
+            t('سطر {n}{details}: {err}', {
+              n: item.rowNum,
+              details: item.name ? ` (${item.name})` : '',
+              err: itemErr.message,
+            })
+          );
+        } else {
+          result.success++;
+        }
+      }
+    }
+  }
+}
+
 function useBulkImportCustomers() {
   const sc = useScope();
   const qc = useQueryClient();
@@ -88,6 +121,7 @@ function useBulkImportCustomers() {
 
       const result: ImportResult = { success: 0, failed: 0, errors: [] };
       const dataRows = rows.slice(1);
+      const validItems: { data: Record<string, unknown>; rowNum: number; name: string }[] = [];
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
@@ -115,15 +149,10 @@ function useBulkImportCustomers() {
           is_active: row[activeIdx]?.trim() !== 'false',
         };
 
-        const { error } = await supabase.from('customers').insert(customer);
-        if (error) {
-          result.failed++;
-          result.errors.push(t('سطر {n} ({name}): {err}', { n: i + 2, name, err: error.message }));
-        } else {
-          result.success++;
-        }
+        validItems.push({ data: customer, rowNum: i + 2, name });
       }
 
+      await batchInsert('customers', validItems, result);
       return result;
     },
     onSuccess: (result) => {
@@ -158,6 +187,7 @@ function useBulkImportProducts() {
 
       const result: ImportResult = { success: 0, failed: 0, errors: [] };
       const dataRows = rows.slice(1);
+      const validItems: { data: Record<string, unknown>; rowNum: number; name: string }[] = [];
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
@@ -182,15 +212,10 @@ function useBulkImportProducts() {
           is_active: activeIdx !== -1 ? row[activeIdx]?.trim().toLowerCase() !== 'false' : true,
         };
 
-        const { error } = await supabase.from('products').insert(prod);
-        if (error) {
-          result.failed++;
-          result.errors.push(t('سطر {n} ({name}): {err}', { n: i + 2, name, err: error.message }));
-        } else {
-          result.success++;
-        }
+        validItems.push({ data: prod, rowNum: i + 2, name });
       }
 
+      await batchInsert('products', validItems, result);
       return result;
     },
     onSuccess: (res) => {
@@ -225,6 +250,7 @@ function useBulkImportTargets() {
 
       const result: ImportResult = { success: 0, failed: 0, errors: [] };
       const dataRows = rows.slice(1);
+      const validItems: { data: Record<string, unknown>; rowNum: number }[] = [];
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
@@ -258,15 +284,10 @@ function useBulkImportTargets() {
           actual_audits: 0,
         };
 
-        const { error } = await supabase.from('targets').insert(record);
-        if (error) {
-          result.failed++;
-          result.errors.push(t('سطر {n}: {err}', { n: i + 2, err: error.message }));
-        } else {
-          result.success++;
-        }
+        validItems.push({ data: record, rowNum: i + 2 });
       }
 
+      await batchInsert('targets', validItems, result);
       return result;
     },
     onSuccess: (res) => {
@@ -299,6 +320,7 @@ function useBulkImportBeatPlans() {
       const result: ImportResult = { success: 0, failed: 0, errors: [] };
       const dataRows = rows.slice(1);
 
+      const validItems: { data: Record<string, unknown>; rowNum: number }[] = [];
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
         const supId = row[supIdIdx]?.trim() || sc.supervisorId;
@@ -318,15 +340,10 @@ function useBulkImportBeatPlans() {
           customer_id: custId,
         };
 
-        const { error } = await supabase.from('beat_plans').insert(plan);
-        if (error) {
-          result.failed++;
-          result.errors.push(t('سطر {n}: {err}', { n: i + 2, err: error.message }));
-        } else {
-          result.success++;
-        }
+        validItems.push({ data: plan, rowNum: i + 2 });
       }
 
+      await batchInsert('beat_plans', validItems, result);
       return result;
     },
     onSuccess: (result) => {

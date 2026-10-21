@@ -1,6 +1,6 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, CheckCircle2, ClipboardList, Clock, GraduationCap, LogIn, LogOut, MapPin, Plus, Route, ScanSearch, ShoppingCart, Target as TargetIcon } from '@/components/Icons';
+import { Camera, CheckCircle2, ClipboardList, Clock, GraduationCap, LogIn, LogOut, MapPin, Plus, Route, ScanSearch, ShoppingCart, Target as TargetIcon, X } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useRealtime } from '@/hooks/useRealtime';
@@ -30,11 +30,47 @@ function AttendanceWidget() {
   const { data: att, isPending } = useAttendanceToday();
   const action = useAttendanceAction();
   const busy = action.isPending;
+  const [confirmKind, setConfirmKind] = useState<'in' | 'out' | null>(null);
 
   if (isPending) return <div className="card" style={{ padding: '12px 16px', marginBottom: 8 }}><div className="skel" style={{ height: 36 }} /></div>;
 
   const checkedIn = !!att?.check_in_time;
   const checkedOut = !!att?.check_out_time;
+
+  const modal = confirmKind && (
+    <div className="adm-modal-bg" onClick={() => setConfirmKind(null)} style={{ zIndex: 1000 }}>
+      <div className="adm-modal col" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, gap: 16 }}>
+        <div className="row between">
+          <h3 style={{ margin: 0, fontSize: 16 }}>
+            {confirmKind === 'in' ? t('تأكيد الحضور') : t('تأكيد الانصراف')}
+          </h3>
+          <button type="button" className="icon-btn" onClick={() => setConfirmKind(null)}><X size={18} /></button>
+        </div>
+        <div className="muted" style={{ fontSize: 14 }}>
+          {confirmKind === 'in' ? t('هل أنت متأكد من تسجيل الحضور الآن؟') : t('هل أنت متأكد من تسجيل الانصراف الآن؟')}
+        </div>
+        <div className="alert info" style={{ fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}>
+          <Clock size={16} />
+          <span>{fmtDate(todayStr())}</span>
+        </div>
+        <div className="row gap-2" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
+          <button type="button" className="btn ghost sm" onClick={() => setConfirmKind(null)}>{t('إلغاء')}</button>
+          <button
+            type="button"
+            className={`btn sm ${confirmKind === 'in' ? 'primary' : 'danger'}`}
+            disabled={busy}
+            onClick={() => {
+              const kind = confirmKind;
+              setConfirmKind(null);
+              action.mutate({ kind, row: kind === 'out' ? (att as Attendance) : null });
+            }}
+          >
+            {confirmKind === 'in' ? t('تأكيد الحضور') : t('تأكيد الانصراف')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   if (checkedOut) {
     return (
@@ -48,40 +84,46 @@ function AttendanceWidget() {
 
   if (checkedIn) {
     return (
-      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 8 }}>
-        <Clock size={18} style={{ color: 'var(--color-primary,#1A56DB)', flexShrink: 0 }} />
-        <div style={{ flexGrow: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t('تم تسجيل الحضور')}</div>
-          <div className="muted" style={{ fontSize: 12 }}>{fmtTime(att!.check_in_time)}</div>
+      <>
+        {modal}
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 8 }}>
+          <Clock size={18} style={{ color: 'var(--color-primary,#1A56DB)', flexShrink: 0 }} />
+          <div style={{ flexGrow: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{t('تم تسجيل الحضور')}</div>
+            <div className="muted" style={{ fontSize: 12 }}>{fmtTime(att!.check_in_time)}</div>
+          </div>
+          <button
+            className="btn sm danger"
+            disabled={busy}
+            onClick={() => setConfirmKind('out')}
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            <LogOut size={15} /> {t('تسجيل انصراف')}
+          </button>
         </div>
-        <button
-          className="btn sm danger"
-          disabled={busy}
-          onClick={() => action.mutate({ kind: 'out', row: att as Attendance })}
-          style={{ whiteSpace: 'nowrap' }}
-        >
-          <LogOut size={15} /> {t('تسجيل انصراف')}
-        </button>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 8, borderRight: '4px solid var(--color-warning,#F59E0B)' }}>
-      <LogIn size={18} style={{ color: 'var(--color-warning,#F59E0B)', flexShrink: 0 }} />
-      <div style={{ flexGrow: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t('لم تسجل حضورك اليوم')}</div>
-        <div className="muted" style={{ fontSize: 12 }}>{fmtDate(todayStr())}</div>
+    <>
+      {modal}
+      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 8, borderRight: '4px solid var(--color-warning,#F59E0B)' }}>
+        <LogIn size={18} style={{ color: 'var(--color-warning,#F59E0B)', flexShrink: 0 }} />
+        <div style={{ flexGrow: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t('لم تسجل حضورك اليوم')}</div>
+          <div className="muted" style={{ fontSize: 12 }}>{fmtDate(todayStr())}</div>
+        </div>
+        <button
+          className="btn sm primary"
+          disabled={busy}
+          onClick={() => setConfirmKind('in')}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          <LogIn size={15} /> {t('تسجيل حضور')}
+        </button>
       </div>
-      <button
-        className="btn sm primary"
-        disabled={busy}
-        onClick={() => action.mutate({ kind: 'in', row: null })}
-        style={{ whiteSpace: 'nowrap' }}
-      >
-        <LogIn size={15} /> {t('تسجيل حضور')}
-      </button>
-    </div>
+    </>
   );
 }
 

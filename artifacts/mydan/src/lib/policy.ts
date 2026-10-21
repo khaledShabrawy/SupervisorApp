@@ -4,10 +4,10 @@ export function isAuthorizedSupervisor(value: unknown, userId: string): value is
   const p = value as Partial<Supervisor> | null;
   return !!p && p.user_id === userId && typeof p.id === 'string' && !!p.id
     && typeof p.company_id === 'string' && !!p.company_id
-    && p.is_active === true && ['admin', 'supervisor', 'senior_supervisor', 'branch_manager', 'super_admin'].includes(p.role ?? '');
+    && p.is_active === true && ['admin', 'supervisor', 'senior_supervisor', 'branch_manager', 'super_admin', 'manager'].includes(p.role ?? '');
 }
 export function canAdmin(profile: Supervisor | null): boolean {
-  return !!profile?.is_active && ['admin', 'super_admin', 'branch_manager'].includes(profile.role);
+  return !!profile?.is_active && ['admin', 'super_admin', 'branch_manager', 'manager'].includes(profile.role);
 }
 export function validateSettings(value: AppSettings, companyId: string): AppSettings {
   if (value.company_id !== companyId || !value.app_name?.trim()) {

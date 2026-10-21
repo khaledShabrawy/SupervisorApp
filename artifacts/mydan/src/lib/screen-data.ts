@@ -1,3 +1,4 @@
+import type { Customer, AppSettings, Target, Attendance } from '@/types/database';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { supabase } from './supabase';
@@ -163,7 +164,7 @@ export function useAdminProducts(availability: 'all' | 'active' | 'inactive' = '
   return usePaged<CatalogProduct>(sc, 'products', [availability], async (from, to, signal) => {
     let q = supabase.from('products').select('id,name,category,sku:sku_code,item_code,master_brand,sub_brand,is_active').eq('company_id', sc.companyId);
     if (availability === 'active') q = q.eq('is_active', true);
-    if (availability === 'inactive') q = q.eq('is_active', false);
+    if (availability === 'inactive') q = q.or('is_active.eq.false,is_active.is.null');
     const r = await q.order('name').order('id').range(from, to).abortSignal(signal);
     errorMessage('تعذر تحميل المنتجات. تحقق من جدول المنتجات وصلاحياته.', r.error);
     return r.data as CatalogProduct[];
@@ -175,7 +176,7 @@ export function useSaveSettings() {
     mutationFn: async (input: SettingsInput) => {
       if (!canAdmin(sc.supervisor)) throw new Error('تعديل الإعدادات للمدراء فقط.');
       const clean = { ...input, app_name: input.app_name.trim(), target_brand_name: input.target_brand_name.trim(),
-        competitor_brands: [...new Set(input.competitor_brands.map(v => v.trim()).filter(Boolean))] };
+        competitor_brands: [...new Set(input.competitor_brands.map((v: string) => v.trim()).filter(Boolean))] };
       const isDefault = !settings.id || settings.id.startsWith('default-');
       const r = isDefault
         ? await supabase.from('app_settings').upsert({ ...clean, company_id: sc.companyId }, { onConflict: 'company_id' })
