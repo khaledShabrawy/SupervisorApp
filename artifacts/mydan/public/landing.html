@@ -1103,22 +1103,52 @@ let currentLang = 'ar';
 function applyLang(lang) {
   currentLang = lang;
   const d = content[lang];
+  if (!d) return;
   document.documentElement.lang = d.lang;
   document.documentElement.dir = d.dir;
   document.body.className = d.fontClass;
-  document.getElementById('langToggle').textContent = lang === 'ar' ? 'EN' : 'ع';
+  const toggleBtn = document.getElementById('langToggle');
+  if (toggleBtn) toggleBtn.textContent = lang === 'ar' ? 'EN' : 'ع';
   Object.keys(d).forEach(id => {
     if (['lang','dir','fontClass'].includes(id)) return;
     const el = document.getElementById(id);
     if (el) el.innerHTML = d[id];
   });
+
+  const placeholders = {
+    ar: {
+      fname: 'محمد أحمد',
+      fphone: '+966 5x xxx xxxx',
+      femail: 'name@company.com',
+      fcompany: 'شركة المثال'
+    },
+    en: {
+      fname: 'John Doe',
+      fphone: '+1 234 567 8900',
+      femail: 'name@company.com',
+      fcompany: 'Acme Corp'
+    }
+  };
+  if (placeholders[lang]) {
+    Object.keys(placeholders[lang]).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.placeholder = placeholders[lang][id];
+    });
+  }
+
   // Update HTML lang meta
   document.documentElement.setAttribute('lang', d.lang);
+  try {
+    localStorage.setItem('mydan_landing_lang', lang);
+  } catch (e) {}
+
   // Update canonical alternate
-  const url = new URL(window.location.href);
-  if (lang === 'en') url.searchParams.set('lang','en');
-  else url.searchParams.delete('lang');
-  history.replaceState(null,'', url.toString());
+  try {
+    const url = new URL(window.location.href);
+    if (lang === 'en') url.searchParams.set('lang','en');
+    else url.searchParams.delete('lang');
+    history.replaceState(null,'', url.toString());
+  } catch (e) {}
 }
 
 function toggleLang() {
@@ -1146,6 +1176,8 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
   a.addEventListener('click', e => {
     const target = document.querySelector(a.getAttribute('href'));
     if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+});
 // Register Service Worker for PWA installation & offline support
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
