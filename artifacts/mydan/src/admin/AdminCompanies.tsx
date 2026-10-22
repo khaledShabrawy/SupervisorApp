@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { type CompanyRow, useCompanies, useInviteSupervisor, useSaveCompany } from '@/lib/admin-data';
+import { type CompanyRow, useCompanies, useInviteSupervisor, isValidEmail, useSaveCompany } from '@/lib/admin-data';
 import { SCREENS, type ScreenKey } from '@/lib/permissions';
 import { t } from '@/i18n';
 

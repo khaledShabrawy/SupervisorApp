@@ -1,3 +1,20 @@
+/** Sanitizes an email string by removing invisible unicode marks, extracting from angle brackets, and trimming */
+export function cleanEmail(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u00A0\u202A-\u202E]/g, '')
+    .replace(/^.*<([^>]+)>.*$/, '$1')
+    .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 1632))
+    .trim()
+    .toLowerCase();
+}
+
+/** Validates email format strictly ensuring valid domain */
+export function isValidEmail(email: string): boolean {
+  const cleaned = cleanEmail(email);
+  return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/.test(cleaned);
+}
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Supervisor } from '@/types/database';
 import { supabase } from './supabase';
