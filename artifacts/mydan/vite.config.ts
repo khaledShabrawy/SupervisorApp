@@ -16,7 +16,14 @@ return ({
   envDir: root,
   base,
   esbuild: { jsx: 'automatic' },
-  resolve: { alias: { '@': path.resolve(root, 'src') }, dedupe: ['react', 'react-dom'] },
+  resolve: {
+    alias: {
+      '@': path.resolve(root, 'src'),
+      '@modules': path.resolve(root, 'src/modules'),
+      '@shared': path.resolve(root, 'src/shared'),
+    },
+    dedupe: ['react', 'react-dom'],
+  },
   server: {
     host: '0.0.0.0',
     port: Number(process.env.PORT || 5173),

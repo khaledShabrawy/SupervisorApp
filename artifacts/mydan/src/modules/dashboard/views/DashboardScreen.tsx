@@ -1,0 +1,130 @@
+import { useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Camera,
+  ClipboardList,
+  GraduationCap,
+  MapPin,
+  Plus,
+  Route,
+  ScanSearch,
+  ShoppingCart,
+  Target as TargetIcon,
+} from '@/components/Icons';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAppSettings } from '@/contexts/AppSettingsContext';
+import { useRealtime } from '@/hooks/useRealtime';
+import { canAdmin } from '@/lib/policy';
+import { useScreenAllowed } from '@/lib/permissions';
+import { useScreenDashboard } from '@/lib/screen-data';
+import { KPICard } from '@/components/KPICard';
+import EmptyState from '@/components/EmptyState';
+import { ErrorState } from '@/components/States';
+import { PageTitle } from '@/components/Layout';
+import { fmtDate, num, todayStr } from '@/lib/format';
+import { Act, useRefetch } from '@/screens/shared';
+import { t } from '@/i18n';
+import { AttendanceWidget } from '../components/AttendanceWidget';
+import { RecentVisitItem } from '../components/RecentVisitItem';
+
+export default function DashboardScreen() {
+  const nav = useNavigate();
+  const { supervisor } = useAuth();
+  const settings = useAppSettings();
+  const q = useScreenDashboard();
+  const d = q.data;
+  const L = q.isPending;
+  const admin = canAdmin(supervisor);
+  const fieldSurveyAllowed = useScreenAllowed('field_survey');
+  const retry = useRefetch(q.refetch);
+
+  useRealtime(
+    'visits',
+    supervisor
+      ? admin
+        ? `company_id=eq.${supervisor.company_id}`
+        : `supervisor_id=eq.${supervisor.id}`
+      : undefined,
+    retry
+  );
+
+  const go = useCallback((p: string) => nav(p), [nav]);
+  const goNew = useCallback(() => nav('/visits/new'), [nav]);
+  const open = useCallback(() => nav('/visits'), [nav]);
+  const recent = useMemo(() => d?.recent.slice(0, 5) ?? [], [d?.recent]);
+
+  return (
+    <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
+      <PageTitle>
+        {settings.app_name}
+        <span className="muted" style={{ fontSize: 14, fontWeight: 400 }}>
+          {' '}
+          · {fmtDate(todayStr())}
+        </span>
+      </PageTitle>
+
+      {q.isError ? (
+        <ErrorState error={q.error} onRetry={retry} />
+      ) : (
+        <>
+          <AttendanceWidget />
+          <div className="s-kpis">
+            <KPICard icon={<MapPin size={18} />} title={t('زيارات اليوم')} value={d && num(d.visits)} loading={L} />
+            <KPICard
+              icon={<Camera size={18} />}
+              title={t('مراجعات الرف')}
+              value={d && num(d.audits)}
+              loading={L}
+              color="#6D3FC0"
+            />
+            <KPICard
+              icon={<TargetIcon size={18} />}
+              title={t('نسبة الهدف%')}
+              value={d && `${num(Math.round(d.visitsProgress))}%`}
+              loading={L}
+              color="var(--color-success)"
+            />
+          </div>
+
+          <div className="s-acts">
+            <Act id="/visits/new" onAct={go} className="s-act s-green" testId="button-new-visit">
+              <Plus /> {t('زيارة جديدة')}
+            </Act>
+            <Act id="/shelf-audit" onAct={go} className="s-act s-blue">
+              <Camera /> {t('مراجعة الرف')}
+            </Act>
+            <Act id="/training" onAct={go} className="s-act" style={{ background: '#7C3AED', color: '#fff' }}>
+              <GraduationCap /> {t('أكاديمية التدريب')}
+            </Act>
+            <Act id="/orders" onAct={go} className="s-act" style={{ background: '#0F1B2D', color: '#fff' }}>
+              <ShoppingCart /> {t('الأوردرات')}
+            </Act>
+            <Act id="/beat-plan" onAct={go} className="s-act s-purple">
+              <Route /> {t('خطة الزيارات')}
+            </Act>
+            {fieldSurveyAllowed && (
+              <Act id="/field-survey" onAct={go} className="s-act" style={{ background: 'var(--color-success)', color: '#fff' }}>
+                <ScanSearch /> {t('مسح ميداني')}
+              </Act>
+            )}
+          </div>
+
+          <PageTitle>{t('آخر الزيارات')}</PageTitle>
+          {L ? (
+            <div className="skel" style={{ height: 70 }} />
+          ) : d!.recent.length === 0 ? (
+            <div className="card">
+              <EmptyState
+                icon={<ClipboardList />}
+                title={t('لا توجد زيارات بعد')}
+                action={{ label: t('بدء زيارة'), onClick: goNew }}
+              />
+            </div>
+          ) : (
+            recent.map((v) => <RecentVisitItem key={v.id} v={v} onOpen={open} />)
+          )}
+        </>
+      )}
+    </div>
+  );
+}
