@@ -69,3 +69,45 @@
 * **فحص الـ TypeScript:** تشغيل `npx tsc --noEmit` بعد أي تعديل والتأكد من خلو المشروع تماماً من أي خطأ (0 errors).
 * **فحص المكتبات:** `npm audit` خالٍ من الثغرات (0 vulnerabilities).
 * **سلامة البناء:** التأكد من نجاح أمر `vite build` (للويب) و `vite build --mode android` (للأندرويد).
+
+---
+
+## 6. المعمارية البرمجية وهيكلة الكود (Feature-Based Modular MVC Architecture 2026)
+
+تم تنظيم وهيكلة المشروع بالكامل وفق معمارية الموديولات الوظيفية المتطورة (Feature-Driven Modular MVC Architecture) لتحقيق أقصى درجات قابلية التوسع والصيانة:
+
+* **العناصر المشتركة (`src/shared/` أو `@shared/*`):**
+  * `services/`: عميل Supabase، محرك المزامنة دون اتصال (Offline-Sync)، ومحرك الـ PWA/Push.
+  * `components/`: المكونات العامة (الأزرار، الخرائط، البطاقات، نوافذ Modal، التنبيهات Toast).
+  * `hooks/`: الخطافات المخصصة المشتركة (`useGeolocation`, `useDebounce`, `useRealtime`, `useToast`).
+  * `types/`: نماذج البيانات العامة وواجهات الـ TypeScript.
+
+* **الموديولات الوظيفية المستقلة (`src/modules/` أو `@modules/*`):**
+  1. **موديول المصادقة والأمان (`auth`):**
+     * **Model/Service:** `services/authService.ts` (إدارة الإغلاق الأمني Brute-force Lockout وتحديث كلمات المرور).
+     * **Controller:** `hooks/useLoginController.ts` (إدارة حالة النموذج، العداد التنازلي، التثبيت PWA).
+     * **View:** `views/LoginScreen.tsx` و `views/SetPasswordScreen.tsx`.
+  2. **موديول لوحة المتابعة (`dashboard`):**
+     * `components/AttendanceWidget.tsx` و `components/RecentVisitItem.tsx`.
+     * `views/DashboardScreen.tsx`.
+  3. **موديول الزيارات وخط السير (`visits`):**
+     * `services/visitService.ts` (حساب المسافات الجغرافية Geofencing وحساب أفضل مسار).
+     * `views/VisitsScreen.tsx`, `views/NewVisitScreen.tsx`, `views/VisitDetailScreen.tsx`, `views/BeatPlanScreen.tsx`.
+  4. **موديول الطلبيات والمبيعات (`orders`):**
+     * `services/orderService.ts`, `types/index.ts`.
+     * `views/OrdersScreen.tsx`, `views/OrderEntryScreen.tsx`.
+  5. **موديول العملاء (`customers`):**
+     * `services/customerService.ts` و `views/CustomersScreen.tsx`.
+  6. **موديول التدقيق الذكي للرفوف (`shelf-audit`):**
+     * `services/shelfAuditService.ts`.
+     * `views/ShelfAuditScreen.tsx`, `views/CompetitorScreen.tsx`.
+  7. **موديول المسح الميداني (`surveys`):**
+     * `views/FieldSurveyScreen.tsx`.
+  8. **موديول أكاديمية التدريب (`training`):**
+     * `views/TrainingAcademyScreen.tsx`.
+  9. **موديول إدارة النظام (`admin`):**
+     * إدارة الشركات، المستخدمين، التقارير، والخرائط الحية.
+
+* **ضمان التوافق العكسي الكامل (100% Backward Compatibility):**
+  * جميع الملفات القديمة في `src/screens/` تعمل كـ Re-exports نظيفة من `@modules/*` لضمان عدم تعطل أي مسار أو استيراد خارجي.
+
