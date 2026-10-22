@@ -3,7 +3,7 @@ import { Key, Plus, RefreshCw, ShieldCheck, X } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupervisors, useUpdateSupervisor } from '@/lib/data';
 import {
-  useBranches, useEditSupervisorProfile, useInviteSupervisor,
+  useBranches, useEditSupervisorProfile, useInviteSupervisor, useDeleteSupervisor,
   useResendInvite, useSavePermissions, useSetUserPassword,
   useSupervisorPermissions, type InviteRole
 } from '@/lib/admin-data';
@@ -139,14 +139,16 @@ function PermissionsDrawer({ s, onClose }: { s: Supervisor; onClose: () => void 
 
 const Row = memo(function Row({
   s, self, branch, onPatch, onPerms, onEdit, onSetPw, onResend, resending,
-  onResetDevice, resettingDevice
+  onResetDevice, resettingDevice, onDelete, deleting
 }: {
   s: Supervisor; self: boolean; branch: string;
   onPatch: (s: Supervisor, p: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => void;
   onPerms: (s: Supervisor) => void; onEdit: (s: Supervisor) => void;
   onSetPw: (s: Supervisor) => void; onResend: (s: Supervisor) => void; resending: boolean;
   onResetDevice: (s: Supervisor) => void; resettingDevice: boolean;
+  onDelete: (s: Supervisor) => void; deleting: boolean;
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const locked = self || s.role === 'super_admin';
   const toggle = useCallback(() => {
     if (!s.is_active || window.confirm(t('تعطيل حساب {name}؟', { name: s.full_name }))) onPatch(s, { is_active: !s.is_active });
@@ -193,8 +195,46 @@ const Row = memo(function Row({
         </button>
         {!locked && <button className="btn sm ghost" onClick={() => onEdit(s)}>{t('تعديل')}</button>}
         {!locked && <button className={`btn sm ${s.is_active ? 'danger-ghost' : 'success'}`} onClick={toggle}>{s.is_active ? t('تعطيل') : t('تفعيل')}</button>}
+        {!locked && (
+          <button
+            type="button"
+            className="btn sm danger-ghost"
+            style={{ color: '#ef4444', borderColor: '#fca5a5' }}
+            onClick={() => setConfirmDelete(true)}
+            title={t('حذف المستخدم نهائياً')}
+          >
+            {t('حذف')}
+          </button>
+        )}
         {!['admin', 'super_admin'].includes(s.role) && <button className="btn sm ghost" onClick={() => onPerms(s)} data-testid={`button-perms-${s.id}`}>{t('الصلاحيات')}</button>}
       </div>
+
+      {confirmDelete && (
+        <div className="adm-modal-bg" onClick={() => setConfirmDelete(false)}>
+          <div className="adm-modal col" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: 0, color: '#ef4444' }}>{t('تأكيد حذف المستخدم')}</h3>
+            <p style={{ margin: '8px 0', lineHeight: 1.5 }}>
+              {t('هل أنت متأكد من حذف حساب "{name}" نهائياً من النظام؟ هذا الإجراء لا يمكن التراجع عنه.', { name: s.full_name })}
+            </p>
+            <div className="row end gap-2" style={{ marginTop: 14 }}>
+              <button type="button" className="btn ghost" onClick={() => setConfirmDelete(false)}>
+                {t('إلغاء')}
+              </button>
+              <button
+                type="button"
+                className="btn danger"
+                disabled={deleting}
+                onClick={() => {
+                  onDelete(s);
+                  setConfirmDelete(false);
+                }}
+              >
+                {deleting ? t('جاري الحذف...') : t('تأكيد الحذف')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </td>
   </tr>;
 });
@@ -205,7 +245,9 @@ export default function AdminUsers() {
   const branches = useBranches();
   const m = useUpdateSupervisor();
   const resend = useResendInvite();
+  const del = useDeleteSupervisor();
   const retry = useRefetch(q.refetch);
+  const onDelete = useCallback((target: Supervisor) => del.mutate(target), [del]);
 
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: 'full_name', asc: true });
   const [branchFilter, setBranchFilter] = useState<string>('all');
@@ -353,6 +395,8 @@ export default function AdminUsers() {
                   resending={resend.isPending}
                   onResetDevice={onResetDevice}
                   resettingDevice={resetDevice.isPending}
+                  onDelete={onDelete}
+                  deleting={del.isPending}
                 />
               ))}
             </tbody>

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { Supervisor } from '@/types/database';
 import { supabase } from './supabase';
 import { useScope, usePaged } from './data';
 import { useAuth } from '@/contexts/AuthContext';
@@ -791,6 +792,29 @@ export function useEditSupervisorProfile() {
       if (error) fail(t('تعذر تعديل بيانات المشرف.'), error);
     },
     onSuccess: () => { notify(t('تم تحديث بيانات المشرف'), 'success'); void invalidate(qc, sc, 'admin-supervisors'); },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+export function useDeleteSupervisor() {
+  const sc = useScope(); const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (target: Supervisor) => {
+      requireAdmin(sc);
+      if (target.id === sc.supervisorId) throw new Error(t('لا يمكنك حذف حسابك الشخصي.'));
+      if (target.role === 'super_admin') throw new Error(t('لا يمكن حذف المدير الأعلى للنظام.'));
+      
+      const { error: rpcErr } = await supabase.rpc('delete_supervisor_cascade', { p_supervisor_id: target.id });
+      if (rpcErr) {
+        // Fallback to direct delete if RPC is not yet created
+        const { error: directErr } = await supabase.from('supervisors').delete().eq('id', target.id).eq('company_id', sc.companyId);
+        if (directErr) fail(t('تعذر حذف المستخدم. قد يكون مرتبطاً ببيانات أخرى.'), directErr);
+      }
+    },
+    onSuccess: () => {
+      notify(t('تم حذف المستخدم بنجاح'), 'success');
+      void invalidate(qc, sc, 'admin-supervisors', 'admin-summary');
+    },
     onError: (e: Error) => notify(e.message, 'error'),
   });
 }
