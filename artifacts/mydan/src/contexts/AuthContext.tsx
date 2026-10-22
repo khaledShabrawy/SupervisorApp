@@ -42,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const cache = useQueryClient();
   const [session, setSession] = useState<Session | null>(null);
   const [supervisor, setSupervisor] = useState<Supervisor | null>(null);
+  const supervisorRef = useRef<Supervisor | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const generation = useRef(0);
@@ -52,14 +53,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const synchronize = useCallback(async (next: Session | null) => {
     const epoch = ++generation.current;
-    if (currentUser.current !== (next?.user.id ?? null)) {
+    const isSameUser = currentUser.current === (next?.user.id ?? null);
+    if (!isSameUser) {
       await cache.cancelQueries();
       cache.clear();
       currentUser.current = next?.user.id ?? null;
     }
     if (epoch !== generation.current) return;
-    setSession(next); setSupervisor(null); setError(null);
-    if (!next) { setLoading(false); return; }
+    setSession(next);
+    if (!next) {
+      setSupervisor(null);
+      supervisorRef.current = null;
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    // Silent background refresh for the already authenticated user:
+    // Prevents unmounting the UI or showing a spinner on tab/app resume.
+    if (isSameUser && supervisorRef.current) {
+      try {
+        const { data, error: failure } = await supabase.from('supervisors')
+          .select('id,user_id,full_name,phone,role,branch_id,company_id,is_active,device_id')
+          .eq('user_id', next.user.id).maybeSingle();
+        if (!failure && data && isAuthorizedSupervisor(data, next.user.id) && epoch === generation.current) {
+          setSupervisor(data);
+          supervisorRef.current = data;
+        }
+      } catch {
+        // Keep existing profile on silent background failure
+      }
+      return;
+    }
+
+    setSupervisor(null);
+    supervisorRef.current = null;
+    setError(null);
     setLoading(true);
     try {
       const { data, error: failure } = await supabase.from('supervisors')
@@ -69,7 +98,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isAuthorizedSupervisor(data, next.user.id)) {
         throw new Error(t('حساب المشرف غير موجود أو غير نشط أو صلاحياته غير مكتملة.'));
       }
-      if (epoch === generation.current) setSupervisor(data);
+      if (epoch === generation.current) {
+        setSupervisor(data);
+        supervisorRef.current = data;
+      }
     } catch (failure) {
       if (epoch === generation.current) setError(failure instanceof Error ? failure.message : t('تعذر تحميل الحساب.'));
     } finally {
@@ -84,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     }
-    setSupervisor(null); setSession(null); setError(null); setLoading(false);
+    setSupervisor(null); supervisorRef.current = null; setSession(null); setError(null); setLoading(false);
     await cache.cancelQueries(); cache.clear();
     const { error: failure } = await supabase.auth.signOut({ scope: 'local' });
     if (failure) throw new Error(t('تعذر إنهاء الجلسة. تحقق من الاتصال وأعد المحاولة.'));
@@ -123,6 +155,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const timers = new Set<ReturnType<typeof setTimeout>>();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, next) => {
       if (event === 'INITIAL_SESSION' || signingIn.current) return;
+      if (event === 'TOKEN_REFRESHED') {
+        // Silent token renewal in background; do not reload/unmount the UI!
+        setSession(next);
+        return;
+      }
       if (event === 'SIGNED_OUT') {
         try { localStorage.removeItem(LAST_ACTIVITY_KEY); } catch {}
       }
