@@ -80,11 +80,11 @@ Deno.serve(async (req) => {
 
     if (!supervisorId) return err(400, "معرّف المستخدم مطلوب.");
     const { data: targetSup, error: supErr } = await admin.from("supervisors")
-      .select("id,user_id,full_name,email").eq("id", supervisorId).eq("company_id", companyId).maybeSingle();
+      .select("id,user_id,full_name").eq("id", supervisorId).eq("company_id", companyId).maybeSingle();
     if (supErr || !targetSup) return err(404, "المستخدم غير موجود.");
 
     const { data: authUser, error: authErr } = await admin.auth.admin.getUserById(targetSup.user_id);
-    const targetEmail = authUser?.user?.email || targetSup.email;
+    const targetEmail = authUser?.user?.email;
     if (!targetEmail) return err(400, "البريد الإلكتروني غير متوفر لهذا المستخدم.");
 
     // Generate fresh invite or recovery link and send via Supabase auth
