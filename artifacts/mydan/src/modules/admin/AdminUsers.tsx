@@ -3,7 +3,7 @@ import { Key, Plus, RefreshCw, ShieldCheck, X } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupervisors, useUpdateSupervisor } from '@/lib/data';
 import {
-  useBranches, useEditSupervisorProfile, useInviteSupervisor, useDeleteSupervisor,
+  useBranches, useEditSupervisorProfile, useInviteSupervisor, isValidEmail, useDeleteSupervisor,
   useResendInvite, useSavePermissions, useSetUserPassword,
   useSupervisorPermissions, type InviteRole
 } from '@/lib/admin-data';
@@ -42,7 +42,12 @@ function InviteModal({ onClose }: { onClose: () => void }) {
     <form className="adm-modal col" role="dialog" aria-modal="true" aria-label={t('دعوة مستخدم جديد')} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
       <div className="row between"><h2 style={{ margin: 0, fontSize: 18 }}>{t('دعوة مستخدم جديد')}</h2>
         <button type="button" className="icon-btn" aria-label={t('إغلاق')} onClick={onClose}><X /></button></div>
-      <label className="f">{t('البريد الإلكتروني *')}<input className="input" type="email" dir="ltr" required value={email} onChange={onEmail} data-testid="input-invite-email" /></label>
+      <label className="f">{t('البريد الإلكتروني *')}
+        <input className="input" type="email" dir="ltr" required placeholder="user@company.com" value={email} onChange={onEmail} data-testid="input-invite-email" />
+        {email.trim().length > 0 && !isValidEmail(email) && (
+          <span style={{ fontSize: 11, color: '#EF4444', marginTop: 2 }}>{t('صيغة البريد المطلوبة: user@company.com')}</span>
+        )}
+      </label>
       <label className="f">{t('الاسم بالكامل *')}<input className="input" required value={name} onChange={onName} /></label>
       <label className="f">{t('الهاتف')}<input className="input" dir="ltr" inputMode="tel" value={phone} onChange={onPhone} /></label>
       <div className="row">
