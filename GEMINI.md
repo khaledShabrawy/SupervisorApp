@@ -40,6 +40,8 @@
     2. `idx_beat_plans_lookup` على `beat_plans (company_id, day_of_week, supervisor_id)`.
     3. `idx_notifications_lookup` على `notifications (company_id, supervisor_id, is_read, created_at DESC)`.
     4. `idx_customers_supervisor_lookup` على `customers (company_id, supervisor_id, is_active)`.
+* **Migration 22 (`scripts/sql/22_allow_delete_supervisor.sql`):**
+  * السماح بالحذف النهائي للمستخدمين والمشرفين (Hard Delete) مع تنظيف السجلات المرتبطة وسياسة أمان RLS محكمة للـ Admin.
 
 ### محاور الأمان المغلقة:
 1. **عزل المفاتيح:** المتصفح يحمل فقط `VITE_SUPABASE_URL` و `VITE_SUPABASE_ANON_KEY`. لا وجود لأي مفتاح `service_role` أو `api_key` خاص في الكود المترجم.
@@ -57,6 +59,7 @@
 * **البحث عن العملاء:** يظهر في نتائج بحث الزيارة اسم العميل وعنوانه الكامل ونوعه مع أيقونة جغرافية.
 * **تدقيق الرفوف (Shelf Review):** شارة تأكيد بصري فوري لالتقاط الصورة مع إشعار Toast ونظام معالجة احتياطي مرن.
 * **استيراد البيانات المجمعة (Bulk CSV):** معالجة بالدفعات (Batches of 50) بدلاً من الطلبات الفردية لتسريع الاستيراد 50 ضعفاً ومنع تجميد المتصفح.
+* **التحديث الهوائي الفوري للموبايل (Over-The-Air / Live Remote URL):** تم ضبط `capacitor.config.ts` على النطاق الحي المباشر `https://mydan.digityoucan.com` بحيث يتلقى تطبيق الهاتف (APK) على أجهزة المشرفين أي تحديثات فور رفعها على Cloudflare Pages فوراً بدون الحاجة لبناء أو إرسال ملف APK جديد.
 * **التعريب واللغات:** دعم كامل للعربية والإنجليزية مع ملف ترجمة متكامل (`src/i18n/en.ts`) يضم كافة مفاتيح الباك أوفيس.
 
 ---
