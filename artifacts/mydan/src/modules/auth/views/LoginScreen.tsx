@@ -167,7 +167,25 @@ export default function LoginScreen() {
         )}
 
         {!ctrl.isStandalone && !IS_ANDROID && (
-          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border, #e2e8f0)', textAlign: 'center' }}>
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border, #e2e8f0)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <a
+              href="/Mydan.apk"
+              download="Mydan.apk"
+              className="btn ghost sm block"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                width: '100%',
+                color: 'var(--color-primary, #1A56DB)',
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
+              <span aria-hidden="true">🤖</span>
+              <span>{t('تحميل تطبيق أندرويد (APK)')}</span>
+            </a>
             <button
               type="button"
               onClick={ctrl.handleInstall}
@@ -183,7 +201,7 @@ export default function LoginScreen() {
               }}
             >
               <span aria-hidden="true">📲</span>
-              <span>{t('تثبيت تطبيق Mydan على الهاتف')}</span>
+              <span>{t('تثبيت تطبيق Mydan على الهاتف (PWA)')}</span>
             </button>
             {ctrl.showInstallHelp && (
               <p className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: 1.5, textAlign: 'center' }}>
