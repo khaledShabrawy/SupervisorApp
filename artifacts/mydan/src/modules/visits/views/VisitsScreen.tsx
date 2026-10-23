@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCheck, ClipboardList, Download, Play, Plus, RefreshCw, XCircle } from '@/components/Icons';
 import { exportToCsv } from '@/lib/csv-export';
@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useUpdateVisitStatus, type VisitRow } from '@/lib/data';
 import { useVisitsRange } from '@/lib/screen-data';
+import { usePriorityCustomerIds } from '../services/visitService';
 import { distanceMeters } from '@/lib/policy';
 import { StatusBadge } from '@/components/StatusBadge';
 import EmptyState from '@/components/EmptyState';
@@ -19,7 +20,7 @@ type Row = VisitRow & { customers: (VisitRow['customers'] & { latitude?: number 
 type Period = 'today' | 'week' | 'month';
 const TABS: [Period, string][] = [['today', t('اليوم')], ['week', t('الأسبوع')], ['month', t('الشهر')]];
 
-const Item = memo(function Item({ v, onStart, onStatus }: { v: Row; onStart: (id: string) => void; onStatus: (id: string, s: 'completed' | 'skipped') => void }) {
+const Item = memo(function Item({ v, isPriority, onStart, onStatus }: { v: Row; isPriority?: boolean; onStart: (id: string) => void; onStatus: (id: string, s: 'completed' | 'skipped') => void }) {
   const nav = useNavigate();
   const c = v.customers;
   const dist = v.latitude != null && v.longitude != null && c?.latitude != null && c?.longitude != null
@@ -35,7 +36,10 @@ const Item = memo(function Item({ v, onStart, onStatus }: { v: Row; onStart: (id
     }} role="button" tabIndex={0}>
     <div className="row between" style={{ alignItems: 'flex-start' }}>
       <div className="grow">
-        <div className="title">{c?.name ?? t('عميل غير معروف')}</div>
+        <div className="title row" style={{ alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span>{c?.name ?? t('عميل غير معروف')}</span>
+          {isPriority && <span className="badge b-amber" style={{ fontSize: 11, padding: '1px 6px', fontWeight: 600 }}>⭐ {t('أولوية')}</span>}
+        </div>
         {v.on_beat != null ? (
           <div style={{ marginTop: 4 }}>
             <span className={`badge ${v.on_beat ? 'b-green' : 'b-red'}`} style={{ fontSize: 11, padding: '2px 8px', fontWeight: 600 }}>
@@ -68,6 +72,14 @@ export default function VisitsScreen() {
   const [p, setP] = useState<Period>('today');
   const onTab = useCallback((v: string) => setP(v as Period), []);
   const q = useVisitsRange(p); const m = useUpdateVisitStatus();
+  const [priorityOnly, setPriorityOnly] = useState(false);
+  const priorityIds = usePriorityCustomerIds();
+
+  const filteredItems = useMemo(() => {
+    const all = (q.items ?? []) as Row[];
+    if (!priorityOnly) return all;
+    return all.filter((v) => v.customer_id && priorityIds.has(v.customer_id));
+  }, [q.items, priorityOnly, priorityIds]);
   const refresh = useCallback(() => { void q.refetch(); }, [q]);
   usePullRefresh(refresh);
   const more = useCallback(() => { if (q.hasNextPage && !q.isFetchingNextPage) void q.fetchNextPage(); }, [q]);
@@ -80,7 +92,7 @@ export default function VisitsScreen() {
   const create = useCallback(() => nav('/visits/new'), [nav]);
 
   const handleExportVisits = useCallback(() => {
-    if (!q.items.length) return;
+    if (!filteredItems.length) return;
     exportToCsv(
       `Visits_${p}_${new Date().toISOString().slice(0, 10)}`,
       [
@@ -95,9 +107,9 @@ export default function VisitsScreen() {
         { header: t('المسافة (متر)'), accessor: (v: Row) => (v.geo_distance != null ? Math.round(v.geo_distance) : '') },
         { header: t('ملاحظات'), accessor: (v: Row) => v.notes || '' },
       ],
-      q.items as Row[]
+      filteredItems
     );
-  }, [q.items, p]);
+  }, [filteredItems, p]);
 
   return <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
     <PageTitle action={
@@ -107,7 +119,7 @@ export default function VisitsScreen() {
           aria-label={t('تصدير Excel')}
           title={t('تصدير الزيارات إلى Excel')}
           onClick={handleExportVisits}
-          disabled={!q.items.length}
+          disabled={!filteredItems.length}
         >
           <Download size={18} />
         </button>
@@ -116,10 +128,10 @@ export default function VisitsScreen() {
         </button>
       </div>
     }>{t('الزيارات')}</PageTitle>
-    <div className="tabs" role="tablist">{TABS.map(([k, l]) => <Chip key={k} role="tab" value={k} label={l} active={p === k} onSelect={onTab} testId={`tab-${k}`} />)}</div>
+    <div className="tabs" role="tablist">{TABS.map(([k, l]) => <Chip key={k} role="tab" value={k} label={l} active={p === k} onSelect={onTab} testId={`tab-${k}`} />)}<Chip role="button" value="priority" label={t('العملاء الأكثر أولوية')} active={priorityOnly} onSelect={() => setPriorityOnly((x) => !x)} testId="chip-priority-filter" /></div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={refresh} />
-      : q.items.length === 0 ? <EmptyState icon={<ClipboardList />} title={t('لا توجد زيارات')} text={t('لا زيارات في هذه الفترة.')} action={{ label: t('زيارة جديدة'), onClick: create }} />
-      : <>{(q.items as Row[]).map((v) => <Item key={v.id} v={v} onStart={onStart} onStatus={onStatus} />)}<div ref={sentinel} /><LoadMore q={q} /></>}
+      : filteredItems.length === 0 ? <EmptyState icon={<ClipboardList />} title={t('لا توجد زيارات')} text={priorityOnly ? t('لا توجد زيارات لعملاء ذوي أولوية في هذه الفترة.') : t('لا زيارات في هذه الفترة.')} action={{ label: t('زيارة جديدة'), onClick: create }} />
+      : <>{filteredItems.map((v) => <Item key={v.id} v={v} isPriority={v.customer_id != null && priorityIds.has(v.customer_id)} onStart={onStart} onStatus={onStatus} />)}<div ref={sentinel} /><LoadMore q={q} /></>}
     <button className="btn fab" aria-label={t('زيارة جديدة')} data-testid="button-fab-visit" onClick={create}><Plus /> {t('زيارة جديدة')}</button>
   </div>;
 }
