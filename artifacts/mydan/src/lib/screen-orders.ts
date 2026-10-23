@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
-import { useScope } from '@/lib/data';
-import { notify } from '@/lib/toast';
-import { fmtDate, num } from '@/lib/format';
+import { supabase } from './supabase';
+import { useScope } from './data';
+import { notify } from './toast';
+import { fmtDate, num } from './format';
 import { enqueueOfflineAction } from './offline-sync';
-import { t } from '@/i18n';
+import { t } from '../i18n';
 
 export interface OrderLineItem {
   product_id: string;

@@ -7,7 +7,8 @@ test('customer categories normalize both legacy English and Arabic; unknown cate
   assert.equal(customerTypeLabel('سوبرماركت'), 'سوبر ماركت');
   assert.equal(customerTypeLabel('hypermarket'), 'هايبر ماركت');
   assert.equal(customerTypeLabel('coffee_shop'), 'كافيه');
-  assert.equal(customerTypeLabel('صيدلية'), 'أخرى');
+  assert.equal(customerTypeLabel('صيدلية'), 'صيدليات');
+  assert.equal(customerTypeLabel('unknown_shop'), 'أخرى');
 });
 
 test('relative timestamps use Arabic since labels and reject invalid dates', () => {
