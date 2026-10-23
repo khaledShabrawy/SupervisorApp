@@ -7,14 +7,17 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "node --experimental-strip-types --test tests/*.test.ts tests/*.test.mjs",
+    "typecheck": "tsc --noEmit",
+    "clean:android-assets": "node -e \"const fs = require('fs'); const dir = 'android/app/src/main/assets/public'; const purge = ['Mydan.apk', 'Mydan-debug.apk', '_headers', '_redirects', 'landing.html', 'sitemap.xml', 'robots.txt']; purge.forEach(f => { const p = dir + '/' + f; if (fs.existsSync(p)) fs.unlinkSync(p); }); console.log('Purged web/binary bloat from Android assets');\"",
     "build:android": "vite build --mode android",
-    "cap:sync": "vite build --mode android && cap sync android",
+    "cap:sync": "vite build --mode android && cap sync android && npm run clean:android-assets",
     "cap:open": "cap open android",
-    "apk:debug": "vite build --mode android && cap sync android && cd android && gradlew.bat assembleDebug",
-    "apk:release:win": "vite build --mode android && cap sync android && cd android && gradlew.bat assembleRelease",
-    "apk:release:unix": "vite build --mode android && cap sync android && cd android && ./gradlew assembleRelease",
-    "aab:release:win": "vite build --mode android && cap sync android && cd android && gradlew.bat bundleRelease",
-    "aab:release:unix": "vite build --mode android && cap sync android && cd android && ./gradlew bundleRelease"
+    "apk:debug": "npm run cap:sync && cd android && gradlew.bat assembleDebug",
+    "apk:release:win": "npm run cap:sync && cd android && gradlew.bat assembleRelease",
+    "apk:release:unix": "npm run cap:sync && cd android && ./gradlew assembleRelease",
+    "aab:release:win": "npm run cap:sync && cd android && gradlew.bat bundleRelease",
+    "aab:release:unix": "npm run cap:sync && cd android && ./gradlew bundleRelease"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.9",

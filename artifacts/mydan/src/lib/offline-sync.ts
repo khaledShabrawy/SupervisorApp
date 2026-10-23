@@ -20,13 +20,28 @@ export interface OfflineAction {
   createdAt: string;
 }
 
-const STORAGE_KEY = 'mydan_offline_queue_v1';
+const DEFAULT_STORAGE_KEY = 'mydan_offline_queue_v1';
 const QUEUE_EVENT = 'mydan:offline-queue-changed';
 
-/** Retrieves the current offline queue from localStorage */
-export function getOfflineQueue(): OfflineAction[] {
+/** Returns a tenant/user isolated storage key to prevent cross-account queue contamination */
+export function getStorageKey(companyId?: string, supervisorId?: string): string {
+  if (companyId && supervisorId) {
+    return `mydan_offline_queue_${companyId}_${supervisorId}`;
+  }
+  return DEFAULT_STORAGE_KEY;
+}
+
+/** Retrieves the current offline queue from localStorage, checking tenant/user queue first */
+export function getOfflineQueue(companyId?: string, supervisorId?: string): OfflineAction[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = getStorageKey(companyId, supervisorId);
+    let raw = localStorage.getItem(key);
+    
+    // Backward compatibility: If no tenant-specific queue, read default legacy queue
+    if (!raw && key !== DEFAULT_STORAGE_KEY) {
+      raw = localStorage.getItem(DEFAULT_STORAGE_KEY);
+    }
+    
     if (!raw) return [];
     const list = JSON.parse(raw);
     return Array.isArray(list) ? list : [];
@@ -35,36 +50,51 @@ export function getOfflineQueue(): OfflineAction[] {
   }
 }
 
-/** Saves the offline queue to localStorage */
-function saveOfflineQueue(queue: OfflineAction[]): void {
+/** Saves the offline queue to localStorage with quota-exceeded detection */
+export function saveOfflineQueue(queue: OfflineAction[], companyId?: string, supervisorId?: string): void {
+  const key = getStorageKey(companyId, supervisorId);
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
+    localStorage.setItem(key, JSON.stringify(queue));
+    // Clean up legacy key if items are migrated
+    if (key !== DEFAULT_STORAGE_KEY && localStorage.getItem(DEFAULT_STORAGE_KEY)) {
+      try { localStorage.removeItem(DEFAULT_STORAGE_KEY); } catch {}
+    }
   } catch (err) {
     console.error('Failed to save offline queue to localStorage:', err);
+    notify(t('مساحة التخزين المحلي ممتلئة. يرجى الاتصال بالإنترنت ومزامنة البيانات فوراً.'), 'error');
   }
   window.dispatchEvent(new CustomEvent(QUEUE_EVENT, { detail: queue.length }));
 }
 
+/** Clears the queue for a given tenant/user */
+export function clearOfflineQueue(companyId?: string, supervisorId?: string): void {
+  try {
+    const key = getStorageKey(companyId, supervisorId);
+    localStorage.removeItem(key);
+    window.dispatchEvent(new CustomEvent(QUEUE_EVENT, { detail: 0 }));
+  } catch {}
+}
+
 /** Enqueues an action to be executed when connection is available */
 export function enqueueOfflineAction(action: Omit<OfflineAction, 'id' | 'createdAt'>): void {
-  const queue = getOfflineQueue();
+  const queue = getOfflineQueue(action.companyId, action.supervisorId);
   const item: OfflineAction = {
     ...action,
     id: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36),
     createdAt: new Date().toISOString(),
   };
   queue.push(item);
-  saveOfflineQueue(queue);
+  saveOfflineQueue(queue, action.companyId, action.supervisorId);
 }
 
 /** Returns the count of pending offline actions */
-export function getPendingCount(): number {
-  return getOfflineQueue().length;
+export function getPendingCount(companyId?: string, supervisorId?: string): number {
+  return getOfflineQueue(companyId, supervisorId).length;
 }
 
 /** Subscribes to changes in the offline queue count */
-export function subscribeToQueueChanges(callback: (count: number) => void): () => void {
-  const handler = () => callback(getPendingCount());
+export function subscribeToQueueChanges(callback: (count: number) => void, companyId?: string, supervisorId?: string): () => void {
+  const handler = () => callback(getPendingCount(companyId, supervisorId));
   window.addEventListener(QUEUE_EVENT, handler);
   window.addEventListener('storage', handler);
   return () => {
@@ -74,10 +104,10 @@ export function subscribeToQueueChanges(callback: (count: number) => void): () =
 }
 
 /**
- * Uploads all pending offline actions to Supabase sequentially.
+ * Uploads all pending offline actions to Supabase sequentially with idempotency.
  * Any successful action is removed from the queue.
  */
-export async function uploadPendingOfflineActions(): Promise<{
+export async function uploadPendingOfflineActions(companyId?: string, supervisorId?: string): Promise<{
   syncedCount: number;
   failedCount: number;
   total: number;
@@ -86,7 +116,13 @@ export async function uploadPendingOfflineActions(): Promise<{
     throw new Error(t('الهاتف غير متصل بالإنترنت حالياً. يرجى الاتصال بشبكة أولاً.'));
   }
 
-  const queue = getOfflineQueue();
+  // Verify active authentication before executing offline writes
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error(t('يجب تسجيل الدخول لمزامنة البيانات غير المتصلة.'));
+  }
+
+  const queue = getOfflineQueue(companyId, supervisorId);
   if (queue.length === 0) {
     return { syncedCount: 0, failedCount: 0, total: 0 };
   }
@@ -127,7 +163,11 @@ export async function uploadPendingOfflineActions(): Promise<{
             ...geo,
           };
           if (isValidUUID) visitRow.id = clientId;
-          const { error } = await supabase.from('visits').insert(visitRow);
+          
+          // Use upsert on id if client-generated UUID exists to guarantee idempotency
+          const { error } = isValidUUID
+            ? await supabase.from('visits').upsert(visitRow, { onConflict: 'id' })
+            : await supabase.from('visits').insert(visitRow);
           if (error) throw error;
         }
       } else if (item.type === 'update_visit_status') {
@@ -145,7 +185,10 @@ export async function uploadPendingOfflineActions(): Promise<{
         const { error } = await u;
         if (error) throw error;
       } else if (item.type === 'save_order') {
-        const { error } = await supabase.from('orders').insert(item.payload);
+        // Idempotent upsert on client order id to avoid duplicate rows on retry
+        const { error } = item.payload?.id
+          ? await supabase.from('orders').upsert(item.payload, { onConflict: 'id' })
+          : await supabase.from('orders').insert(item.payload);
         if (error) throw error;
       } else if (item.type === 'attendance_action') {
         const { kind, attendance_date, check_in_time, check_out_time, check_in_lat, check_in_lng } = item.payload as {
@@ -169,13 +212,17 @@ export async function uploadPendingOfflineActions(): Promise<{
           if (error) throw error;
         }
       } else if (item.type === 'submit_survey') {
-        const { survey_id, visit_id, answers, submitted_at } = item.payload as {
-          survey_id: string; visit_id: string; answers: Record<string, unknown>; submitted_at: string;
+        const { survey_id, visit_id, answers, submitted_at, id } = item.payload as {
+          survey_id: string; visit_id: string; answers: Record<string, unknown>; submitted_at: string; id?: string;
         };
-        const { error } = await supabase.from('survey_responses').insert({
+        const surveyRow: Record<string, any> = {
           company_id: item.companyId, supervisor_id: item.supervisorId,
           survey_id, visit_id, answers, submitted_at,
-        });
+        };
+        if (id) surveyRow.id = id;
+        const { error } = id
+          ? await supabase.from('survey_responses').upsert(surveyRow, { onConflict: 'id' })
+          : await supabase.from('survey_responses').insert(surveyRow);
         if (error) throw error;
       }
 
@@ -187,7 +234,7 @@ export async function uploadPendingOfflineActions(): Promise<{
     }
   }
 
-  saveOfflineQueue(remaining);
+  saveOfflineQueue(remaining, companyId, supervisorId);
   return { syncedCount, failedCount, total: queue.length };
 }
 
@@ -198,7 +245,6 @@ export async function downloadFreshData(queryClient: QueryClient): Promise<void>
   if (!navigator.onLine) {
     throw new Error(t('الهاتف غير متصل بالإنترنت حالياً. يرجى الاتصال بشبكة أولاً.'));
   }
-  // Invalidate and refetch all active queries
   await queryClient.invalidateQueries();
   await queryClient.refetchQueries();
 }

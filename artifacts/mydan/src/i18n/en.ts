@@ -1297,4 +1297,11 @@ export const EN: Record<string, string> = {
   "مصدر التقرير المطلوب غير مصرح به": "The requested report source is not authorized",
   "تم اعتماد تقرير الرف يدوياً بنجاح": "Shelf report approved manually successfully",
   "تصدير الزيارات إلى Excel": "Export Visits to Excel",
+  'معرف الشركة مطلوب لعرض التقرير': 'Company ID is required to view report',
+  'معرف الشركة مطلوب لمعاينة التقرير': 'Company ID is required to preview report',
+  'تعذر حذف المستخدم. قد يكون مرتبطاً ببيانات أخرى أو تفتقر للصلاحية المطلوبة.': 'Failed to delete user. They may be linked to other data or you lack required permissions.',
+  'مساحة التخزين المحلي ممتلئة. يرجى الاتصال بالإنترنت ومزامنة البيانات فوراً.': 'Local storage is full. Please connect to the internet and sync data immediately.',
+  'يجب تسجيل الدخول لمزامنة البيانات غير المتصلة.': 'You must be logged in to sync offline data.',
+  'هل تريد اعتماد مراجعة الرف يدوياً وحفظ التقرير؟': 'Do you want to manually approve the shelf review and save the report?',
+  'تحديث حالة التحليل': 'Refresh analysis status',
 };
