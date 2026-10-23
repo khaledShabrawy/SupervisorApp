@@ -565,9 +565,18 @@ export function useUpdateSupervisor() {
       if (target.id === sc.supervisorId) throw new Error('لا يمكنك تعديل حسابك.');
       if (target.role === 'super_admin') throw new Error('لا يمكن تعديل المدير الأعلى.');
       if (patch.role && !['admin', 'supervisor'].includes(patch.role)) throw new Error('دور غير مسموح.');
-      const { data, error } = await supabase.from('supervisors').update(patch).eq('id', target.id).eq('company_id', sc.companyId).select('id');
-      if (error) fail('تعذر تحديث المشرف.', error);
-      if (!data?.length) throw new Error('لم يتم التحديث. قد لا تملك الصلاحية.');
+      // Channel privileged updates through admin_update_supervisor RPC
+      const { error: rpcErr } = await supabase.rpc('admin_update_supervisor', {
+        p_supervisor_id: target.id,
+        p_role: patch.role ?? null,
+        p_is_active: patch.is_active ?? null,
+      });
+
+      if (rpcErr) {
+        const { data, error } = await supabase.from('supervisors').update(patch).eq('id', target.id).eq('company_id', sc.companyId).select('id');
+        if (error) fail('تعذر تحديث المشرف.', error);
+        if (!data?.length) throw new Error('لم يتم التحديث. قد لا تملك الصلاحية.');
+      }
     },
     onSuccess: () => { notify('تم تحديث المشرف', 'success'); void inv(qc, sc, 'admin-supervisors', 'admin-summary'); },
     onError: (e: Error) => notify(e.message, 'error'),

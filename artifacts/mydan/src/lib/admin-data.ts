@@ -805,8 +805,21 @@ export function useEditSupervisorProfile() {
 
       const patch = { full_name: full_name.trim(), phone: phone.trim() || null, role, branch_id: effectiveBranchId };
       if (!patch.full_name) throw new Error(t('الاسم مطلوب.'));
-      const { error } = await supabase.from('supervisors').update(patch).eq('id', id).eq('company_id', sc.companyId);
-      if (error) fail(t('تعذر تعديل بيانات المشرف.'), error);
+
+      // Use privileged admin_update_supervisor RPC to handle role/branch safely
+      const { error: rpcErr } = await supabase.rpc('admin_update_supervisor', {
+        p_supervisor_id: id,
+        p_role: role,
+        p_branch_id: effectiveBranchId,
+        p_full_name: patch.full_name,
+        p_phone: patch.phone,
+      });
+
+      if (rpcErr) {
+        // Fallback to direct update if RPC is not deployed yet
+        const { error: directErr } = await supabase.from('supervisors').update(patch).eq('id', id).eq('company_id', sc.companyId);
+        if (directErr) fail(t('تعذر تعديل بيانات المشرف.'), directErr);
+      }
     },
     onSuccess: () => { notify(t('تم تحديث بيانات المشرف'), 'success'); void invalidate(qc, sc, 'admin-supervisors'); },
     onError: (e: Error) => notify(e.message, 'error'),
@@ -821,11 +834,10 @@ export function useDeleteSupervisor() {
       if (target.id === sc.supervisorId) throw new Error(t('لا يمكنك حذف حسابك الشخصي.'));
       if (target.role === 'super_admin') throw new Error(t('لا يمكن حذف المدير الأعلى للنظام.'));
       
+      // Strict server-side deletion via delete_supervisor_cascade RPC (no direct delete bypass)
       const { error: rpcErr } = await supabase.rpc('delete_supervisor_cascade', { p_supervisor_id: target.id });
       if (rpcErr) {
-        // Fallback to direct delete if RPC is not yet created
-        const { error: directErr } = await supabase.from('supervisors').delete().eq('id', target.id).eq('company_id', sc.companyId);
-        if (directErr) fail(t('تعذر حذف المستخدم. قد يكون مرتبطاً ببيانات أخرى.'), directErr);
+        fail(t('تعذر حذف المستخدم. قد يكون مرتبطاً ببيانات أخرى أو تفتقر للصلاحية المطلوبة.'), rpcErr);
       }
     },
     onSuccess: () => {
