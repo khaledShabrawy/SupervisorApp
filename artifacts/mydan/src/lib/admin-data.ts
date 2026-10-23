@@ -806,19 +806,18 @@ export function useEditSupervisorProfile() {
       const patch = { full_name: full_name.trim(), phone: phone.trim() || null, role, branch_id: effectiveBranchId };
       if (!patch.full_name) throw new Error(t('الاسم مطلوب.'));
 
-      // Use privileged admin_update_supervisor RPC to handle role/branch safely
+      // Use privileged admin_update_supervisor RPC exclusively (no direct update fallback)
       const { error: rpcErr } = await supabase.rpc('admin_update_supervisor', {
         p_supervisor_id: id,
         p_role: role,
-        p_branch_id: effectiveBranchId,
+        p_branch_id: effectiveBranchId || null,
         p_full_name: patch.full_name,
         p_phone: patch.phone,
+        p_clear_branch: !effectiveBranchId,
       });
 
       if (rpcErr) {
-        // Fallback to direct update if RPC is not deployed yet
-        const { error: directErr } = await supabase.from('supervisors').update(patch).eq('id', id).eq('company_id', sc.companyId);
-        if (directErr) fail(t('تعذر تعديل بيانات المشرف.'), directErr);
+        fail(t('تعذر تعديل بيانات المشرف.') + ' ' + (rpcErr.message || ''), rpcErr);
       }
     },
     onSuccess: () => { notify(t('تم تحديث بيانات المشرف'), 'success'); void invalidate(qc, sc, 'admin-supervisors'); },
