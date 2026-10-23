@@ -109,11 +109,16 @@ function KpiCards({ data, cols }: { data: Row[]; cols: string[] }) {
 // ─── Report Viewer ────────────────────────────────────────────────────────────
 
 function ReportViewer({ config, onClose }: { config: ReportConfig; onClose: () => void }) {
+  const sc = useScope();
   const q = useQuery({
-    queryKey: ['mydan', 'report', config.id, config.source, config.rowLimit],
+    queryKey: ['mydan', 'report', sc.companyId, config.id, config.source, config.rowLimit],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any).from(config.source).select('*').limit(config.rowLimit);
+      const isAllowed = SOURCES.some((s) => s.id === config.source);
+      if (!isAllowed) throw new Error(t('مصدر التقرير المطلوب غير مصرح به'));
+      let query = (supabase as any).from(config.source).select('*');
+      if (sc.companyId) query = query.eq('company_id', sc.companyId);
+      const limit = Math.min(Number(config.rowLimit) || 100, 200);
+      const { data, error } = await query.limit(limit);
       if (error) throw new Error(error.message);
       return (data ?? []) as Row[];
     },
@@ -199,12 +204,13 @@ function ReportWizard({
   const previewQ = useQuery({
     queryKey: ['mydan', 'report-preview', wizard.source],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const isAllowed = SOURCES.some((s) => s.id === wizard.source);
+      if (!isAllowed) throw new Error(t('مصدر التقرير المطلوب غير مصرح به'));
       const { data, error } = await (supabase as any).from(wizard.source).select('*').limit(3);
       if (error) throw new Error(error.message);
       return (data ?? []) as Row[];
     },
-    enabled: wizard.step === 2,
+    enabled: wizard.step === 2 && SOURCES.some((s) => s.id === wizard.source),
   });
 
   const allCols = previewQ.data?.[0] ? Object.keys(previewQ.data[0]) : [];

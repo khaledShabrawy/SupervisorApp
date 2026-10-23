@@ -49,6 +49,9 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+HOME/
+.claude-omniroute/
+*.log
 
 # local env
 .env

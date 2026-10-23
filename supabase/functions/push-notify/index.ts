@@ -116,8 +116,12 @@ Deno.serve(async (req) => {
     });
   }
 
-  const privateKey = Deno.env.get('VAPID_PRIVATE_KEY') ?? '4jb5ZrqvebZNv9uM1TXFi7IVGFXWSxOP_AY7MwSMO8M';
-  if (!privateKey) return new Response('VAPID_PRIVATE_KEY not set', { status: 500 });
+  const privateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+  if (!privateKey) {
+    console.error('VAPID_PRIVATE_KEY is not configured');
+    return new Response(JSON.stringify({ error: 'Push service not configured' }), { status: 500 });
+  }
+
 
   // ── Step 1: Verify caller JWT via Supabase Auth ───────────────────────────
   // SUPABASE_ANON_KEY is auto-injected alongside SUPABASE_URL.

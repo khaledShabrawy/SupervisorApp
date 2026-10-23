@@ -65,15 +65,16 @@ export function useRequestAuditAnalysis() {
   return useMutation({
     mutationFn: async (audit: ShelfAudit) => {
       if (!settings.ai_audit_enabled) {
-        await supabase.from('shelf_audit').update({
-          status: 'completed',
-          audit_score: 90,
-          audit_summary_ar: 'تم توثيق صورة الرف ومراجعتها بنجاح.',
+        const { error } = await supabase.from('shelf_audit').update({
+          status: 'needs_review',
+          audit_score: null,
+          audit_summary_ar: 'تم توثيق صورة الرف في انتظار الاعتماد اليدوي (التدقيق الآلي غير مفعل).',
           ai_detailed_report: {
-            issues: ['تم تسجيل وتوثيق صورة الرف في الزيارة بنجاح.'],
-            recommendations: ['استمر في التأكد من وضوح المنتجات وترتيبها وفق المعايير.'],
+            issues: ['تم تسجيل وتوثيق صورة الرف بنجاح دون تقييم آلي.'],
+            recommendations: ['مراجعة وتأكيد حالة الرف يدوياً وفق المعايير التجارية.'],
           },
         }).eq('id', audit.id);
+        if (error) throw error;
         return;
       }
       // Never send a JWT from another configured Supabase project to this URL.
@@ -98,15 +99,16 @@ export function useRequestAuditAnalysis() {
 
       // Resilient Fallback: If AI edge service is not reachable or errored,
       // update audit record to completed with a verified evaluation so the user can immediately view and save the report!
-      await supabase.from('shelf_audit').update({
-        status: 'completed',
-        audit_score: 85,
-        audit_summary_ar: 'تم فحص صورة الرف والتحقق من تواجد المنتجات وترتيب العرض بنجاح.',
+      const { error: fallbackErr } = await supabase.from('shelf_audit').update({
+        status: 'needs_review',
+        audit_score: null,
+        audit_summary_ar: 'تعذر اكتمال التحليل الآلي للرف بالذكاء الاصطناعي. تم حفظ الصورة للمراجعة والاعتماد.',
         ai_detailed_report: {
-          issues: ['تأكد من توافر بطاقات الأسعار لجميع الأصناف المعروضة.'],
-          recommendations: ['الحفاظ على ترتيب العرض الأمامي (Front Facing) وزيادة المساحة المخصصة للأصناف سريعة الدوران.'],
+          issues: ['لم تكتمل استجابة محرك الذكاء الاصطناعي في الوقت المحدد.'],
+          recommendations: ['يمكنك إعادة المحاولة لاحقاً أو مراجعة ترتيب الرف يدوياً.'],
         },
       }).eq('id', audit.id);
+      if (fallbackErr) throw fallbackErr;
     },
     onSuccess: () => { void qc.invalidateQueries({ queryKey: [...sc.base, 'audits'] }); },
     onError: (e: Error) => notify(e.message, 'error'),
