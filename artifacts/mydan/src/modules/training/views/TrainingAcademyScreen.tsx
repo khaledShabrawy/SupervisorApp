@@ -161,7 +161,7 @@ export default function TrainingAcademyScreen() {
                       fontSize: 13,
                     }}
                   >
-                    <span>سرعة التشغيل:</span>
+                    <span>{t('سرعة التشغيل:')}</span>
                     <div style={{ display: 'flex', gap: 6 }}>
                       {[1, 1.25, 1.5, 2].map((s) => (
                         <button
@@ -185,7 +185,7 @@ export default function TrainingAcademyScreen() {
                   </div>
                 </>
               ) : (
-                <div style={{ padding: 40, textAlign: 'center', color: '#fff' }}>لا توجد دروس في هذا المسار حالياً</div>
+                <div style={{ padding: 40, textAlign: 'center', color: '#fff' }}>{t('لا توجد دروس في هذا المسار حالياً')}</div>
               )}
             </div>
 
@@ -219,7 +219,7 @@ export default function TrainingAcademyScreen() {
                         borderColor: '#CBD5E1',
                       }}
                     >
-                      <Download size={16} /> تحميل ملخص الدرس (PDF)
+                      <Download size={16} /> {t('تحميل ملخص الدرس (PDF)')}
                     </a>
                   </div>
                 )}
@@ -246,11 +246,11 @@ export default function TrainingAcademyScreen() {
                   >
                     {currentLesson.is_completed ? (
                       <>
-                        <CheckCheck size={20} /> تم إكمال هذا الدرس بنجاح (اضغط للإلغاء)
+                        <CheckCheck size={20} /> {t('تم إكمال هذا الدرس بنجاح (اضغط للإلغاء)')}
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 size={20} /> {markComplete.isPending ? 'جاري التسجيل...' : '✅ اضغط هنا: تم إنهاء الدرس واحتساب الإنجاز'}
+                        <CheckCircle2 size={20} /> {markComplete.isPending ? t('جاري التسجيل...') : `✅ ${t('اضغط هنا: تم إنهاء الدرس واحتساب الإنجاز')}`}
                       </>
                     )}
                   </button>
@@ -262,10 +262,10 @@ export default function TrainingAcademyScreen() {
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <h4 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <BookOpen size={18} color="#3B82F6" /> محتويات المسار التدريبي
+                  <BookOpen size={18} color="#3B82F6" /> {t('محتويات المسار التدريبي')}
                 </h4>
                 <span style={{ fontSize: 13, color: '#64748B' }}>
-                  {lessons?.filter((l) => l.is_completed).length} من {lessons?.length} مكتمل
+                  {lessons?.filter((l) => l.is_completed).length} / {lessons?.length ?? 0} {t('مكتمل')}
                 </span>
               </div>
 
@@ -332,7 +332,7 @@ export default function TrainingAcademyScreen() {
                             fontWeight: 'bold',
                           }}
                         >
-                          مكتمل
+                          {t('مكتمل')}
                         </span>
                       )}
                     </div>
@@ -351,7 +351,7 @@ export default function TrainingAcademyScreen() {
     <div className="page" style={{ paddingBottom: 80 }}>
       <PageTitle>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <GraduationCap size={24} color="#7C3AED" /> أكاديمية التطوير والجدارات البيعية
+          <GraduationCap size={24} color="#7C3AED" /> {t('أكاديمية التطوير والجدارات البيعية')}
         </span>
       </PageTitle>
 
@@ -367,10 +367,10 @@ export default function TrainingAcademyScreen() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <Award size={24} />
-          <h3 style={{ margin: 0, fontSize: 18 }}>تطوير المشرفين الميدانيين</h3>
+          <h3 style={{ margin: 0, fontSize: 18 }}>{t('تطوير المشرفين الميدانيين')}</h3>
         </div>
         <p style={{ margin: 0, fontSize: 13.5, opacity: 0.9, lineHeight: 1.5 }}>
-          فيديوهات قصيرة وحقائب تدريبية موجهة لتطوير كفاءتك في إدارة الميدان، فتح العملاء، والتعامل الاحترافي مع التجار والمنافسين.
+          {t('فيديوهات قصيرة وحقائب تدريبية موجهة لتطوير كفاءتك في إدارة الميدان، فتح العملاء، والتعامل الاحترافي مع التجار والمنافسين.')}
         </p>
       </div>
 
@@ -379,9 +379,9 @@ export default function TrainingAcademyScreen() {
       ) : !courses || courses.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: 40 }}>
           <BookOpen size={48} color="#94A3B8" style={{ marginBottom: 12 }} />
-          <h3 style={{ margin: '0 0 8px', color: '#334155' }}>لا توجد مسارات تدريبية منشورة حالياً</h3>
+          <h3 style={{ margin: '0 0 8px', color: '#334155' }}>{t('لا توجد مسارات تدريبية منشورة حالياً')}</h3>
           <p style={{ margin: 0, color: '#64748B', fontSize: 14 }}>
-            سيقوم مدير الكفاءات (Sales Capability Manager) بنشر المواد قريباً.
+            {t('سيقوم مدير الكفاءات (Sales Capability Manager) بنشر المواد قريباً.')}
           </p>
         </div>
       ) : (
@@ -412,7 +412,7 @@ export default function TrainingAcademyScreen() {
                   {course.category}
                 </span>
                 <span style={{ fontSize: 13, color: '#64748B' }}>
-                  {course.total_lessons} دروس
+                  {course.total_lessons} {t('دروس')}
                 </span>
               </div>
 
@@ -426,7 +426,7 @@ export default function TrainingAcademyScreen() {
               {/* Progress Bar (Udemy style) */}
               <div style={{ marginTop: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                  <span style={{ color: '#475569' }}>نسبة الإنجاز</span>
+                  <span style={{ color: '#475569' }}>{t('نسبة الإنجاز')}</span>
                   <span style={{ fontWeight: 'bold', color: course.progress_pct === 100 ? '#10B981' : '#3B82F6' }}>
                     {course.progress_pct}%
                   </span>
@@ -456,7 +456,7 @@ export default function TrainingAcademyScreen() {
                   padding: '10px',
                 }}
               >
-                {course.progress_pct === 100 ? '✓ تم إكمال المسار (مراجعة)' : course.progress_pct > 0 ? 'متابعة التدريب ▶' : 'بدء المسار التدريبي ▶'}
+                {course.progress_pct === 100 ? t('✓ تم إكمال المسار (مراجعة)') : course.progress_pct > 0 ? t('متابعة التدريب ▶') : t('بدء المسار التدريبي ▶')}
               </button>
             </div>
           ))}

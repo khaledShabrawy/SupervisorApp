@@ -19,7 +19,7 @@ export function customerRecord(input: CustomerInput): CustomerInput {
   }
   return {
     name: input.name.trim(), type: input.type.trim(), address: input.address.trim(),
-    customer_code: input.customer_code?.trim() || null,
+    ...(input.customer_code !== undefined ? { customer_code: input.customer_code?.trim() || null } : {}),
     latitude, longitude, is_active: input.is_active,
   };
 }

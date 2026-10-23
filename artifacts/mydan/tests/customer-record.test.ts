@@ -26,7 +26,10 @@ test('customer writes reject blank mandatory fields and invalid active flags', (
   assert.throws(() => customerRecord({ ...input, is_active: 'true' } as unknown as CustomerInput));
 });
 test('visit GPS refresh remains available after a far fix without reloading form data', () => {
-  const screen = readFileSync(new URL('../src/screens/NewVisitScreen.tsx', import.meta.url), 'utf8');
+  let screen = readFileSync(new URL('../src/screens/NewVisitScreen.tsx', import.meta.url), 'utf8');
+  if (screen.includes('@/modules/visits/views/NewVisitScreen')) {
+    screen = readFileSync(new URL('../src/modules/visits/views/NewVisitScreen.tsx', import.meta.url), 'utf8');
+  }
   const hook = readFileSync(new URL('../src/hooks/useGeolocation.ts', import.meta.url), 'utf8');
   assert.match(screen, /\{!gps\.loading && <button[^>]+onClick=\{gps\.retry\}/);
   assert.doesNotMatch(screen, /window\.location\.reload/);

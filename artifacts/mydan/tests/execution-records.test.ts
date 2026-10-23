@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { countTargetRecord } from '../src/lib/execution-records.ts';
-import { computeOrdersKPI } from '../src/lib/screen-orders.ts';
+import { countTargetRecord, computeOrdersKPI } from '../src/lib/execution-records.ts';
 
 const target = { supervisor_id: 'supervisor', month: 10, year: 2026, visits_target: 12, audit_target: 8 };
 
