@@ -203,18 +203,19 @@ export default function ShelfAuditScreen() {
   const completeImmediately = useCallback(async () => {
     if (!auditId) return;
     try {
-      await supabase.from('shelf_audit').update({
+      const { error } = await supabase.from('shelf_audit').update({
         status: 'completed',
-        audit_score: 85,
-        audit_summary_ar: 'تم فحص صورة الرف والتأكد من التواجد والعرض التجاري بنجاح.',
+        audit_score: null,
+        audit_summary_ar: 'تم تأكيد ومراجعة الرف يدوياً بواسطة المشرف الميداني.',
         ai_detailed_report: {
-          issues: ['تأكد من توافر بطاقات الأسعار لجميع الأصناف المعروضة.'],
-          recommendations: ['الحفاظ على ترتيب العرض الأمامي (Front Facing) وزيادة المساحة المخصصة للأصناف سريعة الدوران.'],
+          issues: ['مراجعة واعتماد يدوي مباشر من المشرف في الميدان.'],
+          recommendations: ['متابعة ترتيب المعروضات وتوافر بطاقات الأسعار دائماً.'],
         },
       }).eq('id', auditId);
+      if (error) throw error;
       void refetch();
       void visitAudits.refetch();
-      notify(t('تم إصدار تقرير الرف بنجاح'), 'success');
+      notify(t('تم اعتماد تقرير الرف يدوياً بنجاح'), 'success');
     } catch (e: any) {
       notify(e.message || 'تعذر إصدار التقرير', 'error');
     }

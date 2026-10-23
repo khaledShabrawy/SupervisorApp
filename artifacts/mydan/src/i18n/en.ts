@@ -1294,5 +1294,7 @@ export const EN: Record<string, string> = {
   "بدء المسار التدريبي ▶": "Start Training Course ▶",
   "متابعة التدريب ▶": "Continue Training ▶",
   "✓ تم إكمال المسار (مراجعة)": "✓ Course Completed (Review)",
+  "مصدر التقرير المطلوب غير مصرح به": "The requested report source is not authorized",
+  "تم اعتماد تقرير الرف يدوياً بنجاح": "Shelf report approved manually successfully",
   "تصدير الزيارات إلى Excel": "Export Visits to Excel",
 };

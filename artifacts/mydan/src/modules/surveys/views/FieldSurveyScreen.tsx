@@ -93,16 +93,6 @@ const StoreCard = memo(function StoreCard({
 export default function FieldSurveyScreen() {
   const { supervisor } = useAuth();
   const allowed = useScreenAllowed('field_survey');
-  if (!allowed) return (
-    <div className="page" aria-label={t('مسح ميداني')}>
-      <PageTitle>{t('مسح ميداني')}</PageTitle>
-      <div className="card" style={{ textAlign: 'center', padding: 32 }}>
-        <span style={{ color: 'var(--color-danger,#EF4444)', fontSize: 15 }}>
-          ⛔ {t('ليس لديك صلاحية الوصول لهذه الشاشة. تواصل مع المدير.')}
-        </span>
-      </div>
-    </div>
-  );
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
@@ -197,6 +187,19 @@ export default function FieldSurveyScreen() {
       ))}
     </div>
   );
+
+  if (!allowed) {
+    return (
+      <div className="page" aria-label={t('مسح ميداني')}>
+        <PageTitle>{t('مسح ميداني')}</PageTitle>
+        <div className="card" style={{ textAlign: 'center', padding: 32 }}>
+          <span style={{ color: 'var(--color-danger,#EF4444)', fontSize: 15 }}>
+            ⛔ {t('ليس لديك صلاحية الوصول لهذه الشاشة. تواصل مع المدير.')}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page" aria-label={t('المسح الميداني')}>
