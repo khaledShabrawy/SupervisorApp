@@ -18,3 +18,4 @@ export {
   useBeatPlanDays,
 } from '@/lib/data';
 export { useVisitsRange, useCustomerById } from '@/lib/screen-data';
+export { usePriorityCustomerIds } from './visitPriorityService';

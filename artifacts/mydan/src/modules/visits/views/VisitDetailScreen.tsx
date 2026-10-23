@@ -6,6 +6,7 @@ import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useScope, useSetVisitOutcome, useUpdateVisitStatus } from '@/lib/data';
 import { useVisitOrders, formatOrderWhatsAppMessage, openWhatsAppShare } from '@/lib/screen-orders';
 import { isVisitOutcome, mapsDirectionsUrl, VISIT_OUTCOMES, type VisitOutcome } from '@/lib/visit-geo';
+import { triggerWhatsAppShare } from '@/shared/utils/whatsapp';
 import { useScreenAllowed } from '@/lib/permissions';
 import { num } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
@@ -28,7 +29,7 @@ interface VisitTask {
 }
 interface VisitDetail extends Visit {
   visit_outcome: VisitOutcome | null; on_beat: boolean | null; geo_distance: number | null;
-  customers: Pick<Customer, 'id' | 'name' | 'address' | 'customer_type' | 'latitude' | 'longitude'> | null;
+  customers: Pick<Customer, 'id' | 'name' | 'address' | 'customer_type' | 'latitude' | 'longitude' | 'phone' | 'owner_phone'> | null;
   visit_tasks: VisitTask[];
 }
 
@@ -50,7 +51,7 @@ function useVisitDetail(id: string) {
         supabase.from('visits').select(
           `id,supervisor_id,customer_id,visit_date,check_in_time,check_out_time,
            status,latitude,longitude,notes,company_id,visit_outcome,on_beat,geo_distance,
-           customers(id,name,address,customer_type,customer_code,latitude,longitude),
+           customers(id,name,address,customer_type,customer_code,latitude,longitude,phone,owner_phone),
            visit_tasks(id,task_type,title_ar,is_completed,is_mandatory,order_num)`
         )
       ).eq('id', id).abortSignal(signal).single();
@@ -84,14 +85,21 @@ function useCompleteTask() {
 }
 
 const TaskItem = memo(function TaskItem({
-  task, visitId, onComplete, onAction,
+  task, visitId, customerName, customerPhone, visitDate, onComplete, onAction,
 }: {
-  task: VisitTask; visitId: string;
+  task: VisitTask; visitId: string; customerName?: string; customerPhone?: string | null; visitDate?: string;
   onComplete: (taskId: string, visitId: string) => void;
   onAction: (task: VisitTask) => void;
 }) {
   const complete = useCallback(() => onComplete(task.id, visitId), [onComplete, task.id, visitId]);
   const action = useCallback(() => onAction(task), [onAction, task]);
+  const shareWhatsApp = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const dueDate = visitDate ? fmtDate(visitDate) : fmtDate(new Date().toISOString().slice(0, 10));
+    const targetName = customerName || t('العميل');
+    const msg = `مرحباً، تم رصد ملاحظة في زيارة عميل ${targetName}: ${task.title_ar}. برجاء المتابعة والتنفيذ في موعد أقصاه ${dueDate}.`;
+    triggerWhatsAppShare(customerPhone, msg);
+  }, [customerName, customerPhone, task.title_ar, visitDate]);
   return (
     <div className="card row" style={{ padding: '10px 14px', gap: 10, opacity: task.is_completed ? 0.6 : 1, borderInlineStart: `4px solid ${task.is_completed ? 'var(--color-success)' : task.is_mandatory ? 'var(--color-danger)' : 'var(--line)'}` }}>
       <span style={{ fontSize: 22, flexShrink: 0 }}>{TASK_ICONS[task.task_type] ?? '✓'}</span>
@@ -99,6 +107,31 @@ const TaskItem = memo(function TaskItem({
         <div style={{ fontWeight: 700, fontSize: 15, textDecoration: task.is_completed ? 'line-through' : 'none' }}>{task.title_ar}</div>
         {task.is_mandatory && !task.is_completed && (<span className="badge b-red" style={{ fontSize: 11, marginTop: 2 }}>{t('إلزامية')}</span>)}
       </div>
+      <button
+        type="button"
+        className="btn sm"
+        style={{
+          background: '#25D366',
+          color: '#fff',
+          border: 'none',
+          padding: '2px 8px',
+          fontSize: 13,
+          minHeight: 28,
+          borderRadius: 6,
+          fontWeight: 600,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 4,
+          flexShrink: 0,
+        }}
+        onClick={shareWhatsApp}
+        title={t('مشاركة عبر واتساب')}
+        aria-label={t('مشاركة عبر واتساب')}
+        data-testid={`button-whatsapp-task-${task.id}`}
+      >
+        <span>💬</span>
+      </button>
       {!task.is_completed && (
         <div className="row" style={{ gap: 6, flexShrink: 0 }}>
           {['shelf_audit', 'competitor_check'].includes(task.task_type) && (
@@ -253,7 +286,16 @@ export default function VisitDetailScreen() {
                 <span className="muted" style={{ fontSize: 13 }}>{detail.data.visit_tasks.filter((t) => t.is_completed).length} / {detail.data.visit_tasks.length}</span>
               </div>
               {detail.data.visit_tasks.map((task) => (
-                <TaskItem key={task.id} task={task} visitId={id} onComplete={handleComplete} onAction={handleAction} />
+                <TaskItem
+                  key={task.id}
+                  task={task}
+                  visitId={id}
+                  customerName={detail.data.customers?.name}
+                  customerPhone={detail.data.customers?.phone || detail.data.customers?.owner_phone}
+                  visitDate={detail.data.visit_date}
+                  onComplete={handleComplete}
+                  onAction={handleAction}
+                />
               ))}
             </div>
           )}

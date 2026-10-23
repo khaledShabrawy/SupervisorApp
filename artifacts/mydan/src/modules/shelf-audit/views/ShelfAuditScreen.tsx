@@ -84,6 +84,13 @@ async function compressImage(file: File, maxPx = 1400, quality = 0.85): Promise<
   });
 }
 
+const ROOT_CAUSES = [
+  'ضغط منافس',
+  'تأخر توريد',
+  'بضاعة في المخزن لم تُعرض',
+  'سوء تنسيق',
+] as const;
+
 export default function ShelfAuditScreen() {
   const { supervisor } = useAuth(); const settings = useAppSettings();
   const [params, setParams] = useSearchParams(); const auditId = params.get('audit');
@@ -235,15 +242,76 @@ export default function ShelfAuditScreen() {
   const issues = useMemo(() => toList(report.issues ?? report.problems), [report]);
   const recs = useMemo(() => toList(report.recommendations ?? report.suggestions), [report]);
   const score = audit?.audit_score ?? null;
-  const color = score == null ? 'var(--muted)' : score > 75 ? 'var(--color-success)' : score >= 50 ? '#B45309' : 'var(--color-danger)';
+  const color = score == null ? 'var(--muted)' : score > 75 ? 'var(--color-success)' : score >= 50 ? '#B45309' : 'var(--color-danger)';
+
+  const [selectedCause, setSelectedCause] = useState<string>(() => (report.root_cause as string) ?? '');
+  const [auditNotes, setAuditNotes] = useState<string>(() => (report.audit_notes as string) ?? '');
+  const [isUpdatingCause, setIsUpdatingCause] = useState(false);
+
+  useEffect(() => {
+    setSelectedCause((report.root_cause as string) ?? '');
+    setAuditNotes((report.audit_notes as string) ?? '');
+  }, [report.root_cause, report.audit_notes]);
+
+  const handlePickCause = useCallback(async (cause: string) => {
+    if (!audit?.id) return;
+    const nextCause = selectedCause === cause ? '' : cause;
+    setSelectedCause(nextCause);
+    setIsUpdatingCause(true);
+    try {
+      const updatedReport = {
+        ...report,
+        root_cause: nextCause || undefined,
+        audit_notes: auditNotes || (report.audit_notes as string) || undefined,
+      };
+      const { error } = await supabase
+        .from('shelf_audit')
+        .update({ ai_detailed_report: updatedReport })
+        .eq('id', audit.id);
+      if (error) throw error;
+      if (nextCause) {
+        notify(t('تم تسجيل سبب الملاحظة: {cause}', { cause: nextCause }), 'success');
+      }
+      void refetch();
+    } catch (e: any) {
+      notify(e.message || t('تعذر حفظ سبب الملاحظة'), 'error');
+    } finally {
+      setIsUpdatingCause(false);
+    }
+  }, [audit?.id, report, selectedCause, auditNotes, refetch]);
+
+  const handleSaveNotes = useCallback(async () => {
+    if (!audit?.id) return;
+    setIsUpdatingCause(true);
+    try {
+      const updatedReport = {
+        ...report,
+        root_cause: selectedCause || (report.root_cause as string) || undefined,
+        audit_notes: auditNotes || undefined,
+      };
+      const { error } = await supabase
+        .from('shelf_audit')
+        .update({ ai_detailed_report: updatedReport })
+        .eq('id', audit.id);
+      if (error) throw error;
+      notify(t('تم حفظ ملاحظات التدقيق'), 'success');
+      void refetch();
+    } catch (e: any) {
+      notify(e.message || t('تعذر حفظ ملاحظات التدقيق'), 'error');
+    } finally {
+      setIsUpdatingCause(false);
+    }
+  }, [audit?.id, report, selectedCause, auditNotes, refetch]);
 
   const save = useCallback(() => {
     if (!audit) return;
-    const html = `<!doctype html><html lang="${LANG}" dir="${DIR}"><meta charset="utf-8"><title>${esc(t('تقرير الرف'))}</title><body style="font-family:sans-serif;max-width:640px;margin:auto;padding:16px"><h1>${esc(t('تقرير مراجعة الرف'))}</h1><p>${esc(settings.app_name)} - ${esc(supervisor?.full_name ?? '')}</p><p>${esc(fmtDateTime(audit.audited_at))}</p><h2>${esc(t('النتيجة: {score}', { score: audit.audit_score ?? '-' }))}</h2><p>${esc(audit.audit_summary_ar ?? '')}</p><h3>${esc(t('الملاحظات'))}</h3><ul>${issues.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><h3>${esc(t('التوصيات'))}</h3><ul>${recs.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></body></html>`;
+    const causeHtml = report.root_cause ? `<h3>${esc(t('السبب الجذري'))}</h3><p>${esc(String(report.root_cause))}</p>` : '';
+    const notesHtml = report.audit_notes ? `<h3>${esc(t('ملاحظات التدقيق'))}</h3><p>${esc(String(report.audit_notes))}</p>` : '';
+    const html = `<!doctype html><html lang="${LANG}" dir="${DIR}"><meta charset="utf-8"><title>${esc(t('تقرير الرف'))}</title><body style="font-family:sans-serif;max-width:640px;margin:auto;padding:16px"><h1>${esc(t('تقرير مراجعة الرف'))}</h1><p>${esc(settings.app_name)} - ${esc(supervisor?.full_name ?? '')}</p><p>${esc(fmtDateTime(audit.audited_at))}</p><h2>${esc(t('النتيجة: {score}', { score: audit.audit_score ?? '-' }))}</h2><p>${esc(audit.audit_summary_ar ?? '')}</p><h3>${esc(t('الملاحظات'))}</h3><ul>${issues.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><h3>${esc(t('التوصيات'))}</h3><ul>${recs.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>${causeHtml}${notesHtml}</body></html>`;
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = `shelf-report-${audit.id}.html`; a.click(); URL.revokeObjectURL(url);
     notify(t('التقرير محفوظ في النظام وتم تنزيل نسخة منه'), 'success');
-  }, [audit, settings.app_name, supervisor?.full_name, issues, recs]);
+  }, [audit, settings.app_name, supervisor?.full_name, issues, recs, report.root_cause, report.audit_notes]);
 
   const busy = upload.isPending || request.isPending;
   const photo = audit?.photo_url ? <img src={audit.photo_url} alt={t('صورة الرف')} loading="lazy" style={{ width: '100%', borderRadius: 12, maxHeight: 240, objectFit: 'cover' }} /> : null;
@@ -592,6 +660,47 @@ export default function ShelfAuditScreen() {
         <div className="title">{t('التوصيات')}</div>
         <ul className="s-finds">{recs.map((x, i) => <Finding key={`r${i}`} text={x} kind="rec" />)}</ul>
       </>}
+      <div className="col" style={{ gap: 8, background: 'var(--card-subtle, rgba(0,0,0,0.02))', padding: '12px', borderRadius: 10, border: '1px solid var(--line)' }}>
+        <div className="row between" style={{ alignItems: 'center' }}>
+          <div className="title" style={{ fontSize: 14 }}>🏷️ {t('السبب الجذري للملاحظة')}</div>
+          {isUpdatingCause && <span className="muted" style={{ fontSize: 11 }}>{t('جاري الحفظ...')}</span>}
+        </div>
+        <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+          {ROOT_CAUSES.map((cause) => (
+            <button
+              key={cause}
+              type="button"
+              className={`chip ${selectedCause === cause ? 'on' : ''}`}
+              onClick={() => void handlePickCause(cause)}
+              style={{ fontSize: 13, padding: '4px 10px' }}
+              data-testid={`cause-${cause}`}
+            >
+              {cause}
+            </button>
+          ))}
+        </div>
+        <div className="row" style={{ gap: 6, marginTop: 4 }}>
+          <input
+            type="text"
+            className="input"
+            placeholder={t('ملاحظات إضافية على سبب الملاحظة...')}
+            value={auditNotes}
+            onChange={(e) => setAuditNotes(e.target.value)}
+            onBlur={() => void handleSaveNotes()}
+            style={{ fontSize: 13, flex: 1 }}
+            data-testid="input-audit-notes"
+          />
+          <button
+            type="button"
+            className="btn sm ghost"
+            onClick={() => void handleSaveNotes()}
+            disabled={isUpdatingCause}
+            style={{ fontSize: 12, padding: '0 10px' }}
+          >
+            {t('حفظ')}
+          </button>
+        </div>
+      </div>
       <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
         <button className="btn success grow" onClick={save} data-testid="button-save-report" style={{ fontSize: 15, padding: '12px' }}>
           <Download size={18} /> {t('حفظ التقرير (HTML)')}

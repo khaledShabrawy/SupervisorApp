@@ -11,6 +11,7 @@ export interface Customer {
   id: ID; name: string; customer_type: string; address: string;
   latitude: number | null; longitude: number | null; company_id: ID;
   supervisor_id: ID; is_active: boolean; customer_code?: string | null;
+  phone?: string | null; owner_phone?: string | null;
 }
 export interface Region {
   id: ID; company_id: ID; name: string; name_en?: string | null;
@@ -30,6 +31,8 @@ export interface Visit {
 export interface AiDetailedReport {
   issues: string[];
   recommendations: string[];
+  root_cause?: string;
+  audit_notes?: string;
   audit_summary_ar?: string;
   score?: number;
   target_brand_metrics?: {
