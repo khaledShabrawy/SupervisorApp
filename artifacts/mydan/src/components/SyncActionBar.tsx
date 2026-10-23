@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Upload, WifiOff, CheckCircle2 } from '@/components/Icons';
+import { RefreshCw, Upload, WifiOff } from '@/components/Icons';
 import { notify } from '@/lib/toast';
 import { t } from '@/i18n';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   downloadFreshData,
   getPendingCount,
@@ -12,8 +13,12 @@ import {
 
 export function SyncActionBar() {
   const qc = useQueryClient();
+  const { supervisor } = useAuth();
+  const companyId = supervisor?.company_id;
+  const supervisorId = supervisor?.id;
+
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [pendingCount, setPendingCount] = useState(getPendingCount());
+  const [pendingCount, setPendingCount] = useState(() => getPendingCount(companyId, supervisorId));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -24,14 +29,15 @@ export function SyncActionBar() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    const unsubscribe = subscribeToQueueChanges((cnt) => setPendingCount(cnt));
+    setPendingCount(getPendingCount(companyId, supervisorId));
+    const unsubscribe = subscribeToQueueChanges((cnt) => setPendingCount(cnt), companyId, supervisorId);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       unsubscribe();
     };
-  }, []);
+  }, [companyId, supervisorId]);
 
   // Handler for Refresh / Sync Down (e.g. newly assigned beat plan or targets)
   const handleRefresh = useCallback(async () => {
@@ -52,7 +58,7 @@ export function SyncActionBar() {
     if (isUploading || isRefreshing) return;
     setIsUploading(true);
     try {
-      const result = await uploadPendingOfflineActions();
+      const result = await uploadPendingOfflineActions(companyId, supervisorId);
       if (result.total === 0) {
         await qc.invalidateQueries();
         notify(t('✅ جميع البيانات محدثة ومرفوعة بالفعل.'), 'info');
@@ -75,9 +81,9 @@ export function SyncActionBar() {
       notify(err?.message || t('تعذر رفع البيانات المعلقة.'), 'error');
     } finally {
       setIsUploading(false);
-      setPendingCount(getPendingCount());
+      setPendingCount(getPendingCount(companyId, supervisorId));
     }
-  }, [qc, isUploading, isRefreshing]);
+  }, [qc, isUploading, isRefreshing, companyId, supervisorId]);
 
   return (
     <div

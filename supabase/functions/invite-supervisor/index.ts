@@ -1,4 +1,4 @@
-// invite-supervisor — admin-only email invite, resend invite, and manual password set.
+// invite-supervisor — admin-only email invite and resend invite links.
 // service_role stays here; the browser never sees it.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -33,46 +33,7 @@ Deno.serve(async (req) => {
   const companyId = caller.company_id;
 
   // -------------------------------------------------------------
-  // ACTION: SET PASSWORD MANUALLY FROM BACKOFFICE
-  // -------------------------------------------------------------
-  if (action === "set_password") {
-    const supervisorId = String(body.supervisor_id ?? "").trim();
-    const newPassword = String(body.new_password ?? "").trim();
-    const forceChange = Boolean(body.force_change ?? false);
-
-    if (!supervisorId) return err(400, "معرّف المستخدم مطلوب.");
-    if (!newPassword || newPassword.length < 8) return err(400, "كلمة المرور يجب ألا تقل عن 8 أحرف.");
-
-    const { data: targetSup, error: supErr } = await admin.from("supervisors")
-      .select("id,user_id,full_name,role").eq("id", supervisorId).eq("company_id", companyId).maybeSingle();
-    if (supErr || !targetSup) return err(404, "المستخدم غير موجود.");
-    if (targetSup.role === "super_admin" && caller.role !== "super_admin") {
-      return err(403, "لا يمكن تغيير كلمة مرور مدير النظام الأعلى.");
-    }
-
-    const { error: updateErr } = await admin.auth.admin.updateUserById(targetSup.user_id, {
-      password: newPassword,
-    });
-    if (updateErr) return err(500, `تعذر تعيين كلمة المرور: ${updateErr.message}`);
-
-    await admin.from("supervisors").update({
-      force_password_change: forceChange,
-      password_changed_at: new Date().toISOString(),
-    }).eq("id", supervisorId);
-
-    await admin.from("audit_logs").insert({
-      company_id: companyId,
-      table_name: "supervisors",
-      action: "UPDATE",
-      performed_by: auth.user.id,
-      new_data: { supervisor_id: supervisorId, action: "set_password_manual", force_change: forceChange },
-    }).then(({ error }) => error && console.warn("audit log skipped", error.message));
-
-    return reply(200, { success: true, message: "تم تعيين كلمة المرور بنجاح." });
-  }
-
-  // -------------------------------------------------------------
-  // ACTION: RESEND INVITATION LINK
+  // ACTION: RESEND INVITATION / RECOVERY LINK (SECURE EMAIL FLOW)
   // -------------------------------------------------------------
   if (action === "resend_invite") {
     const supervisorId = String(body.supervisor_id ?? "").trim();
@@ -83,7 +44,7 @@ Deno.serve(async (req) => {
       .select("id,user_id,full_name").eq("id", supervisorId).eq("company_id", companyId).maybeSingle();
     if (supErr || !targetSup) return err(404, "المستخدم غير موجود.");
 
-    const { data: authUser, error: authErr } = await admin.auth.admin.getUserById(targetSup.user_id);
+    const { data: authUser } = await admin.auth.admin.getUserById(targetSup.user_id);
     const targetEmail = authUser?.user?.email;
     if (!targetEmail) return err(400, "البريد الإلكتروني غير متوفر لهذا المستخدم.");
 
@@ -92,7 +53,6 @@ Deno.serve(async (req) => {
       redirectTo,
     });
     if (resetErr) {
-      // Fallback: generate link
       const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
         type: "recovery",
         email: targetEmail,
@@ -131,10 +91,10 @@ Deno.serve(async (req) => {
     if (!branch) return err(400, "الفرع لا ينتمي لشركتك.");
   }
 
-  // License seat limit.
+  // License seat limit check (handles 0 seat limit explicitly)
   const { data: company } = await admin.from("companies").select("max_supervisors,is_active").eq("id", companyId).maybeSingle();
   if (company && company.is_active === false) return err(403, "اشتراك الشركة غير نشط.");
-  if (company?.max_supervisors) {
+  if (typeof company?.max_supervisors === "number") {
     const { count } = await admin.from("supervisors").select("id", { count: "exact", head: true })
       .eq("company_id", companyId).eq("is_active", true);
     if ((count ?? 0) >= company.max_supervisors) return err(409, `تم الوصول للحد الأقصى من المشرفين (${company.max_supervisors}).`);
@@ -145,7 +105,7 @@ Deno.serve(async (req) => {
   });
   if (inviteError || !invited.user) {
     const exists = /already|registered|exists/i.test(inviteError?.message ?? "");
-    return err(exists ? 409 : 502, exists ? "هذا البريد مسجّل بالفعل. يمكنك إعادة إرسال الرابط أو تعيين كلمة المرور له." : "تعذر إرسال بريد الدعوة.");
+    return err(exists ? 409 : 502, exists ? "هذا البريد مسجّل بالفعل. يمكنك إعادة إرسال رابط التفعيل له." : "تعذر إرسال بريد الدعوة.");
   }
 
   const { data: sup, error: insertError } = await admin.from("supervisors").insert({

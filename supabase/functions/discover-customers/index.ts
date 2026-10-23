@@ -175,7 +175,11 @@ Deno.serve(async (req) => {
     (!isAdmin && survey.supervisor_id !== caller.id)
   ) return json(404, { error: "survey not found" });
   if (!survey.photo_url) return json(400, { error: "survey has no photo" });
+  if (!survey.photo_url.startsWith(`${caller.company_id}/`)) {
+    return json(403, { error: "photo path does not belong to your company" });
+  }
   if (survey.status === "processing") return json(409, { error: "analysis already running" });
+  if (survey.status === "completed") return json(409, { error: "survey already completed" });
 
   const fail = async (status: number, error: string) => {
     await admin.from("field_surveys").update({ status: "failed" }).eq("id", survey.id);

@@ -34,17 +34,41 @@ export function getStorageKey(companyId?: string, supervisorId?: string): string
 /** Retrieves the current offline queue from localStorage, checking tenant/user queue first */
 export function getOfflineQueue(companyId?: string, supervisorId?: string): OfflineAction[] {
   try {
-    const key = getStorageKey(companyId, supervisorId);
-    let raw = localStorage.getItem(key);
-    
-    // Backward compatibility: If no tenant-specific queue, read default legacy queue
-    if (!raw && key !== DEFAULT_STORAGE_KEY) {
-      raw = localStorage.getItem(DEFAULT_STORAGE_KEY);
+    if (companyId && supervisorId) {
+      const key = getStorageKey(companyId, supervisorId);
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const list = JSON.parse(raw);
+        if (Array.isArray(list) && list.length > 0) return list;
+      }
     }
-    
-    if (!raw) return [];
-    const list = JSON.parse(raw);
-    return Array.isArray(list) ? list : [];
+
+    // Aggregation fallback: check legacy queue and all active device queues
+    const aggregated: OfflineAction[] = [];
+    const legacyRaw = localStorage.getItem(DEFAULT_STORAGE_KEY);
+    if (legacyRaw) {
+      try {
+        const list = JSON.parse(legacyRaw);
+        if (Array.isArray(list)) aggregated.push(...list);
+      } catch {}
+    }
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('mydan_offline_queue_') && k !== DEFAULT_STORAGE_KEY) {
+        if (companyId && supervisorId && k !== getStorageKey(companyId, supervisorId)) {
+          continue;
+        }
+        try {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) aggregated.push(...list);
+          }
+        } catch {}
+      }
+    }
+    return aggregated;
   } catch {
     return [];
   }
@@ -55,7 +79,6 @@ export function saveOfflineQueue(queue: OfflineAction[], companyId?: string, sup
   const key = getStorageKey(companyId, supervisorId);
   try {
     localStorage.setItem(key, JSON.stringify(queue));
-    // Clean up legacy key if items are migrated
     if (key !== DEFAULT_STORAGE_KEY && localStorage.getItem(DEFAULT_STORAGE_KEY)) {
       try { localStorage.removeItem(DEFAULT_STORAGE_KEY); } catch {}
     }
@@ -164,7 +187,6 @@ export async function uploadPendingOfflineActions(companyId?: string, supervisor
           };
           if (isValidUUID) visitRow.id = clientId;
           
-          // Use upsert on id if client-generated UUID exists to guarantee idempotency
           const { error } = isValidUUID
             ? await supabase.from('visits').upsert(visitRow, { onConflict: 'id' })
             : await supabase.from('visits').insert(visitRow);
@@ -185,7 +207,6 @@ export async function uploadPendingOfflineActions(companyId?: string, supervisor
         const { error } = await u;
         if (error) throw error;
       } else if (item.type === 'save_order') {
-        // Idempotent upsert on client order id to avoid duplicate rows on retry
         const { error } = item.payload?.id
           ? await supabase.from('orders').upsert(item.payload, { onConflict: 'id' })
           : await supabase.from('orders').insert(item.payload);
