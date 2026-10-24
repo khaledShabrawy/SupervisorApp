@@ -29,6 +29,7 @@ export interface SupervisorLiveTrack {
   role: string;
   branchId?: string | null;
   branchName?: string | null;
+  branchLocation?: { latitude: number; longitude: number } | null;
   liveStatus: LiveStatusKind;
   currentLocation: { latitude: number; longitude: number } | null;
   currentCustomerName?: string | null;
@@ -37,6 +38,23 @@ export interface SupervisorLiveTrack {
   route: SupervisorRoutePoint[];
   totalVisitsToday: number;
   completedVisitsToday: number;
+}
+
+export interface SupervisorHistoryVisit {
+  id: string;
+  visitDate: string;
+  customerId: string;
+  customerName: string;
+  customerAddress?: string | null;
+  customerPhone?: string | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  status: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  onBeat?: boolean | null;
+  geoDistance?: number | null;
+  notes?: string | null;
 }
 
 export interface LiveTrackingSummary {
@@ -77,13 +95,24 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
         return { tracks: [], branches: [] };
       }
 
-      // 2. Fetch branches for lookup
+      // 2. Fetch branches for lookup with coordinates
       const { data: branches } = await supabase
         .from('branches')
-        .select('id, name, region')
+        .select('id, name, region, latitude, longitude')
         .eq('company_id', sc.companyId);
 
-      const branchMap = new Map((branches ?? []).map((b) => [b.id, b.name]));
+      const branchMap = new Map(
+        (branches ?? []).map((b) => [
+          b.id,
+          {
+            name: b.name,
+            location:
+              Number.isFinite(Number(b.latitude)) && Number.isFinite(Number(b.longitude))
+                ? { latitude: Number(b.latitude), longitude: Number(b.longitude) }
+                : null,
+          },
+        ])
+      );
 
       // 3. Fetch visits for the specified date
       let visitsQ = supabase
@@ -118,6 +147,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
       // Compute live tracking record for each supervisor
       const list: SupervisorLiveTrack[] = (sups ?? []).map((s) => {
         const supVisits = visitsBySup.get(s.id) ?? [];
+        const bInfo = s.branch_id ? branchMap.get(s.branch_id) : null;
 
         // Build route points that have valid coordinates
         const route: SupervisorRoutePoint[] = [];
@@ -153,7 +183,8 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
             phone: s.phone,
             role: s.role,
             branchId: s.branch_id,
-            branchName: s.branch_id ? branchMap.get(s.branch_id) : null,
+            branchName: bInfo?.name ?? null,
+            branchLocation: bInfo?.location ?? null,
             liveStatus: 'in_progress',
             currentLocation: {
               latitude: Number(inProgress.latitude),
@@ -178,7 +209,8 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
             phone: s.phone,
             role: s.role,
             branchId: s.branch_id,
-            branchName: s.branch_id ? branchMap.get(s.branch_id) : null,
+            branchName: bInfo?.name ?? null,
+            branchLocation: bInfo?.location ?? null,
             liveStatus: 'completed',
             currentLocation: {
               latitude: latest.latitude,
@@ -200,7 +232,8 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
           phone: s.phone,
           role: s.role,
           branchId: s.branch_id,
-          branchName: s.branch_id ? branchMap.get(s.branch_id) : null,
+          branchName: bInfo?.name ?? null,
+          branchLocation: bInfo?.location ?? null,
           liveStatus: 'idle',
           currentLocation: null,
           currentCustomerName: null,
@@ -249,4 +282,48 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
     branches: query.data?.branches ?? [],
     summary,
   };
+}
+
+export function useSupervisorVisitsHistory(supervisorId: string | null) {
+  const sc = useScope();
+
+  return useQuery({
+    queryKey: [...sc.base, 'supervisor-history-visits', supervisorId],
+    enabled: !!supervisorId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      if (!supervisorId) return [];
+      const { data, error } = await supabase
+        .from('visits')
+        .select(`
+          id, supervisor_id, customer_id, visit_date, check_in_time, check_out_time,
+          status, latitude, longitude, on_beat, geo_distance, notes,
+          customers (id, name, address, phone)
+        `)
+        .eq('company_id', sc.companyId)
+        .eq('supervisor_id', supervisorId)
+        .order('visit_date', { ascending: false })
+        .order('check_in_time', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+
+      return (data ?? []).map((v: any): SupervisorHistoryVisit => ({
+        id: v.id,
+        visitDate: v.visit_date,
+        customerId: v.customer_id,
+        customerName: v.customers?.name ?? t('عميل غير معروف'),
+        customerAddress: v.customers?.address,
+        customerPhone: v.customers?.phone,
+        checkInTime: v.check_in_time,
+        checkOutTime: v.check_out_time,
+        status: v.status,
+        latitude: Number.isFinite(Number(v.latitude)) ? Number(v.latitude) : null,
+        longitude: Number.isFinite(Number(v.longitude)) ? Number(v.longitude) : null,
+        onBeat: v.on_beat,
+        geoDistance: v.geo_distance,
+        notes: v.notes,
+      }));
+    },
+  });
 }

@@ -4,6 +4,34 @@ import { useAuth } from '@/contexts/AuthContext';
 import { authService } from '../services/authService';
 import { t } from '@/i18n';
 
+export interface BranchOption {
+  id: string;
+  name: string;
+}
+
+const DEFAULT_BRANCH_OPTIONS: BranchOption[] = [
+  { id: 'all', name: 'جميع الفروع (المركز الرئيسي)' },
+  { id: 'cairo', name: 'فرع القاهرة الكبرى' },
+  { id: 'alex', name: 'فرع الإسكندرية والبحيرة' },
+  { id: 'delta', name: 'فرع الدلتا والقناة' },
+  { id: 'upper', name: 'فرع الصعيد' },
+];
+
+function loadCachedBranches(): BranchOption[] {
+  try {
+    const raw = localStorage.getItem('mydan_known_branches');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_BRANCH_OPTIONS;
+}
+
 export function useLoginController() {
   const { isAuthenticated, isLoading, session, error, signIn, signOut, retryProfile, supervisor } = useAuth();
   
@@ -13,6 +41,15 @@ export function useLoginController() {
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
+  const [branches, setBranches] = useState<BranchOption[]>(loadCachedBranches);
+  const [selectedBranch, setSelectedBranch] = useState<string>(() => {
+    try {
+      return localStorage.getItem('mydan_active_branch_id') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
+
   const [failCount, setFailCount] = useState<number>(() => authService.getLockoutStatus().failCount);
   const [lockoutUntil, setLockoutUntil] = useState<number>(() => authService.getLockoutStatus().lockoutUntil);
   const [remainingLockout, setRemainingLockout] = useState<number>(() => authService.getLockoutStatus().remainingSeconds);
@@ -21,13 +58,6 @@ export function useLoginController() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMsg, setForgotMsg] = useState<string | null>(null);
   const [forgotBusy, setForgotBusy] = useState(false);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
-  const [showInstallHelp, setShowInstallHelp] = useState(false);
-
-  const isStandalone = typeof window !== 'undefined' && 
-    (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as unknown as { standalone?: boolean }).standalone);
 
   useEffect(() => {
     if (lockoutUntil <= Date.now()) {
@@ -46,28 +76,47 @@ export function useLoginController() {
     return () => clearInterval(interval);
   }, [lockoutUntil]);
 
+  // If supervisor has an assigned branch, enforce / preselect it
   useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
+    if (supervisor?.branch_id) {
+      setSelectedBranch(supervisor.branch_id);
+      try {
+        localStorage.setItem('mydan_active_branch_id', supervisor.branch_id);
+      } catch {
+        // ignore
+      }
+    }
+  }, [supervisor]);
 
   const toggleShowPassword = useCallback(() => setShowPassword((v) => !v), []);
 
-  const handleInstall = useCallback(async () => {
-    if (installPrompt) {
-      await installPrompt.prompt();
-      const choice = await installPrompt.userChoice;
-      if (choice?.outcome === 'accepted') {
-        setInstallPrompt(null);
+  const handleEmailChange = useCallback((val: string) => {
+    setEmail(val);
+    const trimmed = val.trim().toLowerCase();
+    if (trimmed) {
+      try {
+        const rememberedBranch = localStorage.getItem(`mydan_user_branch_${trimmed}`);
+        if (rememberedBranch) {
+          setSelectedBranch(rememberedBranch);
+        }
+      } catch {
+        // ignore
       }
-    } else {
-      setShowInstallHelp((prev) => !prev);
     }
-  }, [installPrompt]);
+  }, []);
+
+  const handleBranchChange = useCallback((branchId: string) => {
+    setSelectedBranch(branchId);
+    try {
+      localStorage.setItem('mydan_active_branch_id', branchId);
+      const trimmed = email.trim().toLowerCase();
+      if (trimmed) {
+        localStorage.setItem(`mydan_user_branch_${trimmed}`, branchId);
+      }
+    } catch {
+      // ignore
+    }
+  }, [email]);
 
   const handleSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
@@ -77,6 +126,45 @@ export function useLoginController() {
     try {
       await signIn(email, password);
       authService.resetLockout();
+
+      const trimmedEmail = email.trim().toLowerCase();
+      try {
+        const { data: supData } = await supabase.from('supervisors')
+          .select('id,role,branch_id,company_id')
+          .maybeSingle();
+
+        if (supData) {
+          const finalBranch = supData.branch_id || selectedBranch;
+          setSelectedBranch(finalBranch);
+          localStorage.setItem('mydan_active_branch_id', finalBranch);
+          if (trimmedEmail) {
+            localStorage.setItem(`mydan_user_branch_${trimmedEmail}`, finalBranch);
+          }
+
+          if (supData.company_id) {
+            const { data: bList } = await supabase.from('branches')
+              .select('id,name,is_active')
+              .eq('company_id', supData.company_id)
+              .eq('is_active', true);
+
+            if (bList && bList.length > 0) {
+              const mapped: BranchOption[] = [
+                { id: 'all', name: 'جميع الفروع (المركز الرئيسي)' },
+                ...bList.map((b) => ({ id: b.id, name: b.name })),
+              ];
+              setBranches(mapped);
+              localStorage.setItem('mydan_known_branches', JSON.stringify(mapped));
+            }
+          }
+        } else {
+          localStorage.setItem('mydan_active_branch_id', selectedBranch);
+          if (trimmedEmail) {
+            localStorage.setItem(`mydan_user_branch_${trimmedEmail}`, selectedBranch);
+          }
+        }
+      } catch {
+        localStorage.setItem('mydan_active_branch_id', selectedBranch);
+      }
     } catch (x) {
       const result = authService.recordFailedAttempt();
       const newStatus = authService.getLockoutStatus();
@@ -93,7 +181,7 @@ export function useLoginController() {
     } finally {
       setBusy(false);
     }
-  }, [signIn, email, password, remainingLockout]);
+  }, [signIn, email, password, remainingLockout, selectedBranch]);
 
   const handleForgot = useCallback(async (e: FormEvent) => {
     e.preventDefault();
@@ -128,7 +216,7 @@ export function useLoginController() {
     error,
     supervisor,
     email,
-    setEmail,
+    setEmail: handleEmailChange,
     password,
     setPassword,
     showPassword,
@@ -136,6 +224,9 @@ export function useLoginController() {
     busy,
     localError,
     remainingLockout,
+    branches,
+    selectedBranch,
+    setSelectedBranch: handleBranchChange,
     handleSubmit,
     handleRetryProfile,
     handleSignOut,
@@ -146,8 +237,5 @@ export function useLoginController() {
     forgotMsg,
     forgotBusy,
     handleForgot,
-    isStandalone,
-    handleInstall,
-    showInstallHelp,
   };
 }

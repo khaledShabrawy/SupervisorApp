@@ -39,8 +39,8 @@ export default function LoginScreen() {
           <div className="s-login-logo" aria-hidden="true">{settings.app_name.slice(0, 1)}</div>
         )}
 
-        <h1 style={{ margin: 0, fontSize: 28 }}>{settings.app_name}</h1>
-        <p className="muted" style={{ margin: 0 }}>
+        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800 }}>{settings.app_name}</h1>
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>
           {settings.app_tagline || t('أتمتة قوة المبيعات الميدانية بالذكاء الاصطناعي')}
         </p>
 
@@ -92,6 +92,24 @@ export default function LoginScreen() {
               >
                 {ctrl.showPassword ? <EyeOff /> : <Eye />}
               </button>
+            </div>
+
+            <div className="col" style={{ gap: 4 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)' }}>
+                🏢 {t('وحدة الأعمال (الفرع)')}
+              </label>
+              <select
+                className="input"
+                value={ctrl.selectedBranch}
+                onChange={(e) => ctrl.setSelectedBranch(e.target.value)}
+                data-testid="select-branch"
+              >
+                {ctrl.branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.id === 'all' ? t('جميع الفروع (المركز الرئيسي)') : b.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {settings.allow_forgot_password !== false && (
@@ -166,50 +184,14 @@ export default function LoginScreen() {
           </form>
         )}
 
-        {!ctrl.isStandalone && !IS_ANDROID && (
-          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border, #e2e8f0)', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <a
-              href="/Mydan.apk"
-              download="Mydan.apk"
-              className="btn ghost sm block"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                width: '100%',
-                color: 'var(--color-primary, #1A56DB)',
-                fontWeight: 600,
-                textDecoration: 'none',
-              }}
-            >
-              <span aria-hidden="true">🤖</span>
-              <span>{t('تحميل تطبيق أندرويد (APK)')}</span>
-            </a>
-            <button
-              type="button"
-              onClick={ctrl.handleInstall}
-              className="btn ghost sm block"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                width: '100%',
-                color: 'var(--color-primary, #1A56DB)',
-                fontWeight: 600,
-              }}
-            >
-              <span aria-hidden="true">📲</span>
-              <span>{t('تثبيت تطبيق Mydan على الهاتف (PWA)')}</span>
-            </button>
-            {ctrl.showInstallHelp && (
-              <p className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: 1.5, textAlign: 'center' }}>
-                {t('لتثبيت التطبيق مباشرة: افتح خيارات المتصفح (⋮) أعلى الشاشة واختر "تثبيت التطبيق" أو "إضافة إلى الشاشة الرئيسية".')}
-              </p>
-            )}
-          </div>
-        )}
+        <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid var(--border, #e2e8f0)', textAlign: 'center' }}>
+          <a
+            href="/landing.html"
+            style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'none' }}
+          >
+            {t('العودة للموقع التعريفي للمنصة')} ↗
+          </a>
+        </div>
       </div>
     </main>
   );
