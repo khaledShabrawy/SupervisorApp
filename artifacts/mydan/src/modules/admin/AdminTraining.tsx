@@ -56,16 +56,16 @@ export default function AdminTraining() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 500 * 1024 * 1024) {
-      notify('حجم ملف الفيديو يتعدى 500 ميجابايت', 'error');
+      notify(t('حجم ملف الفيديو يتعدى 500 ميجابايت'), 'error');
       return;
     }
     setUploadingVideo(true);
     try {
       const res = await uploadFile.mutateAsync({ file, folder: 'videos' });
       setLessonForm((prev) => ({ ...prev, video_url: res.publicUrl }));
-      notify('تم رفع الفيديو وتجهيزه بنجاح!', 'success');
+      notify(t('تم رفع الفيديو وتجهيزه بنجاح!'), 'success');
     } catch (err: any) {
-      notify(err.message || 'فشل رفع الفيديو', 'error');
+      notify(err.message || t('فشل رفع الفيديو'), 'error');
     } finally {
       setUploadingVideo(false);
     }
@@ -79,9 +79,9 @@ export default function AdminTraining() {
     try {
       const res = await uploadFile.mutateAsync({ file, folder: 'docs' });
       setLessonForm((prev) => ({ ...prev, attachment_url: res.publicUrl }));
-      notify('تم رفع الملخص المرفق بنجاح!', 'success');
+      notify(t('تم رفع الملخص المرفق بنجاح!'), 'success');
     } catch (err: any) {
-      notify(err.message || 'فشل رفع الملف', 'error');
+      notify(err.message || t('فشل رفع الملف'), 'error');
     } finally {
       setUploadingPdf(false);
     }
@@ -105,7 +105,7 @@ export default function AdminTraining() {
   const submitLesson = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!lessonForm.title.trim() || !lessonForm.video_url.trim()) {
-      notify('يرجى كتابة عنوان الدرس ورفع الفيديو أولاً', 'error');
+      notify(t('يرجى كتابة عنوان الدرس ورفع الفيديو أولاً'), 'error');
       return;
     }
     await saveLesson.mutateAsync({
@@ -127,10 +127,10 @@ export default function AdminTraining() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <h1 style={{ margin: '0 0 6px', fontSize: 24, display: 'flex', alignItems: 'center', gap: 10, color: '#0F172A' }}>
-            <GraduationCap size={28} color="#4F46E5" /> أكاديمية ميدان والجدارات البيعية (Sales Capability)
+            <GraduationCap size={28} color="#4F46E5" /> {t('أكاديمية ميدان والجدارات البيعية (Sales Capability)')}
           </h1>
           <p style={{ margin: 0, color: '#64748B', fontSize: 14 }}>
-            منصة رفع وإدارة الفيديوهات التدريبية بنمط Udemy/Coursera ومتابعة نسب إنجاز المشرفين الميدانيين.
+            {t('منصة رفع وإدارة الفيديوهات التدريبية بنمط Udemy/Coursera ومتابعة نسب إنجاز المشرفين الميدانيين.')}
           </p>
         </div>
 
@@ -140,7 +140,7 @@ export default function AdminTraining() {
             className="btn"
             style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#4F46E5', color: '#fff', borderRadius: 10 }}
           >
-            <Plus size={18} /> إضافة مسار تدريبي جديد
+            <Plus size={18} /> {t('إضافة مسار تدريبي جديد')}
           </button>
         )}
       </div>
@@ -163,7 +163,7 @@ export default function AdminTraining() {
             gap: 8,
           }}
         >
-          <Video size={18} /> إدارة المحتوى والفيديوهات
+          <Video size={18} /> {t('إدارة المحتوى والفيديوهات')}
         </button>
         <button
           onClick={() => setActiveTab('analytics')}
@@ -181,7 +181,7 @@ export default function AdminTraining() {
             gap: 8,
           }}
         >
-          <BarChart3 size={18} /> متابعة نسب إنجاز المشرفين والفروع
+          <BarChart3 size={18} /> {t('متابعة نسب إنجاز المشرفين والفروع')}
         </button>
       </div>
 
@@ -193,12 +193,12 @@ export default function AdminTraining() {
           ) : !courses || courses.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: 50 }}>
               <Video size={48} color="#94A3B8" style={{ marginBottom: 16 }} />
-              <h3 style={{ margin: '0 0 8px' }}>لم يتم إنشاء أي مسارات تدريبية بعد</h3>
+              <h3 style={{ margin: '0 0 8px' }}>{t('لم يتم إنشاء أي مسارات تدريبية بعد')}</h3>
               <p style={{ margin: '0 0 16px', color: '#64748B' }}>
-                ابدأ بإنشاء أول مسار تدريبي للمشرفين وارفع الفيديوهات التعليمية الخاصة بشركة زينة.
+                {t('ابدأ بإنشاء أول مسار تدريبي للمشرفين وارفع الفيديوهات التعليمية الخاصة بشركة زينة.')}
               </p>
               <button onClick={openNewCourse} className="btn" style={{ background: '#4F46E5', color: '#fff' }}>
-                <Plus size={18} /> إضافة أول مسار الآن
+                <Plus size={18} /> {t('إضافة أول مسار الآن')}
               </button>
             </div>
           ) : (
@@ -218,14 +218,14 @@ export default function AdminTraining() {
                       className="btn"
                       style={{ fontSize: 13, background: '#10B981', color: '#fff', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6 }}
                     >
-                      <Plus size={16} /> إضافة درس / فيديو
+                      <Plus size={16} /> {t('إضافة درس / فيديو')}
                     </button>
                   </div>
 
                   {/* Lessons in this course */}
                   <div style={{ marginTop: 14, borderTop: '1px solid #F1F5F9', paddingTop: 12 }}>
                     <h4 style={{ margin: '0 0 10px', fontSize: 14, color: '#475569' }}>
-                      الدروس المرفوعة في هذا المسار ({course.training_lessons?.length ?? 0}):
+                      {t('الدروس المرفوعة في هذا المسار ({n}):', { n: course.training_lessons?.length ?? 0 })}
                     </h4>
                     {course.training_lessons && course.training_lessons.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -251,8 +251,8 @@ export default function AdminTraining() {
                                 <div>
                                   <div style={{ fontSize: 14, fontWeight: '600', color: '#1E293B' }}>{lesson.title}</div>
                                   <div style={{ fontSize: 12, color: '#64748B', display: 'flex', gap: 12 }}>
-                                    <span>المدة: {Math.floor(lesson.duration_seconds / 60)} دقيقة</span>
-                                    {lesson.attachment_url && <span style={{ color: '#2563EB' }}>✓ يوجد ملخص PDF</span>}
+                                    <span>{t('المدة: {m} دقيقة', { m: Math.floor(lesson.duration_seconds / 60) })}</span>
+                                    {lesson.attachment_url && <span style={{ color: '#2563EB' }}>{t('✓ يوجد ملخص PDF')}</span>}
                                   </div>
                                 </div>
                               </div>
@@ -263,14 +263,14 @@ export default function AdminTraining() {
                                 className="btn ghost"
                                 style={{ padding: '4px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
                               >
-                                <Play size={14} /> معاينة الفيديو
+                                <Play size={14} /> {t('معاينة الفيديو')}
                               </a>
                             </div>
                           ))}
                       </div>
                     ) : (
                       <div style={{ padding: '16px', textAlign: 'center', background: '#F8FAFC', borderRadius: 8, color: '#94A3B8', fontSize: 13 }}>
-                        لا توجد دروس مرفوعة في هذا المسار بعد. اضغط "إضافة درس / فيديو" بالأعلى لرفع أول فيديو.
+                        {t('لا توجد دروس مرفوعة في هذا المسار بعد. اضغط "إضافة درس / فيديو" بالأعلى لرفع أول فيديو.')}
                       </div>
                     )}
                   </div>
@@ -291,19 +291,19 @@ export default function AdminTraining() {
               {/* Summary KPIs */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
                 <div className="card" style={{ borderLeft: '4px solid #4F46E5' }}>
-                  <div style={{ fontSize: 13, color: '#64748B' }}>إجمالي الدروس المنشورة</div>
+                  <div style={{ fontSize: 13, color: '#64748B' }}>{t('إجمالي الدروس المنشورة')}</div>
                   <div style={{ fontSize: 26, fontWeight: 'bold', color: '#1E293B', marginTop: 4 }}>
                     {analytics?.totalLessons ?? 0}
                   </div>
                 </div>
                 <div className="card" style={{ borderLeft: '4px solid #10B981' }}>
-                  <div style={{ fontSize: 13, color: '#64748B' }}>إجمالي المشرفين المسجلين</div>
+                  <div style={{ fontSize: 13, color: '#64748B' }}>{t('إجمالي المشرفين المسجلين')}</div>
                   <div style={{ fontSize: 26, fontWeight: 'bold', color: '#1E293B', marginTop: 4 }}>
                     {analytics?.supervisors?.length ?? 0}
                   </div>
                 </div>
                 <div className="card" style={{ borderLeft: '4px solid #F59E0B' }}>
-                  <div style={{ fontSize: 13, color: '#64748B' }}>متوسط نسبة الإنجاز العام</div>
+                  <div style={{ fontSize: 13, color: '#64748B' }}>{t('متوسط نسبة الإنجاز العام')}</div>
                   <div style={{ fontSize: 26, fontWeight: 'bold', color: '#1E293B', marginTop: 4 }}>
                     {analytics?.supervisors && analytics.supervisors.length > 0
                       ? Math.round(
@@ -321,11 +321,11 @@ export default function AdminTraining() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: 14 }}>
                   <thead>
                     <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0', color: '#475569' }}>
-                      <th style={{ padding: '12px 16px' }}>اسم المشرف</th>
-                      <th style={{ padding: '12px 16px' }}>الفرع</th>
-                      <th style={{ padding: '12px 16px' }}>الدروس المكتملة</th>
-                      <th style={{ padding: '12px 16px' }}>نسبة الإنجاز</th>
-                      <th style={{ padding: '12px 16px' }}>الحالة</th>
+                      <th style={{ padding: '12px 16px' }}>{t('اسم المشرف')}</th>
+                      <th style={{ padding: '12px 16px' }}>{t('الفرع')}</th>
+                      <th style={{ padding: '12px 16px' }}>{t('الدروس المكتملة')}</th>
+                      <th style={{ padding: '12px 16px' }}>{t('نسبة الإنجاز')}</th>
+                      <th style={{ padding: '12px 16px' }}>{t('الحالة')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -334,7 +334,7 @@ export default function AdminTraining() {
                         <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#1E293B' }}>{s.name}</td>
                         <td style={{ padding: '12px 16px', color: '#64748B' }}>{s.branch}</td>
                         <td style={{ padding: '12px 16px' }}>
-                          {s.completed_count} من {s.total_count}
+                          {t('{completed} من {total}', { completed: s.completed_count, total: s.total_count })}
                         </td>
                         <td style={{ padding: '12px 16px', minWidth: 160 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -354,15 +354,15 @@ export default function AdminTraining() {
                         <td style={{ padding: '12px 16px' }}>
                           {s.completion_pct === 100 ? (
                             <span style={{ background: '#D1FAE5', color: '#065F46', padding: '3px 8px', borderRadius: 6, fontSize: 12, fontWeight: 'bold' }}>
-                              مكتمل 100% 🏆
+                              {t('مكتمل 100% 🏆')}
                             </span>
                           ) : s.completion_pct > 0 ? (
                             <span style={{ background: '#FEF3C7', color: '#92400E', padding: '3px 8px', borderRadius: 6, fontSize: 12 }}>
-                              قيد المتابعة
+                              {t('قيد المتابعة')}
                             </span>
                           ) : (
                             <span style={{ background: '#F1F5F9', color: '#64748B', padding: '3px 8px', borderRadius: 6, fontSize: 12 }}>
-                              لم يبدأ بعد
+                              {t('لم يبدأ بعد')}
                             </span>
                           )}
                         </td>
@@ -380,14 +380,14 @@ export default function AdminTraining() {
       {showCourseModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
           <div className="card" style={{ width: '100%', maxWidth: 500, borderRadius: 16 }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 18 }}>إضافة مسار تدريبي جديد</h3>
+            <h3 style={{ margin: '0 0 16px', fontSize: 18 }}>{t('إضافة مسار تدريبي جديد')}</h3>
             <form onSubmit={submitCourse} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>عنوان المسار التدريبي</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('عنوان المسار التدريبي')}</label>
                 <input
                   type="text"
                   required
-                  placeholder="مثال: فن الزيارة البيعية الفعالة وإدارة الرف"
+                  placeholder={t('مثال: فن الزيارة البيعية الفعالة وإدارة الرف')}
                   value={courseForm.title}
                   onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
                   className="input"
@@ -396,7 +396,7 @@ export default function AdminTraining() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>التصنيف</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('التصنيف')}</label>
                 <input
                   type="text"
                   value={courseForm.category}
@@ -407,10 +407,10 @@ export default function AdminTraining() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>الوصف والهدف من المسار</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('الوصف والهدف من المسار')}</label>
                 <textarea
                   rows={3}
-                  placeholder="اكتب نبذة للمشرف توضح ما سيتعلمه في هذا المسار..."
+                  placeholder={t('اكتب نبذة للمشرف توضح ما سيتعلمه في هذا المسار...')}
                   value={courseForm.description}
                   onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
                   className="input"
@@ -419,7 +419,7 @@ export default function AdminTraining() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>ترتيب الظهور</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('ترتيب الظهور')}</label>
                 <input
                   type="number"
                   value={courseForm.display_order}
@@ -431,10 +431,10 @@ export default function AdminTraining() {
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
                 <button type="button" onClick={() => setShowCourseModal(false)} className="btn ghost">
-                  إلغاء
+                  {t('إلغاء')}
                 </button>
                 <button type="submit" disabled={saveCourse.isPending} className="btn" style={{ background: '#4F46E5', color: '#fff' }}>
-                  {saveCourse.isPending ? 'جاري الحفظ...' : 'حفظ ونشر المسار'}
+                  {saveCourse.isPending ? t('جاري الحفظ...') : t('حفظ ونشر المسار')}
                 </button>
               </div>
             </form>
@@ -447,16 +447,16 @@ export default function AdminTraining() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
           <div className="card" style={{ width: '100%', maxWidth: 560, borderRadius: 16, maxHeight: '90vh', overflowY: 'auto' }}>
             <h3 style={{ margin: '0 0 16px', fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Video size={20} color="#4F46E5" /> إضافة درس وفيديو تعليمي
+              <Video size={20} color="#4F46E5" /> {t('إضافة درس وفيديو تعليمي')}
             </h3>
 
             <form onSubmit={submitLesson} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>عنوان الدرس</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('عنوان الدرس')}</label>
                 <input
                   type="text"
                   required
-                  placeholder="مثال: خطوات فتح وتأهيل عميل جديد في الميدان"
+                  placeholder={t('مثال: خطوات فتح وتأهيل عميل جديد في الميدان')}
                   value={lessonForm.title}
                   onChange={(e) => setLessonForm({ ...lessonForm, title: e.target.value })}
                   className="input"
@@ -465,10 +465,10 @@ export default function AdminTraining() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>نبذة عن الدرس</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('نبذة عن الدرس')}</label>
                 <textarea
                   rows={2}
-                  placeholder="شرح موجز لأهم النقاط في الفيديو..."
+                  placeholder={t('شرح موجز لأهم النقاط في الفيديو...')}
                   value={lessonForm.description}
                   onChange={(e) => setLessonForm({ ...lessonForm, description: e.target.value })}
                   className="input"
@@ -479,7 +479,7 @@ export default function AdminTraining() {
               {/* Direct Video Upload Area (Udemy/Coursera style) */}
               <div style={{ background: '#F8FAFC', padding: 14, borderRadius: 12, border: '2px dashed #CBD5E1' }}>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', color: '#1E293B', marginBottom: 6 }}>
-                  رفع ملف الفيديو مباشرة من جهازك (.mp4, .mov)
+                  {t('رفع ملف الفيديو مباشرة من جهازك (.mp4, .mov)')}
                 </label>
                 <input
                   type="file"
@@ -490,18 +490,18 @@ export default function AdminTraining() {
                 />
                 {uploadingVideo && (
                   <div style={{ marginTop: 8, fontSize: 12, color: '#4F46E5', fontWeight: 'bold' }}>
-                    جاري رفع الفيديو وحفظه في السيرفر السحابي الآمن... يرجى الانتظار
+                    {t('جاري رفع الفيديو وحفظه في السيرفر السحابي الآمن... يرجى الانتظار')}
                   </div>
                 )}
                 {lessonForm.video_url && (
                   <div style={{ marginTop: 8, fontSize: 12, color: '#10B981', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <CheckCircle2 size={16} /> تم إرفاق رابط الفيديو بنجاح
+                    <CheckCircle2 size={16} /> {t('تم إرفاق رابط الفيديو بنجاح')}
                   </div>
                 )}
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>أو رابط الفيديو المباشر</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('أو رابط الفيديو المباشر')}</label>
                 <input
                   type="url"
                   placeholder="https://..."
@@ -515,7 +515,7 @@ export default function AdminTraining() {
               {/* PDF Attachment Upload */}
               <div style={{ background: '#F8FAFC', padding: 14, borderRadius: 12, border: '1px solid #E2E8F0' }}>
                 <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', color: '#1E293B', marginBottom: 6 }}>
-                  إرفاق ملخص المادة التدريبية (PDF / إنفوجرافيك اختياري)
+                  {t('إرفاق ملخص المادة التدريبية (PDF / إنفوجرافيك اختياري)')}
                 </label>
                 <input
                   type="file"
@@ -524,17 +524,17 @@ export default function AdminTraining() {
                   disabled={uploadingPdf}
                   style={{ display: 'block', fontSize: 13, width: '100%' }}
                 />
-                {uploadingPdf && <div style={{ marginTop: 6, fontSize: 12, color: '#4F46E5' }}>جاري رفع الملخص...</div>}
+                {uploadingPdf && <div style={{ marginTop: 6, fontSize: 12, color: '#4F46E5' }}>{t('جاري رفع الملخص...')}</div>}
                 {lessonForm.attachment_url && (
                   <div style={{ marginTop: 6, fontSize: 12, color: '#10B981', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <CheckCircle2 size={14} /> تم إرفاق الملف
+                    <CheckCircle2 size={14} /> {t('تم إرفاق الملف')}
                   </div>
                 )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>المدة التقديرية (بالثواني)</label>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('المدة التقديرية (بالثواني)')}</label>
                   <input
                     type="number"
                     value={lessonForm.duration_seconds}
@@ -542,10 +542,10 @@ export default function AdminTraining() {
                     className="input"
                     style={{ width: '100%' }}
                   />
-                  <small style={{ color: '#64748B' }}>180 = 3 دقائق</small>
+                  <small style={{ color: '#64748B' }}>{t('180 = 3 دقائق')}</small>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>ترتيب الدرس</label>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('ترتيب الدرس')}</label>
                   <input
                     type="number"
                     value={lessonForm.display_order}
@@ -561,7 +561,7 @@ export default function AdminTraining() {
                   إلغاء
                 </button>
                 <button type="submit" disabled={saveLesson.isPending || uploadingVideo} className="btn" style={{ background: '#4F46E5', color: '#fff' }}>
-                  {saveLesson.isPending ? 'جاري الحفظ...' : 'حفظ ونشر الدرس'}
+                  {saveLesson.isPending ? t('جاري الحفظ...') : t('حفظ ونشر الدرس')}
                 </button>
               </div>
             </form>
