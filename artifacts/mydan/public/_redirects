@@ -1,7 +1,5 @@
-# Marketing landing page — static, indexable by Google
-/              /landing.html  200
-/landing       /landing.html  200
-/landing.html  /landing.html  200
+# Marketing landing page at root
+/  /landing.html  200
 
 # React SPA handles all app routes
 /*  /index.html  200
