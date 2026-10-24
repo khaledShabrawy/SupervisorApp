@@ -35,6 +35,15 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== BASE.origin || !url.pathname.startsWith(BASE.pathname)) return;
+  // Never intercept admin, login, auth or landing routes; let browser load them live
+  if (
+    url.pathname.includes('/admin') ||
+    url.pathname.includes('/login') ||
+    url.pathname.includes('/landing') ||
+    url.pathname.includes('/set-password')
+  ) {
+    return;
+  }
   const isAsset = /\/assets\/[^/]+\.(js|css|woff2?|png|svg)$/.test(url.pathname);
   if (request.mode === 'navigate') {
     event.respondWith(fetch(request).catch(async () => {
