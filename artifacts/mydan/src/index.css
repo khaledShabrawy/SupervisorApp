@@ -71,7 +71,7 @@ button,a,input,select,textarea{transition:background-color .15s,color .15s,borde
 @keyframes spin{to{transform:rotate(360deg)}}
 .settings-error{min-height:100dvh;max-width:430px;margin:auto;padding:32px 20px;display:flex;flex-direction:column;gap:12px;justify-content:center;background:var(--color-bg)}
 .settings-error button{min-height:48px;border-radius:12px;border:2px solid var(--color-primary);background:#fff;color:var(--color-primary);font:inherit;font-weight:700}
-.login{min-height:100dvh;max-width:430px;margin:auto;display:flex;flex-direction:column;background:var(--color-bg)}
+.login{min-height:100dvh;width:100%;margin:0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .login .hero{background:var(--color-primary);color:#fff;padding:calc(48px + var(--sat)) 24px 56px;border-radius:0 0 36px 36px;position:relative;overflow:hidden}
 .login .hero::after{content:"";position:absolute;inset-inline-end:-60px;bottom:-70px;width:200px;height:200px;border-radius:50%;border:34px solid rgba(255,255,255,.12)}
 .login .hero h1{font-size:40px;margin:12px 0 0;line-height:1.1}
