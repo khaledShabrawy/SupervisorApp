@@ -96,13 +96,13 @@ export function useDashboard() {
 export function useAttendanceAction() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (a: { kind: 'in' | 'out'; row: Attendance | null }) => {
+    mutationFn: async (a: { kind: 'in' | 'out'; row: Attendance | null; lat?: number | null; lng?: number | null }) => {
       const timestamp = nowIso(); const today = todayStr();
       if (!navigator.onLine) {
         enqueueOfflineAction({
           type: 'attendance_action', companyId: sc.companyId, supervisorId: sc.supervisorId,
           payload: a.kind === 'in'
-            ? { kind: 'in', attendance_date: today, check_in_time: timestamp }
+            ? { kind: 'in', attendance_date: today, check_in_time: timestamp, check_in_lat: a.lat ?? null, check_in_lng: a.lng ?? null }
             : { kind: 'out', attendance_date: today, check_out_time: timestamp },
         });
         return;
@@ -115,7 +115,7 @@ export function useAttendanceAction() {
         if (error) {
           enqueueOfflineAction({
             type: 'attendance_action', companyId: sc.companyId, supervisorId: sc.supervisorId,
-            payload: { kind: 'in', attendance_date: today, check_in_time: timestamp },
+            payload: { kind: 'in', attendance_date: today, check_in_time: timestamp, check_in_lat: a.lat ?? null, check_in_lng: a.lng ?? null },
           });
         }
       } else {

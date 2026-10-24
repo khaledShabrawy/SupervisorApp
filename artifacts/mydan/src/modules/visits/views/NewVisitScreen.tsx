@@ -77,6 +77,14 @@ function NearestCustomers({ gps, busy, onLog }: { gps: Gps; busy: boolean; onLog
   </div>;
 }
 
+const OOR_REASONS = [
+  'إحداثيات العميل غير دقيقة وتتطلب تحديثاً',
+  'التاجر متواجد في مخزن أو فرع مجاور',
+  'مقابلة التاجر خارج المنفذ',
+  'المنفذ مغلق والتاجر متواجد بالجوار',
+  'سبب تشغيلي آخر',
+];
+
 export default function NewVisitScreen() {
   const nav = useNavigate(); const { supervisor } = useAuth(); const s = useAppSettings();
   const gps = useGeolocation(); const m = useCreateVisit();
@@ -85,6 +93,7 @@ export default function NewVisitScreen() {
   const existing = useVisitToStart(existingId); const pre = useCustomerById(preId);
   const [picked, setPicked] = useState<Customer | null>(null);
   const [oorPending, setOorPending] = useState<OorPending | null>(null);
+  const [oorReason, setOorReason] = useState<string>(OOR_REASONS[0]);
   const customer = existingId ? existing.data?.customers ?? null : picked ?? pre.data ?? null;
   const [editedNotes, setNotes] = useState<string | null>(null);
   const notes = editedNotes ?? existing.data?.notes ?? '';

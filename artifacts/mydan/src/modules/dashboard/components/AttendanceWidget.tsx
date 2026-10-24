@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { CheckCircle2, Clock, LogIn, LogOut, X } from '@/components/Icons';
+import { CheckCircle2, Clock, LocateFixed, LogIn, LogOut, ShieldAlert, ShieldCheck, X } from '@/components/Icons';
+import { useGeolocation } from '@/hooks/useGeolocation';
 import { useAttendanceToday } from '@/lib/screen-data';
 import { useAttendanceAction } from '@/lib/data';
-import { fmtDate, fmtTime, todayStr } from '@/lib/format';
+import { fmtDate, fmtTime, num, todayStr } from '@/lib/format';
 import { t } from '@/i18n';
 import type { Attendance } from '@/types/database';
 
@@ -10,6 +11,7 @@ export function AttendanceWidget() {
   const { data: att, isPending } = useAttendanceToday();
   const action = useAttendanceAction();
   const busy = action.isPending;
+  const gps = useGeolocation();
   const [confirmKind, setConfirmKind] = useState<'in' | 'out' | null>(null);
 
   if (isPending) {
@@ -41,6 +43,33 @@ export function AttendanceWidget() {
           <Clock size={16} />
           <span>{fmtDate(todayStr())}</span>
         </div>
+        {confirmKind === 'in' && (
+          <div style={{ marginTop: -4 }}>
+            {gps.isMock ? (
+              <div className="alert err" role="alert" style={{ fontSize: 13, fontWeight: 600, display: 'flex', gap: 6, alignItems: 'center' }}>
+                <ShieldAlert size={16} />
+                <span>{gps.mockWarning || t('تم رصد تزييف موقع (Fake GPS). لا يُسمح بتسجيل الحضور بموقع وهمي.')}</span>
+              </div>
+            ) : gps.loading ? (
+              <div className="alert warn" role="status" style={{ fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}>
+                <Clock size={16} />
+                <span>{t('جاري تحديد موقع GPS الحقيقي...')}</span>
+              </div>
+            ) : gps.latitude != null ? (
+              <div className="alert ok" role="status" style={{ fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}>
+                <ShieldCheck size={16} />
+                <span>{t('تم تأكيد موقع GPS بنجاح (دقة {d} م)', { d: num(Math.round(gps.accuracy ?? 0)) })}</span>
+              </div>
+            ) : (
+              <div className="alert err" role="alert" style={{ fontSize: 13 }}>
+                <div>{gps.error || t('يلزم تفعيل الـ GPS لتسجيل الحضور.')}</div>
+                <button type="button" className="btn ghost sm" onClick={gps.retry} style={{ marginTop: 4 }}>
+                  <LocateFixed size={14} /> {t('إعادة تحديد الموقع')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         <div className="row gap-2" style={{ justifyContent: 'flex-end', marginTop: 4 }}>
           <button type="button" className="btn ghost sm" onClick={() => setConfirmKind(null)}>
             {t('إلغاء')}
@@ -48,11 +77,16 @@ export function AttendanceWidget() {
           <button
             type="button"
             className={`btn sm ${confirmKind === 'in' ? 'primary' : 'danger'}`}
-            disabled={busy}
+            disabled={busy || (confirmKind === 'in' && (gps.isMock || gps.latitude == null))}
             onClick={() => {
               const kind = confirmKind;
               setConfirmKind(null);
-              action.mutate({ kind, row: kind === 'out' ? (att as Attendance) : null });
+              action.mutate({
+                kind,
+                row: kind === 'out' ? (att as Attendance) : null,
+                lat: kind === 'in' ? gps.latitude : null,
+                lng: kind === 'in' ? gps.longitude : null,
+              });
             }}
           >
             {confirmKind === 'in' ? t('تأكيد الحضور') : t('تأكيد الانصراف')}
