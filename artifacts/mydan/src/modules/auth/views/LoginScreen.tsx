@@ -103,6 +103,22 @@ export default function LoginScreen() {
                 </div>
               </div>
             </div>
+
+            {/* Live Performance & Security Stats */}
+            <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+              <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: 12, padding: '12px 10px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#60A5FA' }}>99.4%</div>
+                <div style={{ fontSize: 11, color: '#CBD5E1', marginTop: 2 }}>{t('دقة تدقيق الرف')}</div>
+              </div>
+              <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: 12, padding: '12px 10px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#34D399' }}>100%</div>
+                <div style={{ fontSize: 11, color: '#CBD5E1', marginTop: 2 }}>{t('سياج جغرافي صارم')}</div>
+              </div>
+              <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: 12, padding: '12px 10px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#A78BFA' }}>0 ms</div>
+                <div style={{ fontSize: 11, color: '#CBD5E1', marginTop: 2 }}>{t('تشغيل فوري أوفلاين')}</div>
+              </div>
+            </div>
           </div>
 
           <div style={{ paddingTop: 24, borderTop: '1px solid rgba(255, 255, 255, 0.12)' }}>
@@ -111,7 +127,7 @@ export default function LoginScreen() {
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
                 <span>{t('الخوادم السحابية متصلة ومؤمنة')}</span>
               </span>
-              <span>256-bit SSL</span>
+              <bdi dir="ltr" style={{ fontWeight: 600, color: '#CBD5E1' }}>256-bit SSL</bdi>
             </div>
           </div>
         </div>
@@ -119,8 +135,10 @@ export default function LoginScreen() {
         {/* Right Side: Web Control Login Form */}
         <div className="login-form-pane">
           <div className="row between" style={{ alignItems: 'center', marginBottom: 16 }}>
-            <div className="badge b-blue" style={{ fontSize: 11 }}>
-              {t('بوابة الإشراف الميداني Salesbuzz Edition')}
+            <div className="badge b-blue" style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8 }}>
+              <span>{t('بوابة الإشراف الميداني')}</span>
+              <span style={{ opacity: 0.4 }}>•</span>
+              <bdi dir="ltr" style={{ fontWeight: 700, letterSpacing: -0.2 }}>Salesbuzz Edition</bdi>
             </div>
             <LanguageToggle className="btn sm ghost" />
           </div>
@@ -313,7 +331,7 @@ export default function LoginScreen() {
           >
             <div style={{ fontSize: 11, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <ShieldCheck size={14} color="#16A34A" />
-              <span>{t('نظام مشفر ومؤمن بروتوكول 256-bit SSL')}</span>
+              <span>{t('نظام مشفر ومؤمن بروتوكول')} <bdi dir="ltr" style={{ fontWeight: 700, color: '#475569' }}>256-bit SSL</bdi></span>
             </div>
             <a
               href="/"

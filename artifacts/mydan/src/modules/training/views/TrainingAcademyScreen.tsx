@@ -119,7 +119,7 @@ export default function TrainingAcademyScreen() {
             className="btn ghost"
             style={{ padding: '6px 12px', fontSize: 14, display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            <ArrowRight size={16} /> العودة لكل المسارات
+            <ArrowRight size={16} /> {t('العودة لكل المسارات')}
           </button>
         </div>
 

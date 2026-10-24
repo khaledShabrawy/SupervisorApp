@@ -14,7 +14,7 @@ const publicCompanyId = (import.meta.env.VITE_PUBLIC_COMPANY_ID as string | unde
 const publicDefaults: AppSettings = {
   id: '', company_id: '', app_name: 'Mydan', logo_url: null, primary_color: '#1A56DB',
   success_color: '#108981', danger_color: '#EF4444', background_color: '#F8FAFC',
-  geofence_radius_m: 100, target_brand_name: '', competitor_brands: [], ai_audit_enabled: false,
+  geofence_radius_m: 100, target_brand_name: '', competitor_brands: [], ai_audit_enabled: true,
 };
 const properties = ['--color-primary', '--color-success', '--color-danger', '--color-bg', '--primary-foreground'];
 export function AppSettingsProvider({ children }: { children: ReactNode }) {
