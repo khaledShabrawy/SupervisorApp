@@ -1,5 +1,6 @@
-# Marketing landing page at root
-/  /landing.html  200
+# Marketing landing page
+/landing  /landing/index.html  200
+/landing/*  /landing/index.html  200
 
-# React SPA handles all app routes
+# React SPA handles all app and admin routes
 /*  /index.html  200

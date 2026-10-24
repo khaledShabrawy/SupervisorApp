@@ -2,6 +2,16 @@ import { Capacitor } from '@capacitor/core';
 import { notify } from './toast';
 
 export function registerPwa(): void {
+  // Web Control portal is an online SaaS dashboard; never pin workers on admin routes
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        for (const reg of regs) reg.unregister().catch(() => {});
+      }).catch(() => {});
+    }
+    return;
+  }
+
   // The APK ships its files locally; a service worker there would only pin stale builds.
   if (!import.meta.env.PROD || !('serviceWorker' in navigator) || Capacitor.isNativePlatform()) return;
   window.addEventListener('load', () => {

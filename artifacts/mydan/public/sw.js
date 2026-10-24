@@ -7,27 +7,32 @@ let CACHE;
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
-    const response = await fetch(new URL('asset-manifest.json', BASE), { cache: 'no-store' });
-    if (!response.ok) throw new Error('Missing app-shell build manifest');
-    const manifest = await response.json();
-    CACHE = PREFIX + manifest.version;
-    const cache = await caches.open(CACHE);
-    await cache.addAll([...new Set(['./', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
-      ...manifest.assets, ...BUILD_ASSETS.map(entry => entry.url)].map(path => new URL(path, BASE).href))]
-      .map(url => new Request(url, { cache: 'reload' })));
+    try {
+      const response = await fetch(new URL('asset-manifest.json', BASE), { cache: 'no-store' });
+      if (!response.ok) throw new Error('Missing app-shell build manifest');
+      const manifest = await response.json();
+      CACHE = PREFIX + manifest.version;
+      const cache = await caches.open(CACHE);
+      await cache.addAll([...new Set(['./', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
+        ...manifest.assets, ...BUILD_ASSETS.map(entry => entry.url)].map(path => new URL(path, BASE).href))]
+        .map(url => new Request(url, { cache: 'reload' })));
+    } catch {
+      // In production, redirects or network blips must never prevent the worker from installing and activating
+    }
     await self.skipWaiting();
   })());
 });
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    // Worker globals can be restarted independently of installation.
-    if (!CACHE) {
-      const response = await fetch(new URL('asset-manifest.json', BASE), { cache: 'no-store' });
-      const manifest = await response.json();
-      CACHE = PREFIX + manifest.version;
-    }
-    await Promise.all((await caches.keys()).filter(key => key.startsWith(PREFIX) && key !== CACHE)
-      .map(key => caches.delete(key)));
+    try {
+      if (!CACHE) {
+        const response = await fetch(new URL('asset-manifest.json', BASE), { cache: 'no-store' });
+        const manifest = await response.json();
+        CACHE = PREFIX + manifest.version;
+      }
+      await Promise.all((await caches.keys()).filter(key => key.startsWith(PREFIX) && key !== CACHE)
+        .map(key => caches.delete(key)));
+    } catch {}
     await self.clients.claim();
   })());
 });
