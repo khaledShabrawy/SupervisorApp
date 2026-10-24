@@ -2,7 +2,13 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Calendar, ChevronDown, Compass, Eye, Filter, MapPin, Phone, RefreshCw, Search, Users, X } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
-import { useLiveTrackingData, type SupervisorLiveTrack, type SupervisorRoutePoint } from '@/lib/screen-live-map';
+import {
+  useLiveTrackingData,
+  useSupervisorVisitsHistory,
+  type SupervisorLiveTrack,
+  type SupervisorRoutePoint,
+  type SupervisorHistoryVisit,
+} from '@/lib/screen-live-map';
 import { ErrorState, SkeletonList } from '@/components/States';
 import EmptyState from '@/components/EmptyState';
 import { fmtDate, fmtTime, num, todayStr } from '@/lib/format';
@@ -50,8 +56,8 @@ function injectMapStyles() {
         cursor: pointer;
       }
       .sup-waypoint-marker {
-        width: 24px;
-        height: 24px;
+        width: 26px;
+        height: 26px;
         border-radius: 50%;
         background: #6366F1;
         color: #fff;
@@ -59,9 +65,24 @@ function injectMapStyles() {
         align-items: center;
         justify-content: center;
         font-weight: 700;
+        font-size: 12px;
+        border: 2px solid #fff;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+        cursor: pointer;
+      }
+      .sup-history-marker {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #8B5CF6;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
         font-size: 11px;
         border: 2px solid #fff;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         cursor: pointer;
       }
       .live-map-wrapper {
@@ -78,14 +99,14 @@ function injectMapStyles() {
       }
       @media (min-width: 960px) {
         .live-map-grid {
-          grid-template-columns: 360px 1fr;
+          grid-template-columns: 390px 1fr;
           height: calc(100vh - 180px);
           min-height: 580px;
         }
       }
       .live-map-leaflet-container {
         width: 100%;
-        height: 400px;
+        height: 420px;
         border-radius: 14px;
         overflow: hidden;
         border: 1px solid var(--line);
@@ -111,6 +132,20 @@ function injectMapStyles() {
         background: #F0F4FF !important;
         box-shadow: 0 0 0 2px var(--color-primary);
       }
+      .stop-item-card {
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: #F8FAFC;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        transition: all 0.15s ease;
+      }
+      .stop-item-card:hover {
+        background: #EFF6FF;
+        border-color: var(--color-primary);
+      }
     `;
     document.head.appendChild(style);
   }
@@ -125,7 +160,7 @@ function injectMapStyles() {
   }
 }
 
-/** Sanitize dynamic data before embedding into Leaflet DOM/HTML popups to prevent XSS */
+/** Sanitize dynamic data before embedding into Leaflet DOM/HTML popups */
 function escapeHtml(value: unknown): string {
   if (value == null) return '';
   return String(value)
@@ -141,7 +176,7 @@ export default function AdminLiveMap() {
   const settings = useAppSettings();
 
   const [date, setDate] = useState<string>(todayStr());
-  const [branchFilter, setBranchFilter] = useState<string>('all');
+  const [branchFilter, setBranchFilter] = useState<string>(() => { try { return localStorage.getItem('mydan_active_branch_id') || 'all'; } catch { return 'all'; } });
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'in_progress' | 'completed' | 'idle'>('all');
   const [selectedSupId, setSelectedSupId] = useState<string | null>(null);
@@ -149,9 +184,12 @@ export default function AdminLiveMap() {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<any>(null);
   const leafletLayerGroupRef = useRef<any>(null);
+  const markersRef = useRef<Map<string, any>>(new Map());
 
   const { data, tracks, branches, summary, isPending, isError, error, refetch, isFetching } =
     useLiveTrackingData(date, branchFilter);
+
+  const historyQuery = useSupervisorVisitsHistory(selectedSupId);
 
   // Initialize styles & Leaflet
   useEffect(() => {
@@ -175,6 +213,20 @@ export default function AdminLiveMap() {
   const selectedTrack = useMemo(() => {
     return tracks.find((t) => t.supervisorId === selectedSupId) ?? null;
   }, [tracks, selectedSupId]);
+
+  // Focus map on specific coordinate and open its popup
+  const handleFocusLocation = useCallback((lat: number, lng: number, key?: string) => {
+    if (!leafletMapRef.current) return;
+    leafletMapRef.current.flyTo([lat, lng], 17, { duration: 1.0 });
+    if (key) {
+      const marker = markersRef.current.get(key);
+      if (marker) {
+        setTimeout(() => {
+          marker.openPopup();
+        }, 500);
+      }
+    }
+  }, []);
 
   // Leaflet map setup & marker rendering
   useEffect(() => {
@@ -206,80 +258,164 @@ export default function AdminLiveMap() {
       const map = leafletMapRef.current;
       const layerGroup = leafletLayerGroupRef.current;
       layerGroup.clearLayers();
+      markersRef.current.clear();
 
       const allPoints: [number, number][] = [];
 
-      // If a specific supervisor is selected: Draw their journey route today
-      if (selectedTrack && selectedTrack.route.length > 0) {
-        const routeCoords: [number, number][] = [];
+      // 1. If a specific supervisor is selected:
+      if (selectedTrack) {
+        const safeSupName = escapeHtml(selectedTrack.supervisorName);
+        const safeBranch = selectedTrack.branchName ? escapeHtml(selectedTrack.branchName) : '';
 
-        selectedTrack.route.forEach((pt) => {
-          const ll: [number, number] = [pt.latitude, pt.longitude];
-          routeCoords.push(ll);
-          allPoints.push(ll);
+        // Case A: Supervisor has route points today
+        if (selectedTrack.route.length > 0) {
+          const routeCoords: [number, number][] = [];
 
-          const isCurrent =
-            selectedTrack.currentLocation &&
-            Math.abs(selectedTrack.currentLocation.latitude - pt.latitude) < 0.0001 &&
-            Math.abs(selectedTrack.currentLocation.longitude - pt.longitude) < 0.0001;
+          selectedTrack.route.forEach((pt) => {
+            const ll: [number, number] = [pt.latitude, pt.longitude];
+            routeCoords.push(ll);
+            allPoints.push(ll);
 
-          const markerClass = isCurrent
-            ? selectedTrack.liveStatus === 'in_progress' ? 'sup-pulse-marker' : 'sup-idle-marker'
-            : 'sup-waypoint-marker';
+            const isCurrent =
+              selectedTrack.currentLocation &&
+              Math.abs(selectedTrack.currentLocation.latitude - pt.latitude) < 0.0001 &&
+              Math.abs(selectedTrack.currentLocation.longitude - pt.longitude) < 0.0001;
 
-          const icon = L.divIcon({
-            html: `<div class="${markerClass}">${isCurrent ? '👤' : pt.seq}</div>`,
-            className: '',
-            iconSize: isCurrent ? [36, 36] : [24, 24],
-            iconAnchor: isCurrent ? [18, 18] : [12, 12],
-            popupAnchor: [0, -16],
+            const markerClass = isCurrent
+              ? selectedTrack.liveStatus === 'in_progress' ? 'sup-pulse-marker' : 'sup-idle-marker'
+              : 'sup-waypoint-marker';
+
+            const icon = L.divIcon({
+              html: `<div class="${markerClass}">${isCurrent ? '👤' : pt.seq}</div>`,
+              className: '',
+              iconSize: isCurrent ? [36, 36] : [26, 26],
+              iconAnchor: isCurrent ? [18, 18] : [13, 13],
+              popupAnchor: [0, -16],
+            });
+
+            const safeCustName = escapeHtml(pt.customerName);
+            const safeCustAddr = pt.customerAddress ? escapeHtml(pt.customerAddress) : '';
+
+            const popupContent = `
+              <div style="direction:rtl;text-align:right;font-family:inherit;min-width:210px">
+                <div style="font-weight:800;font-size:14px;color:#1E293B">#${escapeHtml(pt.seq)} · ${safeCustName}</div>
+                ${safeCustAddr ? `<div style="font-size:12px;color:#64748B;margin-top:2px">📍 ${safeCustAddr}</div>` : ''}
+                <div style="font-size:12px;color:#475569;margin-top:4px">
+                  🕒 ${t('دخول')}: ${pt.checkInTime ? escapeHtml(fmtTime(pt.checkInTime)) : '—'}
+                  ${pt.checkOutTime ? ` · ${t('خروج')}: ${escapeHtml(fmtTime(pt.checkOutTime))}` : ''}
+                </div>
+                <div style="margin-top:6px;font-size:11px">
+                  ${pt.status === 'in_progress' ? '<span style="background:#DCFCE7;color:#166534;padding:2px 6px;border-radius:4px;font-weight:700">🟢 ' + t('في زيارة حالياً') + '</span>' : '<span style="background:#E2E8F0;color:#334155;padding:2px 6px;border-radius:4px">✅ ' + t('زيارة مكتملة') + '</span>'}
+                  ${pt.onBeat != null ? (pt.onBeat ? ' · <span style="color:#16A34A">' + t('داخل النطاق') + '</span>' : ' · <span style="color:#DC2626">' + t('خارج النطاق') + '</span>') : ''}
+                </div>
+              </div>
+            `;
+
+            const m = L.marker(ll, { icon }).bindPopup(popupContent).addTo(layerGroup);
+            markersRef.current.set(`today-${pt.visitId}`, m);
+            markersRef.current.set(`${pt.latitude},${pt.longitude}`, m);
           });
 
-          const safeCustName = escapeHtml(pt.customerName);
-          const safeCustAddr = pt.customerAddress ? escapeHtml(pt.customerAddress) : '';
+          if (routeCoords.length > 1) {
+            L.polyline(routeCoords, {
+              color: '#4F46E5',
+              weight: 4,
+              opacity: 0.85,
+              dashArray: '8 6',
+            }).addTo(layerGroup);
+          }
 
-          const popupContent = `
-            <div style="direction:rtl;text-align:right;font-family:inherit;min-width:200px">
-              <div style="font-weight:800;font-size:14px;color:#1E293B">#${escapeHtml(pt.seq)} · ${safeCustName}</div>
-              ${safeCustAddr ? `<div style="font-size:12px;color:#64748B;margin-top:2px">📍 ${safeCustAddr}</div>` : ''}
-              <div style="font-size:12px;color:#475569;margin-top:4px">
-                🕒 دخول: ${pt.checkInTime ? escapeHtml(fmtTime(pt.checkInTime)) : '—'}
-                ${pt.checkOutTime ? ` · خروج: ${escapeHtml(fmtTime(pt.checkOutTime))}` : ''}
+          map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 16 });
+        } else {
+          // Case B: No route today. Plot history visits if available, or branch location
+          const historyVisits = (historyQuery.data ?? []).filter((h) => h.latitude && h.longitude);
+
+          if (historyVisits.length > 0) {
+            historyVisits.slice(0, 10).forEach((hv, idx) => {
+              const ll: [number, number] = [hv.latitude!, hv.longitude!];
+              allPoints.push(ll);
+
+              const icon = L.divIcon({
+                html: `<div class="sup-history-marker" title="${escapeHtml(hv.customerName)}">${idx + 1}</div>`,
+                className: '',
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+                popupAnchor: [0, -14],
+              });
+
+              const safeCustName = escapeHtml(hv.customerName);
+              const safeCustAddr = hv.customerAddress ? escapeHtml(hv.customerAddress) : '';
+
+              const popupContent = `
+                <div style="direction:rtl;text-align:right;font-family:inherit;min-width:200px">
+                  <div style="font-weight:800;font-size:13px;color:#1E293B">#${idx + 1} · ${safeCustName}</div>
+                  ${safeCustAddr ? `<div style="font-size:11px;color:#64748B;margin-top:2px">📍 ${safeCustAddr}</div>` : ''}
+                  <div style="font-size:11px;color:#475569;margin-top:4px">
+                    📅 ${escapeHtml(fmtDate(hv.visitDate))} ${hv.checkInTime ? `· 🕒 ${escapeHtml(fmtTime(hv.checkInTime))}` : ''}
+                  </div>
+                  <div style="margin-top:4px;font-size:11px">
+                    <span style="background:#F1F5F9;color:#475569;padding:2px 6px;border-radius:4px">📍 ${t('سجل المحطات')}</span>
+                  </div>
+                </div>
+              `;
+
+              const m = L.marker(ll, { icon }).bindPopup(popupContent).addTo(layerGroup);
+              markersRef.current.set(`hist-${hv.id}`, m);
+              markersRef.current.set(`${hv.latitude},${hv.longitude}`, m);
+            });
+
+            if (allPoints.length > 0) {
+              map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 15 });
+            }
+          }
+
+          // Also plot branch hub if supervisor has branch coordinates
+          if (selectedTrack.branchLocation) {
+            const bll: [number, number] = [selectedTrack.branchLocation.latitude, selectedTrack.branchLocation.longitude];
+            allPoints.push(bll);
+
+            const bIcon = L.divIcon({
+              html: `<div class="sup-idle-marker" style="background:#7C3AED" title="${safeBranch}">🏢</div>`,
+              className: '',
+              iconSize: [32, 32],
+              iconAnchor: [16, 16],
+              popupAnchor: [0, -18],
+            });
+
+            const bPopup = `
+              <div style="direction:rtl;text-align:right;font-family:inherit">
+                <div style="font-weight:800;font-size:14px;color:#1E293B">🏢 فرع ${safeBranch}</div>
+                <div style="font-size:12px;color:#64748B;margin-top:2px">${t('المركز التشغيلي للمشرف')}: ${safeSupName}</div>
               </div>
-              <div style="margin-top:6px;font-size:11px">
-                ${pt.status === 'in_progress' ? '<span style="background:#DCFCE7;color:#166534;padding:2px 6px;border-radius:4px;font-weight:700">🟢 في زيارة الآن</span>' : '<span style="background:#E2E8F0;color:#334155;padding:2px 6px;border-radius:4px">✅ زيارة مكتملة</span>'}
-                ${pt.onBeat != null ? (pt.onBeat ? ' · <span style="color:#16A34A">داخل النطاق</span>' : ' · <span style="color:#DC2626">خارج النطاق</span>') : ''}
-              </div>
-            </div>
-          `;
+            `;
 
-          L.marker(ll, { icon }).bindPopup(popupContent).addTo(layerGroup);
-        });
+            const bm = L.marker(bll, { icon: bIcon }).bindPopup(bPopup).addTo(layerGroup);
+            markersRef.current.set(`branch-${selectedTrack.branchId}`, bm);
 
-        // Draw connecting polyline route
-        if (routeCoords.length > 1) {
-          L.polyline(routeCoords, {
-            color: '#6366F1',
-            weight: 4,
-            opacity: 0.85,
-            dashArray: '8 6',
-          }).addTo(layerGroup);
+            if (historyVisits.length === 0) {
+              map.flyTo(bll, 14, { duration: 1.2 });
+            }
+          }
+
+          if (allPoints.length === 0) {
+            map.setView([30.0444, 31.2357], 11);
+          }
         }
       } else {
-        // No single supervisor selected: Display latest live location of ALL active supervisors
-        filteredTracks.forEach((t) => {
-          if (!t.currentLocation) return;
-          const ll: [number, number] = [t.currentLocation.latitude, t.currentLocation.longitude];
+        // 2. No single supervisor selected: Display all active supervisors on the map
+        filteredTracks.forEach((trk) => {
+          if (!trk.currentLocation) return;
+          const ll: [number, number] = [trk.currentLocation.latitude, trk.currentLocation.longitude];
           allPoints.push(ll);
 
-          const safeSupName = escapeHtml(t.supervisorName);
-          const safeBranch = t.branchName ? escapeHtml(t.branchName) : '';
-          const safeCustName = escapeHtml(t.currentCustomerName || 'عميل');
-          const safeCustAddr = t.currentCustomerAddress ? escapeHtml(t.currentCustomerAddress) : '';
-          const cleanPhone = (t.phone || '').replace(/[^0-9+]/g, '');
-          const waPhone = (t.phone || '').replace(/[^0-9]/g, '');
+          const safeSupName = escapeHtml(trk.supervisorName);
+          const safeBranch = trk.branchName ? escapeHtml(trk.branchName) : '';
+          const safeCustName = escapeHtml(trk.currentCustomerName || 'عميل');
+          const safeCustAddr = trk.currentCustomerAddress ? escapeHtml(trk.currentCustomerAddress) : '';
+          const cleanPhone = (trk.phone || '').replace(/[^0-9+]/g, '');
+          const waPhone = (trk.phone || '').replace(/[^0-9]/g, '');
 
-          const isLive = t.liveStatus === 'in_progress';
+          const isLive = trk.liveStatus === 'in_progress';
           const icon = L.divIcon({
             html: `<div class="${isLive ? 'sup-pulse-marker' : 'sup-idle-marker'}" title="${safeSupName}">
                     ${isLive ? '🟢' : '👤'}
@@ -296,11 +432,11 @@ export default function AdminLiveMap() {
               ${safeBranch ? `<div style="font-size:12px;color:#64748B">🏢 فرع ${safeBranch}</div>` : ''}
               <div style="margin-top:6px;padding:6px 8px;background:#F8FAFC;border-radius:6px;border:1px solid #E2E8F0">
                 <div style="font-size:12px;font-weight:700;color:${isLive ? '#166534' : '#1E40AF'}">
-                  ${isLive ? '🟢 في زيارة حالياً لدى:' : '🔵 آخر تواجد مسجل لدى:'}
+                  ${isLive ? '🟢 ' + t('في زيارة حالياً') + ':' : '🔵 ' + t('آخر تواجد مسجل') + ':'}
                 </div>
                 <div style="font-size:13px;font-weight:700;margin-top:2px">${safeCustName}</div>
                 ${safeCustAddr ? `<div style="font-size:11px;color:#64748B">${safeCustAddr}</div>` : ''}
-                ${t.lastActiveTime ? `<div style="font-size:11px;color:#64748B;margin-top:3px">🕒 ${escapeHtml(fmtTime(t.lastActiveTime))}</div>` : ''}
+                ${trk.lastActiveTime ? `<div style="font-size:11px;color:#64748B;margin-top:3px">🕒 ${escapeHtml(fmtTime(trk.lastActiveTime))}</div>` : ''}
               </div>
               <div style="display:flex;gap:6px;margin-top:8px">
                 ${cleanPhone ? `<a href="tel:${cleanPhone}" style="flex:1;background:#E2E8F0;text-align:center;padding:4px 0;border-radius:6px;font-size:12px;text-decoration:none;color:#0F172A;font-weight:700">📞 اتصال</a>` : ''}
@@ -309,24 +445,24 @@ export default function AdminLiveMap() {
             </div>
           `;
 
-          L.marker(ll, { icon }).bindPopup(popupContent).addTo(layerGroup);
+          const m = L.marker(ll, { icon }).bindPopup(popupContent).addTo(layerGroup);
+          markersRef.current.set(`sup-${trk.supervisorId}`, m);
         });
-      }
 
-      // Adjust map view bounds
-      if (allPoints.length > 0) {
-        map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 15 });
-      } else {
-        map.setView([30.0444, 31.2357], 11);
+        if (allPoints.length > 0) {
+          map.fitBounds(L.latLngBounds(allPoints), { padding: [50, 50], maxZoom: 15 });
+        } else {
+          map.setView([30.0444, 31.2357], 11);
+        }
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [filteredTracks, selectedTrack]);
+  }, [filteredTracks, selectedTrack, historyQuery.data]);
 
-  // Clean up Leaflet instance on screen unmount
+  // Clean up Leaflet instance on unmount
   useEffect(() => {
     return () => {
       if (leafletMapRef.current) {
@@ -385,7 +521,10 @@ export default function AdminLiveMap() {
           {/* Refresh Button */}
           <button
             className="btn ghost"
-            onClick={() => refetch()}
+            onClick={() => {
+              void refetch();
+              if (selectedSupId) void historyQuery.refetch();
+            }}
             disabled={isFetching}
             style={{ minHeight: 38, gap: 6 }}
             title={t('تحديث فوري')}
@@ -418,206 +557,382 @@ export default function AdminLiveMap() {
 
       {/* Main Split Grid (Sidebar List + Leaflet Map) */}
       <div className="live-map-grid">
-        {/* Supervisors Sidebar List */}
-        <div className="card col" style={{ padding: 12, gap: 10, background: '#fff' }}>
-          <div className="row between" style={{ alignItems: 'center' }}>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>
-              {t('قائمة المشرفين')} ({num(filteredTracks.length)})
-            </div>
-            {selectedSupId && (
-              <button
-                className="btn sm ghost"
-                style={{ fontSize: 12, padding: '2px 8px' }}
-                onClick={() => setSelectedSupId(null)}
-              >
-                {t('عرض الكل 🌍')}
-              </button>
-            )}
-          </div>
+        {/* Supervisors Sidebar List OR Selected Supervisor Detail & Stops History */}
+        <div className="card col" style={{ padding: 12, gap: 10, background: '#fff', overflow: 'hidden' }}>
+          {selectedTrack ? (
+            /* Selected Supervisor Stops & Visits History View */
+            <div className="col" style={{ gap: 10, height: '100%', overflowY: 'auto' }}>
+              <div className="row between" style={{ alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: 8 }}>
+                <button
+                  type="button"
+                  className="btn sm ghost"
+                  onClick={() => setSelectedSupId(null)}
+                  style={{ gap: 4, padding: '4px 8px', fontSize: 13 }}
+                >
+                  ← {t('العودة لقائمة المشرفين 👥')}
+                </button>
+                <span className="badge b-blue" style={{ fontSize: 11 }}>
+                  {t('المشرف المحدد')}
+                </span>
+              </div>
 
-          {/* Search Input */}
-          <div className="row" style={{ position: 'relative' }}>
-            <input
-              className="input block"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t('بحث بالمشرف أو العميل...')}
-              style={{ paddingInlineStart: 32, fontSize: 13, minHeight: 36 }}
-            />
-            <span style={{ position: 'absolute', insetInlineStart: 10, top: 9, opacity: 0.5 }}>
-              <Search size={16} />
-            </span>
-          </div>
+              {/* Supervisor Identity Header */}
+              <div style={{ background: '#F8FAFC', padding: 10, borderRadius: 10, border: '1px solid var(--line)' }}>
+                <div style={{ fontWeight: 800, fontSize: 15, color: '#0F172A' }}>
+                  {selectedTrack.supervisorName}
+                </div>
+                {selectedTrack.branchName && (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                    🏢 فرع {selectedTrack.branchName}
+                  </div>
+                )}
+                <div className="row" style={{ gap: 6, marginTop: 8 }}>
+                  {selectedTrack.phone && (
+                    <a
+                      href={`tel:${selectedTrack.phone}`}
+                      className="btn sm ghost"
+                      style={{ fontSize: 12, padding: '3px 8px', flex: 1, justifyContent: 'center' }}
+                    >
+                      <Phone size={13} />
+                      <span>{t('اتصال هاتفي')}</span>
+                    </a>
+                  )}
+                  {selectedTrack.phone && (
+                    <a
+                      href={`https://api.whatsapp.com/send?phone=${selectedTrack.phone.replace(/[^0-9]/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn sm"
+                      style={{
+                        fontSize: 12,
+                        padding: '3px 8px',
+                        background: '#25D366',
+                        color: '#fff',
+                        flex: 1,
+                        justifyContent: 'center',
+                      }}
+                    >
+                      💬 <span>{t('مراسلة واتساب')}</span>
+                    </a>
+                  )}
+                </div>
+              </div>
 
-          {/* Status Quick Filter Chips */}
-          <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
-            <button
-              className={`chip sm ${statusFilter === 'all' ? 'on' : ''}`}
-              onClick={() => setStatusFilter('all')}
-              style={{ fontSize: 11, padding: '2px 8px' }}
-            >
-              {t('الكل')}
-            </button>
-            <button
-              className={`chip sm ${statusFilter === 'in_progress' ? 'on' : ''}`}
-              onClick={() => setStatusFilter('in_progress')}
-              style={{ fontSize: 11, padding: '2px 8px' }}
-            >
-              🟢 {t('في زيارة')}
-            </button>
-            <button
-              className={`chip sm ${statusFilter === 'completed' ? 'on' : ''}`}
-              onClick={() => setStatusFilter('completed')}
-              style={{ fontSize: 11, padding: '2px 8px' }}
-            >
-              🔵 {t('متحرك')}
-            </button>
-            <button
-              className={`chip sm ${statusFilter === 'idle' ? 'on' : ''}`}
-              onClick={() => setStatusFilter('idle')}
-              style={{ fontSize: 11, padding: '2px 8px' }}
-            >
-              ⚪ {t('بدون نشاط')}
-            </button>
-          </div>
+              {/* Section 1: Today's Stops */}
+              <div className="col" style={{ gap: 6 }}>
+                <div className="row between" style={{ alignItems: 'center' }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#1E293B' }}>
+                    📍 {t('محطات اليوم')} ({num(selectedTrack.route.length)})
+                  </div>
+                  {selectedTrack.route.length > 0 && (
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                      {num(selectedTrack.completedVisitsToday)} {t('زيارة مكتملة')}
+                    </span>
+                  )}
+                </div>
 
-          {/* Supervisor List */}
-          {isPending ? (
-            <SkeletonList n={4} />
-          ) : isError ? (
-            <ErrorState error={error} onRetry={refetch} />
-          ) : filteredTracks.length === 0 ? (
-            <EmptyState icon={<Users />} title={t('لا يوجد مشرفون')} text={t('لا توجد بيانات مطابقة لخيارات التصفية.')} />
-          ) : (
-            <div className="live-sup-list">
-              {filteredTracks.map((trk) => {
-                const isSelected = trk.supervisorId === selectedSupId;
-                const isLive = trk.liveStatus === 'in_progress';
-                const hasLocation = Boolean(trk.currentLocation);
-
-                return (
-                  <div
-                    key={trk.supervisorId}
-                    className={`card col ${isSelected ? 'sup-card-selected' : ''}`}
-                    style={{
-                      padding: '10px 12px',
-                      gap: 6,
-                      cursor: hasLocation ? 'pointer' : 'default',
-                      margin: 0,
-                      border: '1px solid var(--line)',
-                      borderRight: `4px solid ${isLive ? '#16A34A' : hasLocation ? '#2563EB' : '#CBD5E1'}`,
-                      background: isSelected ? '#F0F4FF' : '#fff',
-                    }}
-                    onClick={() => hasLocation && handleSelectSupervisor(trk.supervisorId)}
-                  >
-                    <div className="row between" style={{ alignItems: 'flex-start' }}>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 14 }}>{trk.supervisorName}</div>
-                        {trk.branchName && (
-                          <div className="muted" style={{ fontSize: 12 }}>
-                            🏢 {trk.branchName}
-                          </div>
-                        )}
-                      </div>
-                      <span
-                        className={`badge ${isLive ? 'b-green' : hasLocation ? 'b-blue' : 'b-gray'}`}
-                        style={{ fontSize: 11, whiteSpace: 'nowrap' }}
+                {selectedTrack.route.length === 0 ? (
+                  <div className="muted" style={{ fontSize: 12, background: '#F8FAFC', padding: 8, borderRadius: 8 }}>
+                    ℹ️ {t('لا توجد زيارات مسجلة للمشرف بتاريخ اليوم.')}
+                  </div>
+                ) : (
+                  <div className="col" style={{ gap: 6 }}>
+                    {selectedTrack.route.map((pt) => (
+                      <div
+                        key={pt.visitId}
+                        className="stop-item-card"
+                        onClick={() => handleFocusLocation(pt.latitude, pt.longitude, `today-${pt.visitId}`)}
+                        style={{ cursor: 'pointer' }}
+                        title={t('تركيز الخريطة')}
                       >
-                        {isLive ? `🟢 ${t('في زيارة')}` : hasLocation ? `🔵 ${t('متحرك')}` : `⚪ ${t('غير نشط')}`}
-                      </span>
-                    </div>
-
-                    {/* Customer & Location status */}
-                    {trk.currentCustomerName ? (
-                      <div style={{ fontSize: 12, color: 'var(--muted)', background: '#F8FAFC', padding: '4px 8px', borderRadius: 6 }}>
-                        <div style={{ fontWeight: 600, color: '#334155' }}>
-                          🏪 {trk.currentCustomerName}
+                        <div className="row between" style={{ alignItems: 'flex-start' }}>
+                          <div style={{ fontWeight: 700, fontSize: 13 }}>
+                            #{pt.seq} {pt.customerName}
+                          </div>
+                          <span
+                            className={`badge ${pt.status === 'in_progress' ? 'b-green' : 'b-gray'}`}
+                            style={{ fontSize: 10 }}
+                          >
+                            {pt.status === 'in_progress' ? t('في زيارة حالياً') : t('زيارة مكتملة')}
+                          </span>
                         </div>
-                        {trk.currentCustomerAddress && (
-                          <div style={{ fontSize: 11, color: '#64748B' }}>
-                            📍 {trk.currentCustomerAddress}
+                        {pt.customerAddress && (
+                          <div className="muted" style={{ fontSize: 11 }}>
+                            📍 {pt.customerAddress}
                           </div>
                         )}
-                        {trk.lastActiveTime && (
-                          <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
-                            🕒 {fmtTime(trk.lastActiveTime)}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="muted" style={{ fontSize: 12 }}>
-                        {t('لم يسجل أي زيارة ميدانية اليوم')}
-                      </div>
-                    )}
-
-                    {/* Actions Row */}
-                    <div className="row between" style={{ marginTop: 4, alignItems: 'center' }}>
-                      <span className="muted" style={{ fontSize: 12 }}>
-                        {t('{n} زيارة', { n: num(trk.totalVisitsToday) })}
-                        {trk.completedVisitsToday > 0 ? ` · ${num(trk.completedVisitsToday)} مكتملة` : ''}
-                      </span>
-
-                      <div className="row" style={{ gap: 6 }} onClick={(e) => e.stopPropagation()}>
-                        {hasLocation && (
+                        <div className="row between" style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
+                          <span>🕒 {pt.checkInTime ? fmtTime(pt.checkInTime) : '—'}</span>
                           <button
                             type="button"
-                            className={`btn sm ${isSelected ? 'primary' : 'ghost'}`}
-                            style={{ fontSize: 11, padding: '2px 8px', minHeight: 26 }}
-                            onClick={() => handleSelectSupervisor(trk.supervisorId)}
-                            title={t('تتبع خط السير على الخريطة')}
+                            className="btn sm ghost"
+                            style={{ fontSize: 11, padding: '1px 6px', height: 22 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFocusLocation(pt.latitude, pt.longitude, `today-${pt.visitId}`);
+                            }}
                           >
-                            🗺️ {isSelected ? t('المسار مفعل') : t('تتبع')}
+                            🔍 {t('تركيز')}
                           </button>
-                        )}
-                        {trk.phone && (
-                          <a
-                            href={`https://api.whatsapp.com/send?phone=${trk.phone.replace(/[^0-9]/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="icon-btn"
-                            style={{
-                              background: '#25D366',
-                              color: '#fff',
-                              width: 26,
-                              height: 26,
-                              borderRadius: 6,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 13,
-                              textDecoration: 'none',
-                            }}
-                            title={t('مراسلة واتساب')}
-                          >
-                            💬
-                          </a>
-                        )}
-                        {trk.phone && (
-                          <a
-                            href={`tel:${trk.phone}`}
-                            className="icon-btn"
-                            style={{
-                              background: '#F1F5F9',
-                              color: '#334155',
-                              width: 26,
-                              height: 26,
-                              borderRadius: 6,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              textDecoration: 'none',
-                            }}
-                            title={t('اتصال هاتفي')}
-                          >
-                            <Phone size={13} />
-                          </a>
-                        )}
+                        </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                );
-              })}
+                )}
+              </div>
+
+              {/* Section 2: Previous Stops History */}
+              <div className="col" style={{ gap: 6, marginTop: 4 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#1E293B' }}>
+                  🕒 {t('سجل آخر زيارات ميدانية للمشرف')}
+                </div>
+
+                {historyQuery.isLoading ? (
+                  <SkeletonList n={3} />
+                ) : (historyQuery.data ?? []).length === 0 ? (
+                  <div className="muted" style={{ fontSize: 12, background: '#F8FAFC', padding: 8, borderRadius: 8 }}>
+                    {t('لا يوجد سجل زيارات سابق لهذا المشرف.')}
+                  </div>
+                ) : (
+                  <div className="col" style={{ gap: 6 }}>
+                    {(historyQuery.data ?? []).map((hv) => {
+                      const hasCoords = Number.isFinite(hv.latitude) && Number.isFinite(hv.longitude);
+                      return (
+                        <div
+                          key={hv.id}
+                          className="stop-item-card"
+                          style={{ cursor: hasCoords ? 'pointer' : 'default' }}
+                          onClick={() => hasCoords && handleFocusLocation(hv.latitude!, hv.longitude!, `hist-${hv.id}`)}
+                        >
+                          <div className="row between" style={{ alignItems: 'flex-start' }}>
+                            <div style={{ fontWeight: 600, fontSize: 12 }}>
+                              {hv.customerName}
+                            </div>
+                            <span className="badge b-gray" style={{ fontSize: 10 }}>
+                              {fmtDate(hv.visitDate)}
+                            </span>
+                          </div>
+                          {hv.customerAddress && (
+                            <div className="muted" style={{ fontSize: 11 }}>
+                              📍 {hv.customerAddress}
+                            </div>
+                          )}
+                          <div className="row between" style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
+                            <span>🕒 {hv.checkInTime ? fmtTime(hv.checkInTime) : '—'}</span>
+                            {hasCoords && (
+                              <button
+                                type="button"
+                                className="btn sm ghost"
+                                style={{ fontSize: 11, padding: '1px 6px', height: 22 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleFocusLocation(hv.latitude!, hv.longitude!, `hist-${hv.id}`);
+                                }}
+                              >
+                                🗺️ {t('عرض')}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
+          ) : (
+            /* Full Supervisors List View */
+            <>
+              <div className="row between" style={{ alignItems: 'center' }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>
+                  {t('قائمة المشرفين')} ({num(filteredTracks.length)})
+                </div>
+              </div>
+
+              {/* Search Input */}
+              <div className="row" style={{ position: 'relative' }}>
+                <input
+                  className="input block"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={t('بحث بالمشرف أو العميل...')}
+                  style={{ paddingInlineStart: 32, fontSize: 13, minHeight: 36 }}
+                />
+                <span style={{ position: 'absolute', insetInlineStart: 10, top: 9, opacity: 0.5 }}>
+                  <Search size={16} />
+                </span>
+              </div>
+
+              {/* Status Quick Filter Chips */}
+              <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
+                <button
+                  className={`chip sm ${statusFilter === 'all' ? 'on' : ''}`}
+                  onClick={() => setStatusFilter('all')}
+                  style={{ fontSize: 11, padding: '2px 8px' }}
+                >
+                  {t('الكل')}
+                </button>
+                <button
+                  className={`chip sm ${statusFilter === 'in_progress' ? 'on' : ''}`}
+                  onClick={() => setStatusFilter('in_progress')}
+                  style={{ fontSize: 11, padding: '2px 8px' }}
+                >
+                  🟢 {t('في زيارة')}
+                </button>
+                <button
+                  className={`chip sm ${statusFilter === 'completed' ? 'on' : ''}`}
+                  onClick={() => setStatusFilter('completed')}
+                  style={{ fontSize: 11, padding: '2px 8px' }}
+                >
+                  🔵 {t('متحرك')}
+                </button>
+                <button
+                  className={`chip sm ${statusFilter === 'idle' ? 'on' : ''}`}
+                  onClick={() => setStatusFilter('idle')}
+                  style={{ fontSize: 11, padding: '2px 8px' }}
+                >
+                  ⚪ {t('بدون نشاط')}
+                </button>
+              </div>
+
+              {/* Supervisor List */}
+              {isPending ? (
+                <SkeletonList n={4} />
+              ) : isError ? (
+                <ErrorState error={error} onRetry={refetch} />
+              ) : filteredTracks.length === 0 ? (
+                <EmptyState icon={<Users />} title={t('لا يوجد مشرفون')} text={t('لا توجد بيانات مطابقة لخيارات التصفية.')} />
+              ) : (
+                <div className="live-sup-list">
+                  {filteredTracks.map((trk) => {
+                    const isSelected = trk.supervisorId === selectedSupId;
+                    const isLive = trk.liveStatus === 'in_progress';
+                    const hasLocation = Boolean(trk.currentLocation);
+
+                    return (
+                      <div
+                        key={trk.supervisorId}
+                        className={`card col ${isSelected ? 'sup-card-selected' : ''}`}
+                        style={{
+                          padding: '10px 12px',
+                          gap: 6,
+                          cursor: 'pointer',
+                          margin: 0,
+                          border: '1px solid var(--line)',
+                          borderRight: `4px solid ${isLive ? '#16A34A' : hasLocation ? '#2563EB' : '#CBD5E1'}`,
+                          background: isSelected ? '#F0F4FF' : '#fff',
+                          transition: 'background 0.15s, transform 0.1s',
+                        }}
+                        onClick={() => handleSelectSupervisor(trk.supervisorId)}
+                      >
+                        <div className="row between" style={{ alignItems: 'flex-start' }}>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 14 }}>{trk.supervisorName}</div>
+                            {trk.branchName && (
+                              <div className="muted" style={{ fontSize: 12 }}>
+                                🏢 {trk.branchName}
+                              </div>
+                            )}
+                          </div>
+                          <span
+                            className={`badge ${isLive ? 'b-green' : hasLocation ? 'b-blue' : 'b-gray'}`}
+                            style={{ fontSize: 11, whiteSpace: 'nowrap' }}
+                          >
+                            {isLive ? `🟢 ${t('في زيارة')}` : hasLocation ? `🔵 ${t('متحرك')}` : `⚪ ${t('غير نشط')}`}
+                          </span>
+                        </div>
+
+                        {/* Customer & Location status */}
+                        {trk.currentCustomerName ? (
+                          <div style={{ fontSize: 12, color: 'var(--muted)', background: '#F8FAFC', padding: '4px 8px', borderRadius: 6 }}>
+                            <div style={{ fontWeight: 600, color: '#334155' }}>
+                              🏪 {trk.currentCustomerName}
+                            </div>
+                            {trk.currentCustomerAddress && (
+                              <div style={{ fontSize: 11, color: '#64748B' }}>
+                                📍 {trk.currentCustomerAddress}
+                              </div>
+                            )}
+                            {trk.lastActiveTime && (
+                              <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
+                                🕒 {fmtTime(trk.lastActiveTime)}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="muted" style={{ fontSize: 12 }}>
+                            {t('لم يسجل أي زيارة ميدانية اليوم')}
+                          </div>
+                        )}
+
+                        {/* Actions Row */}
+                        <div className="row between" style={{ marginTop: 4, alignItems: 'center' }}>
+                          <span className="muted" style={{ fontSize: 12 }}>
+                            {t('{n} زيارة', { n: num(trk.totalVisitsToday) })}
+                            {trk.completedVisitsToday > 0 ? ` · ${num(trk.completedVisitsToday)} مكتملة` : ''}
+                          </span>
+
+                          <div className="row" style={{ gap: 6 }} onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              className={`btn sm ${isSelected ? 'primary' : 'ghost'}`}
+                              style={{ fontSize: 11, padding: '2px 8px', minHeight: 26 }}
+                              onClick={() => handleSelectSupervisor(trk.supervisorId)}
+                              title={t('تتبع خط السير على الخريطة')}
+                            >
+                              🗺️ {isSelected ? t('المسار مفعل') : t('تتبع')}
+                            </button>
+                            {trk.phone && (
+                              <a
+                                href={`https://api.whatsapp.com/send?phone=${trk.phone.replace(/[^0-9]/g, '')}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="icon-btn"
+                                style={{
+                                  background: '#25D366',
+                                  color: '#fff',
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: 6,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: 13,
+                                  textDecoration: 'none',
+                                }}
+                                title={t('مراسلة واتساب')}
+                              >
+                                💬
+                              </a>
+                            )}
+                            {trk.phone && (
+                              <a
+                                href={`tel:${trk.phone}`}
+                                className="icon-btn"
+                                style={{
+                                  background: '#F1F5F9',
+                                  color: '#334155',
+                                  width: 26,
+                                  height: 26,
+                                  borderRadius: 6,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  textDecoration: 'none',
+                                }}
+                                title={t('اتصال هاتفي')}
+                              >
+                                <Phone size={13} />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -625,8 +940,8 @@ export default function AdminLiveMap() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div className="live-map-leaflet-container" ref={mapContainerRef} />
           <div className="row between muted" style={{ fontSize: 11, padding: '0 4px' }}>
-            <span>🗺️ خريطة شوارع مصر مفتوحة المصدر (OpenStreetMap) · تفاصيل الأحياء والشوارع باللغة العربية</span>
-            <span>⏱️ يتم التحديث التلقائي كل 30 ثانية</span>
+            <span>🗺️ {t('خريطة شوارع مصر مفتوحة المصدر (OpenStreetMap) · تفاصيل الأحياء والشوارع باللغة العربية')}</span>
+            <span>⏱️ {t('يتم التحديث التلقائي كل 30 ثانية')}</span>
           </div>
         </div>
       </div>

@@ -151,7 +151,7 @@ export default function AdminDashboard() {
   const [dateFrom, setDateFrom] = useState(() => todayStr().slice(0, 8) + '01');
   const [dateTo, setDateTo] = useState(() => todayStr());
   const [regionId, setRegionId] = useState('all');
-  const [branchId, setBranchId] = useState('all');
+  const [branchId, setBranchId] = useState(() => { try { return localStorage.getItem('mydan_active_branch_id') || 'all'; } catch { return 'all'; } });
   const [supervisorId, setSupervisorId] = useState('all');
 
   // Cascading branches based on selected region
