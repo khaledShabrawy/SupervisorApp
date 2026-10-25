@@ -291,7 +291,6 @@ function useBulkImportCustomers() {
 
         const customer = {
           company_id: sc.companyId,
-          supervisor_id: row[supIdIdx]?.trim() || null,
           customer_code: (codeIdx !== -1 ? row[codeIdx]?.trim() : '') || null,
           name,
           type: normalizeCustomerType(typeIdx !== -1 ? row[typeIdx] : null),
