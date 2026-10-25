@@ -299,8 +299,10 @@ export function useLocatedCustomers() {
   return useQuery({
     queryKey: [...sc.base, 'customers', 'located'], retry: 1, staleTime: 120_000,
     queryFn: async ({ signal }) => {
-      const { data, error } = await sc.scope(supabase.from('customers').select(CUSTOMER_COLUMNS))
-        .eq('is_active', true).not('latitude', 'is', null).not('longitude', 'is', null).limit(2000).abortSignal(signal);
+      let qLoc: any = supabase.from('customers').select(CUSTOMER_COLUMNS).eq('company_id', sc.companyId)
+        .eq('is_active', true).not('latitude', 'is', null).not('longitude', 'is', null).limit(2000);
+      if (!sc.isAdmin) qLoc = qLoc.or(`supervisor_id.eq.${sc.supervisorId},supervisor_id.is.null`);
+      const { data, error } = await qLoc.abortSignal(signal);
       if (error) fail('تعذر تحميل العملاء القريبين.', error);
       return data as Customer[];
     },
@@ -344,7 +346,8 @@ export function useVisitToStart(id: string | null) {
 export function useCustomers(search: string) {
   const sc = useScope(); const term = search.trim().replace(/[%,()]/g, ' ');
   return usePaged<Customer>(sc, 'customers', [term], async (from, to, signal) => {
-    let q = sc.scope(supabase.from('customers').select(CUSTOMER_COLUMNS));
+    let q: any = supabase.from('customers').select(CUSTOMER_COLUMNS).eq('company_id', sc.companyId);
+    if (!sc.isAdmin) q = q.or(`supervisor_id.eq.${sc.supervisorId},supervisor_id.is.null`);
     if (term) q = q.or(`name.ilike.%${term}%,customer_code.ilike.%${term}%,address.ilike.%${term}%`);
     const { data, error } = await q.order('name').order('id').range(from, to).abortSignal(signal);
     if (error) fail('تعذر تحميل العملاء.', error);
@@ -356,7 +359,8 @@ export function useCustomerSearch(search: string) {
   return useQuery({
     queryKey: [...sc.base, 'customer-search', term], retry: 1,
     queryFn: async ({ signal }) => {
-      let q = sc.scope(supabase.from('customers').select(CUSTOMER_COLUMNS)).eq('is_active', true);
+      let q: any = supabase.from('customers').select(CUSTOMER_COLUMNS).eq('company_id', sc.companyId).eq('is_active', true);
+      if (!sc.isAdmin) q = q.or(`supervisor_id.eq.${sc.supervisorId},supervisor_id.is.null`);
       if (term) q = q.or(`name.ilike.%${term}%,customer_code.ilike.%${term}%,address.ilike.%${term}%`);
       const { data, error } = await q.order('name').limit(20).abortSignal(signal);
       if (error) fail('تعذر البحث عن العملاء.', error);
