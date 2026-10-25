@@ -1445,4 +1445,6 @@ export const EN: Record<string, string> = {
   'أدخل بريدك الإلكتروني وسنرسل رابط إعادة التعيين': 'Enter your email address to receive a password reset link',
   'مشفر بـ': 'Encrypted with',
   'الخوادم متصلة': 'Servers connected',
+  'سطر {n}: supervisor_id مطلوب لخطط الجولة': 'Row {n}: supervisor_id is required for beat plans',
+  'سطر {n}: customer_id غير موجود في قاعدة البيانات': 'Row {n}: customer_id not found in the database',
 };

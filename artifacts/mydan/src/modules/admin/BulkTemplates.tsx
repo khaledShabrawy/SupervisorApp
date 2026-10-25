@@ -655,7 +655,8 @@ function useBulkImportBeatPlans() {
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
         const rawSup = supIdIdx !== -1 ? row[supIdIdx]?.trim() : '';
-        const supId = cleanUUID(rawSup) || cleanUUID(sc.supervisorId);
+        // Admin uploads: if no supervisor_id in CSV, fall back to uploader's ID (beat plan must have an owner).
+        const supId = cleanUUID(rawSup) || cleanUUID(sc.supervisorId) || null;
 
         const rawCust = custIdIdx !== -1 ? row[custIdIdx]?.trim() : '';
         let custId = cleanUUID(rawCust);
@@ -665,7 +666,11 @@ function useBulkImportBeatPlans() {
 
         if (!supId || !custId) {
           result.failed++;
-          result.errors.push(t('سطر {n}: بيانات غير صالحة', { n: i + 2 }));
+          result.errors.push(
+            !supId
+              ? t('سطر {n}: supervisor_id مطلوب لخطط الجولة', { n: i + 2 })
+              : t('سطر {n}: customer_id غير موجود في قاعدة البيانات', { n: i + 2 }),
+          );
           continue;
         }
 
