@@ -23,15 +23,52 @@ function normalizeCustomerType(raw?: string | null): string {
   return 'أخرى';
 }
 
+/** Normalize monthly targets criteria to the exact DB values */
+function normalizeCriteria(raw?: string | null): string {
+  if (!raw) return 'visits';
+  const v = raw.trim().toLowerCase();
+  if (['visits', 'زيارات', 'زيارة'].includes(v)) return 'visits';
+  if (['orders', 'طلبيات', 'أوردرات', 'اوردرات', 'مبيعات'].includes(v)) return 'orders';
+  if (['shelf_audit', 'تدقيق رف', 'رفوف', 'مراجعة الرف'].includes(v)) return 'shelf_audit';
+  if (['new_opportunity', 'عملاء جدد', 'فرص جديدة'].includes(v)) return 'new_opportunity';
+  return 'visits';
+}
+
+/** Converts Arabic day names or numbers to weekday index 0-6 (0=Sun) */
+function parseDayOfWeek(val?: string | null): number {
+  if (!val) return 0;
+  const clean = normalizeDigits(val.trim().toLowerCase());
+  const num = parseInt(clean);
+  if (!isNaN(num) && num >= 0 && num <= 6) return num;
+  if (clean.includes('أحد') || clean.includes('احد') || clean.includes('sun')) return 0;
+  if (clean.includes('إثنين') || clean.includes('اثنين') || clean.includes('mon')) return 1;
+  if (clean.includes('ثلاثاء') || clean.includes('tue')) return 2;
+  if (clean.includes('أربعاء') || clean.includes('اربعاء') || clean.includes('wed')) return 3;
+  if (clean.includes('خميس') || clean.includes('thu')) return 4;
+  if (clean.includes('جمعة') || clean.includes('جمعه') || clean.includes('fri')) return 5;
+  if (clean.includes('سبت') || clean.includes('sat')) return 6;
+  return 0;
+}
+
+/** Computes the target YYYY-MM-DD date for a given weekday in the current week */
+function getPlanDateFromDay(day: number): string {
+  const now = new Date();
+  const curDow = now.getDay();
+  const diff = (day - curDow + 7) % 7;
+  const target = new Date(now);
+  target.setDate(now.getDate() + (diff === 0 ? 0 : diff));
+  return target.toISOString().slice(0, 10);
+}
+
 /** CSV template for bulk customer import */
 const CUSTOMER_CSV_TEMPLATE = `customer_code,name,type,owner_name,phone,address,latitude,longitude,branch,supervisor_id,is_active
 CUST-001,بقالة الأمل,بقالة,أحمد محمد,01012345678,شارع النيل; المعادي; القاهرة,29.9600,31.2500,القاهرة,,true
 CUST-002,سوبرماركت النور,سوبر ماركت,محمود علي,01098765432,ميدان التحرير; الدقي; الجيزة,30.0444,31.2357,الجيزة,,true`;
 
 /** CSV template for products import */
-const PRODUCT_CSV_TEMPLATE = `name,category,sku_code,item_code,master_brand,sub_brand,is_active
-شوكولاتة كورونا سبريد,حلويات,SKU-COR-01,ITM-101,كورونا,سبريد,true
-بسكويت كورونا لوكس,بسكويت,SKU-COR-02,ITM-102,كورونا,لوكس,true`;
+const PRODUCT_CSV_TEMPLATE = `name,category,sku_code,item_code,master_brand,sub_brand,price,unit,is_active
+شوكولاتة كورونا سبريد,حلويات,SKU-COR-01,ITM-101,كورونا,سبريد,45,قطعة,true
+بسكويت كورونا لوكس,بسكويت,SKU-COR-02,ITM-102,كورونا,لوكس,15,علبة,true`;
 
 /** CSV template for monthly targets import */
 const TARGET_CSV_TEMPLATE = `supervisor_id,month,year,visits_target,audit_target,criteria,target_amount
@@ -39,10 +76,9 @@ const TARGET_CSV_TEMPLATE = `supervisor_id,month,year,visits_target,audit_target
 ,10,2026,60,30,orders,25000`;
 
 /** CSV template for supervisor beat plans */
-const BEAT_PLAN_CSV_TEMPLATE = `supervisor_id,day_of_week,customer_id,sequence
-,0,,1
-,0,,2
-,1,,1`;
+const BEAT_PLAN_CSV_TEMPLATE = `supervisor_id,day_of_week,plan_date,customer_id
+,0,2026-10-25,CUST-001
+,1,2026-10-26,CUST-002`;
 
 function downloadTemplate(filename: string, content: string) {
   // Add UTF-8 BOM so Excel on Windows opens Arabic text properly without gibberish
@@ -304,9 +340,11 @@ function useBulkImportProducts() {
       const nameIdx = findColumnIndex(headers, ['name', 'اسم', 'اسم المنتج', 'اسم الصنف', 'المنتج', 'الصنف', 'product_name']);
       const catIdx = findColumnIndex(headers, ['category', 'فئة', 'الفئة', 'التصنيف', 'القسم']);
       const skuIdx = findColumnIndex(headers, ['sku_code', 'sku', 'كود الصنف', 'كود sku', 'باركود', 'barcode']);
-      const itemCodeIdx = findColumnIndex(headers, ['item_code', 'item code', 'كود الصنف', 'كود']);
-      const masterIdx = findColumnIndex(headers, ['master_brand', 'master brand', 'العلامة الرئيسية', 'البراند', 'الماركة']);
+      const itemCodeIdx = findColumnIndex(headers, ['item_code', 'item code', 'كود الصنف', 'كود', 'رقم الصنف']);
+      const masterIdx = findColumnIndex(headers, ['master_brand', 'master brand', 'العلامة الرئيسية', 'البراند', 'الماركة', 'brand']);
       const subIdx = findColumnIndex(headers, ['sub_brand', 'sub brand', 'العلامة الفرعية']);
+      const priceIdx = findColumnIndex(headers, ['price', 'سعر', 'السعر', 'سعر البيع', 'سعر القطعة']);
+      const unitIdx = findColumnIndex(headers, ['unit', 'وحدة', 'الوحدة']);
       const activeIdx = findColumnIndex(headers, ['is_active', 'active', 'نشط', 'الحالة']);
 
       if (nameIdx === -1) {
@@ -328,6 +366,8 @@ function useBulkImportProducts() {
 
         const sku = (skuIdx !== -1 ? row[skuIdx]?.trim() : '') || null;
         const itemCode = (itemCodeIdx !== -1 ? row[itemCodeIdx]?.trim() : '') || sku;
+        const rawPrice = priceIdx !== -1 ? normalizeDigits(row[priceIdx] || '') : '';
+        const price = rawPrice ? parseFloat(rawPrice) : 0;
 
         const prod = {
           company_id: sc.companyId,
@@ -337,6 +377,8 @@ function useBulkImportProducts() {
           item_code: itemCode,
           master_brand: (masterIdx !== -1 ? row[masterIdx]?.trim() : '') || null,
           sub_brand: (subIdx !== -1 ? row[subIdx]?.trim() : '') || null,
+          unit: (unitIdx !== -1 ? row[unitIdx]?.trim() : '') || 'قطعة',
+          price: isNaN(price) ? 0 : price,
           is_active: activeIdx !== -1 ? row[activeIdx]?.trim().toLowerCase() !== 'false' : true,
         };
 
@@ -365,7 +407,7 @@ function useBulkImportTargets() {
       if (rows.length < 2) throw new Error(t('ملف CSV فارغ أو لا يحتوي على بيانات.'));
 
       const headers = rows[0];
-      const supIdx = findColumnIndex(headers, ['supervisor_id', 'supervisor', 'مشرف', 'المشرف']);
+      const supIdx = findColumnIndex(headers, ['supervisor_id', 'supervisor', 'مشرف', 'المشرف', 'معرف المشرف']);
       const monthIdx = findColumnIndex(headers, ['month', 'شهر', 'الشهر']);
       const yearIdx = findColumnIndex(headers, ['year', 'سنة', 'السنة', 'عام']);
       const visitsIdx = findColumnIndex(headers, ['visits_target', 'visits', 'زيارات', 'هدف الزيارات']);
@@ -397,7 +439,7 @@ function useBulkImportTargets() {
         const visitsTarget = Number(visitsIdx !== -1 ? normalizeDigits(row[visitsIdx] || '') : 0) || 0;
         const auditTarget = Number(auditIdx !== -1 ? normalizeDigits(row[auditIdx] || '') : 0) || 0;
         const targetAmount = Number(amountIdx !== -1 ? normalizeDigits(row[amountIdx] || '') : 0) || 0;
-        const criteria = (criteriaIdx !== -1 ? row[criteriaIdx]?.trim() : '') || 'visits';
+        const criteria = normalizeCriteria(criteriaIdx !== -1 ? row[criteriaIdx] : null);
 
         const record = {
           company_id: sc.companyId,
@@ -410,6 +452,8 @@ function useBulkImportTargets() {
           target_date: `${year}-${String(month).padStart(2, '0')}-01`,
           actual_visits: 0,
           actual_audits: 0,
+          // NOTE: month and year are GENERATED ALWAYS AS (EXTRACT from target_date)
+          // DO NOT send month or year in INSERT.
         };
 
         validItems.push({ data: record, rowNum: i + 2 });
@@ -438,36 +482,65 @@ function useBulkImportBeatPlans() {
       if (rows.length < 2) throw new Error(t('ملف CSV فارغ أو لا يحتوي على بيانات.'));
 
       const headers = rows[0];
-      const supIdIdx = findColumnIndex(headers, ['supervisor_id', 'supervisor', 'مشرف', 'المشرف']);
-      const dayIdx = findColumnIndex(headers, ['day_of_week', 'day', 'اليوم', 'يوم']);
-      const custIdIdx = findColumnIndex(headers, ['customer_id', 'customer', 'عميل', 'العميل']);
+      const supIdIdx = findColumnIndex(headers, ['supervisor_id', 'supervisor', 'مشرف', 'المشرف', 'معرف المشرف']);
+      const dayIdx = findColumnIndex(headers, ['day_of_week', 'day', 'اليوم', 'يوم', 'يوم_الاسبوع']);
+      const dateIdx = findColumnIndex(headers, ['plan_date', 'date', 'التاريخ', 'تاريخ_الزيارة']);
+      const custIdIdx = findColumnIndex(headers, ['customer_id', 'customer', 'عميل', 'العميل', 'كود العميل', 'customer_code', 'code']);
 
-      if (dayIdx === -1 || custIdIdx === -1) {
+      if (custIdIdx === -1) {
         throw new Error(t('الحقول المطلوبة: day_of_week, customer_id'));
+      }
+
+      // Fetch customer codes map to resolve customer codes to UUIDs automatically
+      const { data: custLookup } = await supabase
+        .from('customers')
+        .select('id,customer_code')
+        .eq('company_id', sc.companyId)
+        .limit(2000);
+
+      const codeMap = new Map<string, string>();
+      if (custLookup) {
+        for (const c of custLookup as { id: string; customer_code?: string | null }[]) {
+          if (c.customer_code) codeMap.set(c.customer_code.toLowerCase().trim(), c.id);
+        }
       }
 
       const result: ImportResult = { success: 0, failed: 0, errors: [] };
       const dataRows = rows.slice(1);
-
       const validItems: { data: Record<string, unknown>; rowNum: number }[] = [];
+
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
         const rawSup = supIdIdx !== -1 ? row[supIdIdx]?.trim() : '';
         const supId = cleanUUID(rawSup) || cleanUUID(sc.supervisorId);
-        const day = parseInt(normalizeDigits(row[dayIdx] || ''));
-        const custId = cleanUUID(row[custIdIdx]);
 
-        if (!supId || !custId || isNaN(day) || day < 0 || day > 6) {
+        const rawCust = custIdIdx !== -1 ? row[custIdIdx]?.trim() : '';
+        let custId = cleanUUID(rawCust);
+        if (!custId && rawCust) {
+          custId = codeMap.get(rawCust.toLowerCase()) || null;
+        }
+
+        if (!supId || !custId) {
           result.failed++;
           result.errors.push(t('سطر {n}: بيانات غير صالحة', { n: i + 2 }));
           continue;
         }
 
+        // Determine plan_date
+        let planDate = dateIdx !== -1 ? row[dateIdx]?.trim() : '';
+        if (!planDate || !/^\d{4}-\d{2}-\d{2}$/.test(planDate)) {
+          const rawDay = dayIdx !== -1 ? row[dayIdx]?.trim().toLowerCase() : '';
+          const dayNum = parseDayOfWeek(rawDay);
+          planDate = getPlanDateFromDay(dayNum);
+        }
+
         const plan = {
           company_id: sc.companyId,
           supervisor_id: supId,
-          day_of_week: day,
           customer_id: custId,
+          plan_date: planDate,
+          // NOTE: day_of_week is GENERATED ALWAYS AS (EXTRACT(dow FROM plan_date))
+          // DO NOT send day_of_week in INSERT.
         };
 
         validItems.push({ data: plan, rowNum: i + 2 });
@@ -477,7 +550,11 @@ function useBulkImportBeatPlans() {
       return result;
     },
     onSuccess: (result) => {
-      notify(t('تم استيراد {s} خطة. فشل: {f}', { s: result.success, f: result.failed }), result.failed === 0 ? 'success' : 'error');
+      if (result.failed === 0) {
+        notify(t('تم استيراد {s} خطة. فشل: {f}', { s: result.success, f: result.failed }), 'success');
+      } else {
+        notify(t('تم استيراد {s} خطة. فشل: {f}', { s: result.success, f: result.failed }), 'error');
+      }
       void qc.invalidateQueries({ queryKey: [...sc.base, 'beat'] });
       void qc.invalidateQueries({ queryKey: ['beat'] });
     },
@@ -495,7 +572,11 @@ export function BulkTemplates() {
   const importProducts = useBulkImportProducts();
   const importTargets = useBulkImportTargets();
   const importBeats = useBulkImportBeatPlans();
+
   const [customerErrors, setCustomerErrors] = useState<string[]>([]);
+  const [productErrors, setProductErrors] = useState<string[]>([]);
+  const [targetErrors, setTargetErrors] = useState<string[]>([]);
+  const [beatErrors, setBeatErrors] = useState<string[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
 
   const handleCustomerUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -519,8 +600,14 @@ export function BulkTemplates() {
     const file = e.target.files?.[0];
     if (file) {
       setErrors([]);
+      setProductErrors([]);
       importProducts.mutate(file, {
-        onSuccess: (result) => { if (result.errors.length) setErrors(result.errors); },
+        onSuccess: (result) => {
+          if (result.errors.length) {
+            setErrors(result.errors);
+            setProductErrors(result.errors);
+          }
+        },
       });
     }
     e.target.value = '';
@@ -530,8 +617,14 @@ export function BulkTemplates() {
     const file = e.target.files?.[0];
     if (file) {
       setErrors([]);
+      setTargetErrors([]);
       importTargets.mutate(file, {
-        onSuccess: (result) => { if (result.errors.length) setErrors(result.errors); },
+        onSuccess: (result) => {
+          if (result.errors.length) {
+            setErrors(result.errors);
+            setTargetErrors(result.errors);
+          }
+        },
       });
     }
     e.target.value = '';
@@ -541,8 +634,14 @@ export function BulkTemplates() {
     const file = e.target.files?.[0];
     if (file) {
       setErrors([]);
+      setBeatErrors([]);
       importBeats.mutate(file, {
-        onSuccess: (result) => { if (result.errors.length) setErrors(result.errors); },
+        onSuccess: (result) => {
+          if (result.errors.length) {
+            setErrors(result.errors);
+            setBeatErrors(result.errors);
+          }
+        },
       });
     }
     e.target.value = '';
@@ -613,6 +712,7 @@ export function BulkTemplates() {
             <li><code>master_brand</code>: {t('العلامة الرئيسية (Master Brand)')}</li>
             <li><code>sub_brand</code>: {t('العلامة الفرعية (Sub Brand)')}</li>
             <li><code>category</code>: {t('الفئة')}</li>
+            <li><code>price</code>, <code>unit</code>: {t('اختياري')}</li>
             <li><code>is_active</code>: {t('true / false')}</li>
           </ul>
         </div>
@@ -638,6 +738,17 @@ export function BulkTemplates() {
             style={{ display: 'none' }}
           />
         </div>
+
+        {productErrors.length > 0 && (
+          <div className="alert err col" style={{ gap: 6, marginTop: 12 }}>
+            <div style={{ fontWeight: 600 }}>{t('أخطاء الاستيراد ({n})', { n: productErrors.length })}:</div>
+            <div style={{ maxHeight: 180, overflow: 'auto', fontSize: 13 }}>
+              {productErrors.map((err, i) => (
+                <div key={i} style={{ padding: '2px 0' }}>• {err}</div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 3. Targets Import */}
@@ -677,6 +788,17 @@ export function BulkTemplates() {
             style={{ display: 'none' }}
           />
         </div>
+
+        {targetErrors.length > 0 && (
+          <div className="alert err col" style={{ gap: 6, marginTop: 12 }}>
+            <div style={{ fontWeight: 600 }}>{t('أخطاء الاستيراد ({n})', { n: targetErrors.length })}:</div>
+            <div style={{ maxHeight: 180, overflow: 'auto', fontSize: 13 }}>
+              {targetErrors.map((err, i) => (
+                <div key={i} style={{ padding: '2px 0' }}>• {err}</div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 4. Beat Plans Import */}
@@ -686,9 +808,10 @@ export function BulkTemplates() {
         <div className="alert warn" style={{ fontSize: 13 }}>
           <strong>{t('تنسيق الحقول:')}</strong>
           <ul style={{ marginTop: 4, paddingInlineStart: 20 }}>
-            <li><code>supervisor_id</code>: {t('معرّف المشرف (UUID)')}</li>
-            <li><code>day_of_week</code>: {t('اليوم (0=أحد، 1=إثنين، ... 6=سبت)')}</li>
-            <li><code>customer_id</code>: {t('معرّف العميل (UUID)')}</li>
+            <li><code>customer_id</code>: {t('كود العميل أو معرف العميل UUID (مطلوب)')}</li>
+            <li><code>day_of_week</code>: {t('اليوم (0=أحد، 1=إثنين، ... 6=سبت أو اسم اليوم بالعربية)')}</li>
+            <li><code>plan_date</code>: {t('تاريخ الزيارة YYYY-MM-DD (اختياري، يُحدد اليوم تلقائياً)')}</li>
+            <li><code>supervisor_id</code>: {t('معرّف المشرف (اختياري)')}</li>
           </ul>
         </div>
         <div className="row" style={{ gap: 8 }}>
@@ -713,6 +836,17 @@ export function BulkTemplates() {
             style={{ display: 'none' }}
           />
         </div>
+
+        {beatErrors.length > 0 && (
+          <div className="alert err col" style={{ gap: 6, marginTop: 12 }}>
+            <div style={{ fontWeight: 600 }}>{t('أخطاء الاستيراد ({n})', { n: beatErrors.length })}:</div>
+            <div style={{ maxHeight: 180, overflow: 'auto', fontSize: 13 }}>
+              {beatErrors.map((err, i) => (
+                <div key={i} style={{ padding: '2px 0' }}>• {err}</div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {errors.length > 0 && (
