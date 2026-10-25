@@ -52,19 +52,14 @@ export function useDeviceBinding(supervisor: Supervisor | null) {
 
     const currentDeviceId = getDeviceId();
 
-    // 1. If supervisor is not bound yet, automatically bind to this device
+    // 1. If supervisor is not bound yet, bind via SECURITY DEFINER RPC.
+    //    The function only succeeds when device_id IS NULL in the database,
+    //    preventing a supervisor from re-binding by clearing localStorage.
     if (!supervisor.device_id) {
       void supabase
-        .from('supervisors')
-        .update({ device_id: currentDeviceId })
-        .eq('id', supervisor.id)
-        .eq('company_id', supervisor.company_id)
+        .rpc('mdn_bind_device_v1', { p_supervisor_id: supervisor.id, p_device_id: currentDeviceId })
         .then(({ error }) => {
-          if (error) {
-            console.warn('Could not auto-bind device:', error);
-          } else {
-            supervisor.device_id = currentDeviceId;
-          }
+          if (error) console.warn('Could not auto-bind device:', error);
           setBinding({ status: 'ok' });
         });
       return;
