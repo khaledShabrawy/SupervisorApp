@@ -10,10 +10,12 @@ import { notify } from '@/lib/toast';
 const VALID_CUSTOMER_TYPES = ['بقالة', 'سوبر ماركت', 'هايبر ماركت', 'ميني ماركت', 'كافيه', 'مطعم', 'أخرى'] as const;
 
 /** Normalize free-text type values to the exact DB-allowed strings */
-function normalizeCustomerType(raw: string): string {
+function normalizeCustomerType(raw?: string | null): string {
+  if (!raw) return 'بقالة';
   const v = raw.trim();
-  const exact = VALID_CUSTOMER_TYPES.find(t => t === v);
+  const exact = VALID_CUSTOMER_TYPES.find((t) => t === v);
   if (exact) return exact;
+  // Handle common one-word spellings (بدون مسافة) that users write
   if (v === 'سوبرماركت' || v === 'سوبرمارکت') return 'سوبر ماركت';
   if (v === 'هايبرماركت' || v === 'هيبرماركت') return 'هايبر ماركت';
   if (v === 'مينيماركت') return 'ميني ماركت';
@@ -22,9 +24,9 @@ function normalizeCustomerType(raw: string): string {
 }
 
 /** CSV template for bulk customer import */
-const CUSTOMER_CSV_TEMPLATE = `name,type,customer_type,owner_name,phone,address,latitude,longitude,branch,supervisor_id,is_active
-بقالة الأمل,بقالة,retail,أحمد محمد,01012345678,شارع النيل; القاهرة,30.0444,31.2357,القاهرة,,true
-سوبرماركت النور,سوبر ماركت,wholesale,محمود علي,01098765432,ميدان التحرير; الجيزة,30.0626,31.2497,الجيزة,,true`;
+const CUSTOMER_CSV_TEMPLATE = `customer_code,name,type,owner_name,phone,address,latitude,longitude,branch,supervisor_id,is_active
+CUST-001,بقالة الأمل,بقالة,أحمد محمد,01012345678,شارع النيل; المعادي; القاهرة,29.9600,31.2500,القاهرة,,true
+CUST-002,سوبرماركت النور,سوبر ماركت,محمود علي,01098765432,ميدان التحرير; الدقي; الجيزة,30.0444,31.2357,الجيزة,,true`;
 
 /** CSV template for products import */
 const PRODUCT_CSV_TEMPLATE = `name,category,sku_code,item_code,master_brand,sub_brand,is_active
@@ -43,7 +45,8 @@ const BEAT_PLAN_CSV_TEMPLATE = `supervisor_id,day_of_week,customer_id,sequence
 ,1,,1`;
 
 function downloadTemplate(filename: string, content: string) {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  // Add UTF-8 BOM so Excel on Windows opens Arabic text properly without gibبريش
+  const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
   link.download = filename;
@@ -51,26 +54,94 @@ function downloadTemplate(filename: string, content: string) {
   URL.revokeObjectURL(link.href);
 }
 
+/** Parses CSV text with automatic delimiter detection (comma, semicolon, tab) and BOM stripping */
 function parseCSV(text: string): string[][] {
-  const lines = text.trim().split('\n');
-  return lines.map(line => {
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        values.push(current.trim());
-        current = '';
+  const cleaned = text.replace(/^\uFEFF/, '').trim();
+  if (!cleaned) return [];
+
+  const firstLine = cleaned.split(/\r?\n/)[0] || '';
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const semiCount = (firstLine.match(/;/g) || []).length;
+  const tabCount = (firstLine.match(/\t/g) || []).length;
+
+  let delimiter = ',';
+  if (semiCount > commaCount && semiCount > tabCount) {
+    delimiter = ';';
+  } else if (tabCount > commaCount && tabCount > semiCount) {
+    delimiter = '\t';
+  }
+
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentVal = '';
+  let insideQuotes = false;
+
+  for (let i = 0; i < cleaned.length; i++) {
+    const char = cleaned[i];
+    const nextChar = cleaned[i + 1];
+
+    if (char === '"') {
+      if (insideQuotes && nextChar === '"') {
+        currentVal += '"';
+        i++;
       } else {
-        current += char;
+        insideQuotes = !insideQuotes;
       }
+    } else if (char === delimiter && !insideQuotes) {
+      currentRow.push(currentVal.trim());
+      currentVal = '';
+    } else if ((char === '\r' || char === '\n') && !insideQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i++;
+      }
+      currentRow.push(currentVal.trim());
+      if (currentRow.some((f) => f.length > 0)) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+      currentVal = '';
+    } else {
+      currentVal += char;
     }
-    values.push(current.trim());
-    return values;
-  });
+  }
+
+  if (currentVal.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentVal.trim());
+    if (currentRow.some((f) => f.length > 0)) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
+}
+
+/** Helper to match column headers flexibly in both Arabic and English */
+function findColumnIndex(headers: string[], synonyms: string[]): number {
+  const norm = (s: string) => s.toLowerCase().trim().replace(/[\s_\-–—]/g, '');
+  const targetNorms = synonyms.map(norm);
+  return headers.findIndex((h) => targetNorms.includes(norm(h)));
+}
+
+/** Converts Eastern Arabic numerals (٠-٩) to Western (0-9) */
+function normalizeDigits(str: string): string {
+  return str
+    .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 1632))
+    .replace(/[\u06F0-\u06F9]/g, (c) => String(c.charCodeAt(0) - 1776));
+}
+
+/** Validates and parses GPS coordinates cleanly */
+function parseCoordinate(val?: string | null): number | null {
+  if (!val) return null;
+  const clean = normalizeDigits(val.trim()).replace(/[^\d.-]/g, '');
+  const num = parseFloat(clean);
+  return isNaN(num) || !isFinite(num) ? null : num;
+}
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function cleanUUID(val?: string | null): string | null {
+  if (!val) return null;
+  const trimmed = val.trim();
+  return UUID_REGEX.test(trimmed) ? trimmed : null;
 }
 
 type ImportResult = { success: number; failed: number; errors: string[] };
@@ -97,7 +168,7 @@ async function batchInsert<T extends Record<string, unknown>>(
             t('سطر {n}{details}: {err}', {
               n: item.rowNum,
               details: item.name ? ` (${item.name})` : '',
-              err: itemErr.message,
+              err: itemErr.message || 'خطأ غير معروف',
             })
           );
         } else {
@@ -117,20 +188,42 @@ function useBulkImportCustomers() {
       const rows = parseCSV(text);
       if (rows.length < 2) throw new Error(t('ملف CSV فارغ أو لا يحتوي على بيانات.'));
 
-      const headers = rows[0].map(h => h.toLowerCase().trim());
-      const nameIdx = headers.indexOf('name');
-      const typeIdx = headers.indexOf('type');
-      const customerTypeIdx = headers.indexOf('customer_type');
-      const ownerIdx = headers.indexOf('owner_name');
-      const phoneIdx = headers.indexOf('phone');
-      const addressIdx = headers.indexOf('address');
-      const latIdx = headers.indexOf('latitude');
-      const lngIdx = headers.indexOf('longitude');
-      const branchIdx = headers.indexOf('branch');
-      const supIdIdx = headers.indexOf('supervisor_id');
-      const activeIdx = headers.indexOf('is_active');
+      const headers = rows[0];
+      const nameIdx = findColumnIndex(headers, [
+        'name', 'اسم', 'اسم العميل', 'الاسم', 'اسم المحل', 'اسم المنشأة', 'العميل', 'customer_name', 'customer', 'customer name'
+      ]);
+      const codeIdx = findColumnIndex(headers, [
+        'customer_code', 'code', 'كود', 'كود العميل', 'الكود', 'رقم العميل', 'معرف العميل', 'customercode', 'cust_code'
+      ]);
+      const typeIdx = findColumnIndex(headers, [
+        'type', 'النوع', 'نوع العميل', 'نوع المحل', 'تصنيف', 'تصنيف العميل', 'النشاط', 'customer_type'
+      ]);
+      const ownerIdx = findColumnIndex(headers, [
+        'owner_name', 'owner', 'مالك', 'اسم المالك', 'المسؤول', 'صاحب المحل', 'صاحب المنشأة', 'المدير', 'اسم المسؤول'
+      ]);
+      const phoneIdx = findColumnIndex(headers, [
+        'phone', 'mobile', 'tel', 'تليفون', 'هاتف', 'موبايل', 'رقم الهاتف', 'رقم التليفون', 'المحمول'
+      ]);
+      const addressIdx = findColumnIndex(headers, [
+        'address', 'عنوان', 'العنوان', 'عنوان العميل', 'الموقع', 'مقر'
+      ]);
+      const latIdx = findColumnIndex(headers, [
+        'latitude', 'lat', 'خط العرض', 'دائرة العرض', 'خط_العرض', 'احداثي العرض', 'احداثي_عرض', 'y'
+      ]);
+      const lngIdx = findColumnIndex(headers, [
+        'longitude', 'lng', 'lon', 'long', 'خط الطول', 'خط_الطول', 'احداثي الطول', 'احداثي_طول', 'x'
+      ]);
+      const branchIdx = findColumnIndex(headers, [
+        'branch', 'فرع', 'الفرع', 'المنطقة', 'المحافظة', 'branch_name'
+      ]);
+      const supIdIdx = findColumnIndex(headers, [
+        'supervisor_id', 'supervisor', 'مشرف', 'المشرف', 'معرف المشرف', 'كود المشرف'
+      ]);
+      const activeIdx = findColumnIndex(headers, [
+        'is_active', 'active', 'نشط', 'الحالة', 'مفعل', 'status'
+      ]);
 
-      if (nameIdx === -1 || addressIdx === -1) {
+      if (nameIdx === -1) {
         throw new Error(t('الحقول المطلوبة: name, address'));
       }
 
@@ -141,27 +234,40 @@ function useBulkImportCustomers() {
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
         const name = row[nameIdx]?.trim();
-        const address = row[addressIdx]?.trim();
+        const rawAddress = addressIdx !== -1 ? row[addressIdx]?.trim() : '';
+        const address = rawAddress || 'غير محدد';
 
-        if (!name || !address) {
+        if (!name) {
           result.failed++;
           result.errors.push(t('سطر {n}: اسم أو عنوان فارغ', { n: i + 2 }));
           continue;
         }
 
+        const lat = parseCoordinate(latIdx !== -1 ? row[latIdx] : null);
+        const lng = parseCoordinate(lngIdx !== -1 ? row[lngIdx] : null);
+        const hasValidCoords = lat !== null && lng !== null && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+
+        const rawSup = supIdIdx !== -1 ? row[supIdIdx]?.trim() : '';
+        const supervisorId = cleanUUID(rawSup) || cleanUUID(sc.supervisorId) || null;
+
+        const rawActive = activeIdx !== -1 ? row[activeIdx]?.trim().toLowerCase() : '';
+        const isActive = !['false', '0', 'no', 'لا', 'معطل', 'غير نشط'].includes(rawActive);
+
         const customer = {
           company_id: sc.companyId,
-          supervisor_id: row[supIdIdx]?.trim() || sc.supervisorId,
+          customer_code: (codeIdx !== -1 ? row[codeIdx]?.trim() : '') || null,
           name,
-          type: normalizeCustomerType(row[typeIdx]?.trim() || 'بقالة'),
-          customer_type: row[customerTypeIdx]?.trim() || 'retail',
-          owner_name: row[ownerIdx]?.trim() || null,
-          phone: row[phoneIdx]?.trim() || null,
+          type: normalizeCustomerType(typeIdx !== -1 ? row[typeIdx] : null),
+          // NOTE: customer_type is a generated column in Supabase PostgreSQL: GENERATED ALWAYS AS (type)
+          // NEVER include customer_type in INSERT payloads.
+          owner_name: (ownerIdx !== -1 ? row[ownerIdx]?.trim() : '') || null,
+          phone: (phoneIdx !== -1 ? normalizeDigits(row[phoneIdx]?.trim() || '') : '') || null,
           address,
-          latitude: row[latIdx] ? parseFloat(row[latIdx]) : null,
-          longitude: row[lngIdx] ? parseFloat(row[lngIdx]) : null,
-          branch: row[branchIdx]?.trim() || null,
-          is_active: row[activeIdx]?.trim() !== 'false',
+          latitude: hasValidCoords ? lat : null,
+          longitude: hasValidCoords ? lng : null,
+          branch: (branchIdx !== -1 ? row[branchIdx]?.trim() : '') || null,
+          supervisor_id: supervisorId,
+          is_active: isActive,
         };
 
         validItems.push({ data: customer, rowNum: i + 2, name });
@@ -171,8 +277,15 @@ function useBulkImportCustomers() {
       return result;
     },
     onSuccess: (result) => {
-      notify(t('تم استيراد {s} عميل بنجاح. فشل: {f}', { s: result.success, f: result.failed }), result.failed === 0 ? 'success' : 'info');
+      if (result.failed === 0) {
+        notify(t('تم استيراد {s} عميل بنجاح. فشل: {f}', { s: result.success, f: result.failed }), 'success');
+      } else {
+        notify(t('تم استيراد {s} عميل بنجاح. فشل: {f}', { s: result.success, f: result.failed }), 'error');
+      }
+      void qc.invalidateQueries({ queryKey: [...sc.base, 'admin-customers'] });
       void qc.invalidateQueries({ queryKey: [...sc.base, 'customers'] });
+      void qc.invalidateQueries({ queryKey: ['admin-customers'] });
+      void qc.invalidateQueries({ queryKey: ['customers'] });
     },
     onError: (e: Error) => notify(e.message, 'error'),
   });
@@ -187,14 +300,14 @@ function useBulkImportProducts() {
       const rows = parseCSV(text);
       if (rows.length < 2) throw new Error(t('ملف CSV فارغ أو لا يحتوي على بيانات.'));
 
-      const headers = rows[0].map(h => h.toLowerCase().trim());
-      const nameIdx = headers.indexOf('name');
-      const catIdx = headers.indexOf('category');
-      const skuIdx = headers.indexOf('sku_code') !== -1 ? headers.indexOf('sku_code') : headers.indexOf('sku');
-      const itemCodeIdx = headers.indexOf('item_code');
-      const masterIdx = headers.indexOf('master_brand');
-      const subIdx = headers.indexOf('sub_brand');
-      const activeIdx = headers.indexOf('is_active');
+      const headers = rows[0];
+      const nameIdx = findColumnIndex(headers, ['name', 'اسم', 'اسم المنتج', 'اسم الصنف', 'المنتج', 'الصنف', 'product_name']);
+      const catIdx = findColumnIndex(headers, ['category', 'فئة', 'الفئة', 'التصنيف', 'القسم']);
+      const skuIdx = findColumnIndex(headers, ['sku_code', 'sku', 'كود الصنف', 'كود sku', 'باركود', 'barcode']);
+      const itemCodeIdx = findColumnIndex(headers, ['item_code', 'item code', 'كود الصنف', 'كود']);
+      const masterIdx = findColumnIndex(headers, ['master_brand', 'master brand', 'العلامة الرئيسية', 'البراند', 'الماركة']);
+      const subIdx = findColumnIndex(headers, ['sub_brand', 'sub brand', 'العلامة الفرعية']);
+      const activeIdx = findColumnIndex(headers, ['is_active', 'active', 'نشط', 'الحالة']);
 
       if (nameIdx === -1) {
         throw new Error(t('الحقول المطلوبة: name'));
@@ -234,8 +347,9 @@ function useBulkImportProducts() {
       return result;
     },
     onSuccess: (res) => {
-      notify(t('تم استيراد {n} منتج بنجاح', { n: res.success }), res.failed ? 'info' : 'success');
+      notify(t('تم استيراد {n} منتج بنجاح', { n: res.success }), res.failed ? 'error' : 'success');
       void qc.invalidateQueries({ queryKey: [...sc.base, 'products'] });
+      void qc.invalidateQueries({ queryKey: ['products'] });
     },
     onError: (e: Error) => notify(e.message, 'error'),
   });
@@ -250,14 +364,14 @@ function useBulkImportTargets() {
       const rows = parseCSV(text);
       if (rows.length < 2) throw new Error(t('ملف CSV فارغ أو لا يحتوي على بيانات.'));
 
-      const headers = rows[0].map(h => h.toLowerCase().trim());
-      const supIdx = headers.indexOf('supervisor_id');
-      const monthIdx = headers.indexOf('month');
-      const yearIdx = headers.indexOf('year');
-      const visitsIdx = headers.indexOf('visits_target');
-      const auditIdx = headers.indexOf('audit_target');
-      const criteriaIdx = headers.indexOf('criteria');
-      const amountIdx = headers.indexOf('target_amount');
+      const headers = rows[0];
+      const supIdx = findColumnIndex(headers, ['supervisor_id', 'supervisor', 'مشرف', 'المشرف']);
+      const monthIdx = findColumnIndex(headers, ['month', 'شهر', 'الشهر']);
+      const yearIdx = findColumnIndex(headers, ['year', 'سنة', 'السنة', 'عام']);
+      const visitsIdx = findColumnIndex(headers, ['visits_target', 'visits', 'زيارات', 'هدف الزيارات']);
+      const auditIdx = findColumnIndex(headers, ['audit_target', 'audits', 'مراجعات', 'هدف المراجعات']);
+      const criteriaIdx = findColumnIndex(headers, ['criteria', 'المعيار', 'النوع']);
+      const amountIdx = findColumnIndex(headers, ['target_amount', 'amount', 'المبلغ', 'القيمة']);
 
       if (monthIdx === -1 || yearIdx === -1) {
         throw new Error(t('الحقول المطلوبة: month, year'));
@@ -269,8 +383,8 @@ function useBulkImportTargets() {
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
-        const month = Number(row[monthIdx]);
-        const year = Number(row[yearIdx]);
+        const month = Number(normalizeDigits(row[monthIdx] || ''));
+        const year = Number(normalizeDigits(row[yearIdx] || ''));
 
         if (!month || !year || month < 1 || month > 12) {
           result.failed++;
@@ -278,17 +392,16 @@ function useBulkImportTargets() {
           continue;
         }
 
-        const supervisorId = (supIdx !== -1 ? row[supIdx]?.trim() : '') || null;
-        const visitsTarget = Number(visitsIdx !== -1 ? row[visitsIdx] : 0) || 0;
-        const auditTarget = Number(auditIdx !== -1 ? row[auditIdx] : 0) || 0;
-        const targetAmount = Number(amountIdx !== -1 ? row[amountIdx] : 0) || 0;
+        const rawSup = supIdx !== -1 ? row[supIdx]?.trim() : '';
+        const supervisorId = cleanUUID(rawSup);
+        const visitsTarget = Number(visitsIdx !== -1 ? normalizeDigits(row[visitsIdx] || '') : 0) || 0;
+        const auditTarget = Number(auditIdx !== -1 ? normalizeDigits(row[auditIdx] || '') : 0) || 0;
+        const targetAmount = Number(amountIdx !== -1 ? normalizeDigits(row[amountIdx] || '') : 0) || 0;
         const criteria = (criteriaIdx !== -1 ? row[criteriaIdx]?.trim() : '') || 'visits';
 
         const record = {
           company_id: sc.companyId,
           supervisor_id: supervisorId,
-          month,
-          year,
           visits_target: visitsTarget,
           audit_target: auditTarget,
           target_amount: targetAmount,
@@ -306,9 +419,10 @@ function useBulkImportTargets() {
       return result;
     },
     onSuccess: (res) => {
-      notify(t('تم استيراد {n} هدف بنجاح', { n: res.success }), res.failed ? 'info' : 'success');
+      notify(t('تم استيراد {n} هدف بنجاح', { n: res.success }), res.failed ? 'error' : 'success');
       void qc.invalidateQueries({ queryKey: [...sc.base, 'targets'] });
       void qc.invalidateQueries({ queryKey: [...sc.base, 'dashboard'] });
+      void qc.invalidateQueries({ queryKey: ['targets'] });
     },
     onError: (e: Error) => notify(e.message, 'error'),
   });
@@ -323,10 +437,10 @@ function useBulkImportBeatPlans() {
       const rows = parseCSV(text);
       if (rows.length < 2) throw new Error(t('ملف CSV فارغ أو لا يحتوي على بيانات.'));
 
-      const headers = rows[0].map(h => h.toLowerCase().trim());
-      const supIdIdx = headers.indexOf('supervisor_id');
-      const dayIdx = headers.indexOf('day_of_week');
-      const custIdIdx = headers.indexOf('customer_id');
+      const headers = rows[0];
+      const supIdIdx = findColumnIndex(headers, ['supervisor_id', 'supervisor', 'مشرف', 'المشرف']);
+      const dayIdx = findColumnIndex(headers, ['day_of_week', 'day', 'اليوم', 'يوم']);
+      const custIdIdx = findColumnIndex(headers, ['customer_id', 'customer', 'عميل', 'العميل']);
 
       if (dayIdx === -1 || custIdIdx === -1) {
         throw new Error(t('الحقول المطلوبة: day_of_week, customer_id'));
@@ -338,11 +452,12 @@ function useBulkImportBeatPlans() {
       const validItems: { data: Record<string, unknown>; rowNum: number }[] = [];
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
-        const supId = row[supIdIdx]?.trim() || sc.supervisorId;
-        const day = parseInt(row[dayIdx]);
-        const custId = row[custIdIdx]?.trim();
+        const rawSup = supIdIdx !== -1 ? row[supIdIdx]?.trim() : '';
+        const supId = cleanUUID(rawSup) || cleanUUID(sc.supervisorId);
+        const day = parseInt(normalizeDigits(row[dayIdx] || ''));
+        const custId = cleanUUID(row[custIdIdx]);
 
-        if (!custId || isNaN(day) || day < 0 || day > 6) {
+        if (!supId || !custId || isNaN(day) || day < 0 || day > 6) {
           result.failed++;
           result.errors.push(t('سطر {n}: بيانات غير صالحة', { n: i + 2 }));
           continue;
@@ -362,8 +477,9 @@ function useBulkImportBeatPlans() {
       return result;
     },
     onSuccess: (result) => {
-      notify(t('تم استيراد {s} خطة. فشل: {f}', { s: result.success, f: result.failed }), result.failed === 0 ? 'success' : 'info');
+      notify(t('تم استيراد {s} خطة. فشل: {f}', { s: result.success, f: result.failed }), result.failed === 0 ? 'success' : 'error');
       void qc.invalidateQueries({ queryKey: [...sc.base, 'beat'] });
+      void qc.invalidateQueries({ queryKey: ['beat'] });
     },
     onError: (e: Error) => notify(e.message, 'error'),
   });
@@ -379,14 +495,21 @@ export function BulkTemplates() {
   const importProducts = useBulkImportProducts();
   const importTargets = useBulkImportTargets();
   const importBeats = useBulkImportBeatPlans();
+  const [customerErrors, setCustomerErrors] = useState<string[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
 
   const handleCustomerUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setErrors([]);
+      setCustomerErrors([]);
       importCustomers.mutate(file, {
-        onSuccess: (result) => { if (result.errors.length) setErrors(result.errors); },
+        onSuccess: (result) => {
+          if (result.errors.length) {
+            setErrors(result.errors);
+            setCustomerErrors(result.errors);
+          }
+        },
       });
     }
     e.target.value = '';
@@ -437,8 +560,8 @@ export function BulkTemplates() {
           <strong>{t('تنسيق الحقول:')}</strong>
           <ul style={{ marginTop: 4, paddingInlineStart: 20 }}>
             <li><code>name</code>: {t('اسم العميل (مطلوب)')}</li>
-            <li><code>type</code>: {t('النوع (القيم المسموحة: بقالة | سوبر ماركت | هايبر ماركت | ميني ماركت | كافيه | مطعم | أخرى)')}</li>
-            <li><code>customer_type</code>: retail, wholesale</li>
+            <li><code>customer_code</code>: {t('كود العميل (اختياري)')}</li>
+            <li><code>type</code>: {t('النوع (بقالة، سوبر ماركت، هايبر ماركت، ميني ماركت، كافيه، مطعم، أخرى)')}</li>
             <li><code>address</code>: {t('العنوان (مطلوب)')}</li>
             <li><code>phone</code>, <code>latitude</code>, <code>longitude</code>, <code>branch</code>, <code>supervisor_id</code>: {t('اختياري')}</li>
           </ul>
@@ -465,6 +588,17 @@ export function BulkTemplates() {
             style={{ display: 'none' }}
           />
         </div>
+
+        {customerErrors.length > 0 && (
+          <div className="alert err col" style={{ gap: 6, marginTop: 12 }}>
+            <div style={{ fontWeight: 600 }}>{t('أخطاء الاستيراد ({n})', { n: customerErrors.length })}:</div>
+            <div style={{ maxHeight: 180, overflow: 'auto', fontSize: 13 }}>
+              {customerErrors.map((err, i) => (
+                <div key={i} style={{ padding: '2px 0' }}>• {err}</div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 2. Products Import */}
