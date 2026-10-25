@@ -112,7 +112,7 @@ export function useCustomerCards(search: string, type: string) {
   const sc = useScope(), term = search.trim().replace(/[%,()]/g, ' ');
   return usePaged<CustomerCardRow>(sc, 'customers', ['cards', term, type], async (from, to, signal) => {
     let q: any = supabase.from('customers').select(`${CUSTOMER_COLUMNS},visits(check_in_time)`).eq('company_id', sc.companyId);
-    if (!sc.isAdmin) q = q.or(`supervisor_id.eq.${sc.supervisorId},supervisor_id.is.null`);
+    if (!sc.isAdmin) q = q.eq('is_active', true).or(`supervisor_id.eq.${sc.supervisorId},supervisor_id.is.null`);
     if (term) q = q.or(`name.ilike.%${term}%,customer_code.ilike.%${term}%,address.ilike.%${term}%`);
     if (type === 'أخرى') {
       const known = Object.entries(CUSTOMER_TYPES).filter(([key]) => key !== 'أخرى').flatMap(([, values]) => values);
