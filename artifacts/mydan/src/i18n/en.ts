@@ -607,6 +607,7 @@ export const EN: Record<string, string> = {
   'جاري الاستيراد...': 'Importing...',
   'رفع CSV': 'Upload CSV',
   'ملف CSV فارغ أو لا يحتوي على بيانات.': 'CSV file is empty or has no data.',
+  'الملف يحتوي على حروف تالفة (علامات استفهام ???). يرجى حفظ الملف من Excel بصيغة: CSV UTF-8 (Comma delimited) لضمان حفظ اللغة العربية بشكل سليم.': 'The file contains corrupted characters (question marks ???). Please save the file from Excel as: CSV UTF-8 (Comma delimited) to preserve Arabic text.',
   'الحقول المطلوبة: name, address': 'Required fields: name, address',
   'سطر {n}: اسم أو عنوان فارغ': 'Row {n}: empty name or address',
   'سطر {n}: {err}': 'Row {n}: {err}',

@@ -6,21 +6,25 @@ import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
 import { notify } from '@/lib/toast';
 
-/** Allowed customer types — must match the DB CHECK constraint exactly */
-const VALID_CUSTOMER_TYPES = ['بقالة', 'سوبر ماركت', 'هايبر ماركت', 'ميني ماركت', 'كافيه', 'مطعم', 'أخرى'] as const;
-
-/** Normalize free-text type values to the exact DB-allowed strings */
+/** Normalize free-text customer type values gracefully while preserving custom user types */
 function normalizeCustomerType(raw?: string | null): string {
-  if (!raw) return 'بقالة';
+  if (!raw || !raw.trim()) return 'بقالة';
   const v = raw.trim();
-  const exact = VALID_CUSTOMER_TYPES.find((t) => t === v);
-  if (exact) return exact;
-  // Handle common one-word spellings (بدون مسافة) that users write
-  if (v === 'سوبرماركت' || v === 'سوبرمارکت') return 'سوبر ماركت';
-  if (v === 'هايبرماركت' || v === 'هيبرماركت') return 'هايبر ماركت';
-  if (v === 'مينيماركت') return 'ميني ماركت';
-  if (v === 'كافيهيه' || v === 'كافية') return 'كافيه';
-  return 'أخرى';
+  // Map common synonyms to standard system categories
+  if (v === 'سوبرماركت' || v === 'سوبرمارکت' || v === 'سوبر ماركت' || v === 'سوبر' || v === 'supermarket') return 'سوبرماركت';
+  if (v === 'هايبرماركت' || v === 'هيبرماركت' || v === 'هايبر ماركت' || v === 'هايبر' || v === 'hypermarket') return 'هايبرماركت';
+  if (v === 'بقال' || v === 'بقاله' || v === 'بقالة' || v === 'grocery') return 'بقالة';
+  if (v === 'كشك' || v === 'كيوسك' || v === 'كشك سجائر' || v === 'kiosk') return 'كيوسك';
+  if (v === 'جملة' || v === 'محل جملة' || v === 'نصف جملة' || v === 'تاجر جملة' || v === 'wholesale') return 'محل جملة';
+  if (v === 'منظفات' || v === 'ورقيات' || v === 'منظفات وورقيات' || v === 'detergents') return 'منظفات';
+  if (v === 'صيدلية' || v === 'صيدليات' || v === 'صيدليه' || v === 'pharmacy') return 'صيدليات';
+  if (v === 'كافيه' || v === 'مقهى' || v === 'كافتيريا' || v === 'كافيهات' || v === 'cafe') return 'كافيه';
+  if (v === 'مطعم' || v === 'مطاعم' || v === 'restaurant') return 'مطعم';
+  if (v === 'ميني ماركت' || v === 'مينيماركت') return 'ميني ماركت';
+  if (v === 'تجزئة' || v === 'قطاعي' || v === 'retail') return 'تجزئة';
+  if (v === 'ضيافة' || v === 'فندق' || v === 'مطاعم وفنادق') return 'ضيافة';
+  // PRESERVE the user's actual business type if not empty! NEVER force it to 'أخرى'!
+  return v;
 }
 
 /** Normalize monthly targets criteria to the exact DB values */
@@ -79,6 +83,52 @@ const TARGET_CSV_TEMPLATE = `supervisor_id,month,year,visits_target,audit_target
 const BEAT_PLAN_CSV_TEMPLATE = `supervisor_id,day_of_week,plan_date,customer_id
 ,0,2026-10-25,CUST-001
 ,1,2026-10-26,CUST-002`;
+
+/**
+ * Reads uploaded file content with automatic encoding detection.
+ * Handles UTF-8 (with or without BOM), UTF-16 LE/BE, and Windows-1256 (Arabic Windows ANSI from Excel).
+ */
+async function readFileText(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+
+  // Check for UTF-16 LE BOM (0xFF, 0xFE)
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(bytes);
+  }
+  // Check for UTF-16 BE BOM (0xFE, 0xFF)
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder('utf-16be').decode(bytes);
+  }
+
+  // Try decoding as strict UTF-8
+  try {
+    const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+    return utf8Decoder.decode(bytes);
+  } catch {
+    // If strict UTF-8 fails (e.g. Arabic ANSI / Windows-1256 from Excel on Arabic Windows)
+    try {
+      const win1256Decoder = new TextDecoder('windows-1256');
+      return win1256Decoder.decode(bytes);
+    } catch {
+      return new TextDecoder('utf-8').decode(bytes);
+    }
+  }
+}
+
+/** Detects if the file was corrupted by Excel saving Arabic text as ANSI/ASCII question marks (???) */
+function checkQuestionMarkCorruption(rows: string[][]): boolean {
+  let clusters = 0;
+  for (const row of rows) {
+    for (const cell of row) {
+      if (/\?{2,}/.test(cell) || /\?\s+\?/.test(cell)) {
+        clusters++;
+        if (clusters >= 2) return true;
+      }
+    }
+  }
+  return false;
+}
 
 function downloadTemplate(filename: string, content: string) {
   // Add UTF-8 BOM so Excel on Windows opens Arabic text properly without gibberish
@@ -220,9 +270,13 @@ function useBulkImportCustomers() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (file: File): Promise<ImportResult> => {
-      const text = await file.text();
+      const text = await readFileText(file);
       const rows = parseCSV(text);
       if (rows.length < 2) throw new Error(t('ملف CSV فارغ أو لا يحتوي على بيانات.'));
+
+      if (checkQuestionMarkCorruption(rows)) {
+        throw new Error(t('الملف يحتوي على حروف تالفة (علامات استفهام ???). يرجى حفظ الملف من Excel بصيغة: CSV UTF-8 (Comma delimited) لضمان حفظ اللغة العربية بشكل سليم.'));
+      }
 
       const headers = rows[0];
       const nameIdx = findColumnIndex(headers, [
@@ -263,9 +317,24 @@ function useBulkImportCustomers() {
         throw new Error(t('الحقول المطلوبة: name, address'));
       }
 
+      // Fetch existing customer codes for upsert
+      const { data: existingCusts } = await supabase
+        .from('customers')
+        .select('id,customer_code')
+        .eq('company_id', sc.companyId)
+        .limit(5000);
+
+      const existingCustMap = new Map<string, string>();
+      if (existingCusts) {
+        for (const c of existingCusts as { id: string; customer_code?: string | null }[]) {
+          if (c.customer_code) existingCustMap.set(c.customer_code.toLowerCase().trim(), c.id);
+        }
+      }
+
       const result: ImportResult = { success: 0, failed: 0, errors: [] };
       const dataRows = rows.slice(1);
       const validItems: { data: Record<string, unknown>; rowNum: number; name: string }[] = [];
+      const updateItems: { id: string; data: Record<string, unknown>; rowNum: number; name: string }[] = [];
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
@@ -284,33 +353,54 @@ function useBulkImportCustomers() {
         const hasValidCoords = lat !== null && lng !== null && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 
         const rawSup = supIdIdx !== -1 ? row[supIdIdx]?.trim() : '';
-        const supervisorId = cleanUUID(rawSup) || cleanUUID(sc.supervisorId) || null;
+        const supervisorId = cleanUUID(rawSup) || null;
 
         const rawActive = activeIdx !== -1 ? row[activeIdx]?.trim().toLowerCase() : '';
         const isActive = !['false', '0', 'no', 'لا', 'معطل', 'غير نشط'].includes(rawActive);
 
+        const cCode = (codeIdx !== -1 ? row[codeIdx]?.trim() : '') || null;
         const customer = {
           company_id: sc.companyId,
-          supervisor_id: row[supIdIdx]?.trim() || null,
-          customer_code: (codeIdx !== -1 ? row[codeIdx]?.trim() : '') || null,
+          supervisor_id: supervisorId,
+          customer_code: cCode,
           name,
           type: normalizeCustomerType(typeIdx !== -1 ? row[typeIdx] : null),
-          // NOTE: customer_type is a generated column in Supabase PostgreSQL: GENERATED ALWAYS AS (type)
-          // NEVER include customer_type in INSERT payloads.
           owner_name: (ownerIdx !== -1 ? row[ownerIdx]?.trim() : '') || null,
           phone: (phoneIdx !== -1 ? normalizeDigits(row[phoneIdx]?.trim() || '') : '') || null,
           address,
           latitude: hasValidCoords ? lat : null,
           longitude: hasValidCoords ? lng : null,
           branch: (branchIdx !== -1 ? row[branchIdx]?.trim() : '') || null,
-          supervisor_id: supervisorId,
           is_active: isActive,
         };
 
-        validItems.push({ data: customer, rowNum: i + 2, name });
+        const existingId = cCode ? existingCustMap.get(cCode.toLowerCase().trim()) : null;
+        if (existingId) {
+          updateItems.push({ id: existingId, data: customer, rowNum: i + 2, name });
+        } else {
+          validItems.push({ data: customer, rowNum: i + 2, name });
+        }
       }
 
-      await batchInsert('customers', validItems, result);
+      for (const item of updateItems) {
+        const { error: updErr } = await (supabase.from('customers') as any).update(item.data).eq('id', item.id);
+        if (updErr) {
+          result.failed++;
+          result.errors.push(
+            t('سطر {n}{details}: {err}', {
+              n: item.rowNum,
+              details: item.name ? ` (${item.name})` : '',
+              err: updErr.message || 'خطأ غير معروف',
+            })
+          );
+        } else {
+          result.success++;
+        }
+      }
+
+      if (validItems.length > 0) {
+        await batchInsert('customers', validItems, result);
+      }
       return result;
     },
     onSuccess: (result) => {
@@ -333,9 +423,13 @@ function useBulkImportProducts() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (file: File): Promise<ImportResult> => {
-      const text = await file.text();
+      const text = await readFileText(file);
       const rows = parseCSV(text);
       if (rows.length < 2) throw new Error(t('ملف CSV فارغ أو لا يحتوي على بيانات.'));
+
+      if (checkQuestionMarkCorruption(rows)) {
+        throw new Error(t('الملف يحتوي على حروف تالفة (علامات استفهام ???). يرجى حفظ الملف من Excel بصيغة: CSV UTF-8 (Comma delimited) لضمان حفظ اللغة العربية بشكل سليم.'));
+      }
 
       const headers = rows[0];
       const nameIdx = findColumnIndex(headers, ['name', 'اسم', 'اسم المنتج', 'اسم الصنف', 'المنتج', 'الصنف', 'product_name']);
@@ -352,9 +446,25 @@ function useBulkImportProducts() {
         throw new Error(t('الحقول المطلوبة: name'));
       }
 
+      // Fetch existing products for upsert by item_code or sku_code
+      const { data: existingProds } = await supabase
+        .from('products')
+        .select('id, item_code, sku_code')
+        .eq('company_id', sc.companyId)
+        .limit(5000);
+
+      const existingProdMap = new Map<string, string>();
+      if (existingProds) {
+        for (const p of existingProds as { id: string; item_code?: string | null; sku_code?: string | null }[]) {
+          if (p.item_code) existingProdMap.set(p.item_code.toLowerCase().trim(), p.id);
+          if (p.sku_code) existingProdMap.set(p.sku_code.toLowerCase().trim(), p.id);
+        }
+      }
+
       const result: ImportResult = { success: 0, failed: 0, errors: [] };
       const dataRows = rows.slice(1);
       const validItems: { data: Record<string, unknown>; rowNum: number; name: string }[] = [];
+      const updateItems: { id: string; data: Record<string, unknown>; rowNum: number; name: string }[] = [];
 
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
@@ -383,10 +493,34 @@ function useBulkImportProducts() {
           is_active: activeIdx !== -1 ? row[activeIdx]?.trim().toLowerCase() !== 'false' : true,
         };
 
-        validItems.push({ data: prod, rowNum: i + 2, name });
+        const key = (itemCode || sku || '').toLowerCase().trim();
+        const existingId = key ? existingProdMap.get(key) : null;
+        if (existingId) {
+          updateItems.push({ id: existingId, data: prod, rowNum: i + 2, name });
+        } else {
+          validItems.push({ data: prod, rowNum: i + 2, name });
+        }
       }
 
-      await batchInsert('products', validItems, result);
+      for (const item of updateItems) {
+        const { error: updErr } = await (supabase.from('products') as any).update(item.data).eq('id', item.id);
+        if (updErr) {
+          result.failed++;
+          result.errors.push(
+            t('سطر {n}{details}: {err}', {
+              n: item.rowNum,
+              details: item.name ? ` (${item.name})` : '',
+              err: updErr.message || 'خطأ غير معروف',
+            })
+          );
+        } else {
+          result.success++;
+        }
+      }
+
+      if (validItems.length > 0) {
+        await batchInsert('products', validItems, result);
+      }
       return result;
     },
     onSuccess: (res) => {
@@ -403,9 +537,13 @@ function useBulkImportTargets() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (file: File): Promise<ImportResult> => {
-      const text = await file.text();
+      const text = await readFileText(file);
       const rows = parseCSV(text);
       if (rows.length < 2) throw new Error(t('ملف CSV فارغ أو لا يحتوي على بيانات.'));
+
+      if (checkQuestionMarkCorruption(rows)) {
+        throw new Error(t('الملف يحتوي على حروف تالفة (علامات استفهام ???). يرجى حفظ الملف من Excel بصيغة: CSV UTF-8 (Comma delimited) لضمان حفظ اللغة العربية بشكل سليم.'));
+      }
 
       const headers = rows[0];
       const supIdx = findColumnIndex(headers, ['supervisor_id', 'supervisor', 'مشرف', 'المشرف', 'معرف المشرف']);
@@ -478,9 +616,13 @@ function useBulkImportBeatPlans() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (file: File): Promise<ImportResult> => {
-      const text = await file.text();
+      const text = await readFileText(file);
       const rows = parseCSV(text);
       if (rows.length < 2) throw new Error(t('ملف CSV فارغ أو لا يحتوي على بيانات.'));
+
+      if (checkQuestionMarkCorruption(rows)) {
+        throw new Error(t('الملف يحتوي على حروف تالفة (علامات استفهام ???). يرجى حفظ الملف من Excel بصيغة: CSV UTF-8 (Comma delimited) لضمان حفظ اللغة العربية بشكل سليم.'));
+      }
 
       const headers = rows[0];
       const supIdIdx = findColumnIndex(headers, ['supervisor_id', 'supervisor', 'مشرف', 'المشرف', 'معرف المشرف']);
