@@ -207,9 +207,26 @@ export async function uploadPendingOfflineActions(companyId?: string, supervisor
         const { error } = await u;
         if (error) throw error;
       } else if (item.type === 'save_order') {
-        const { error } = item.payload?.id
-          ? await supabase.from('orders').upsert(item.payload, { onConflict: 'id' })
-          : await supabase.from('orders').insert(item.payload);
+        // Explicitly whitelist known fields — prevents injecting unexpected columns
+        // from tampered localStorage. Supports upsert-by-id for idempotency on retry.
+        const p = item.payload as Record<string, unknown>;
+        const safeRow = {
+          supervisor_id: item.supervisorId,
+          company_id:    item.companyId,
+          visit_id:      typeof p.visit_id    === 'string' ? p.visit_id    : String(p.visit_id ?? ''),
+          customer_id:   typeof p.customer_id === 'string' ? p.customer_id : null,
+          product_id:    typeof p.product_id  === 'string' ? p.product_id  : null,
+          quantity:      typeof p.quantity    === 'number' ? p.quantity    : (p.quantity    != null ? Number(p.quantity)    : null),
+          unit_price:    typeof p.unit_price  === 'number' ? p.unit_price  : (p.unit_price  != null ? Number(p.unit_price)  : null),
+          total_amount:  typeof p.total_amount === 'number' ? p.total_amount : (p.total_amount != null ? Number(p.total_amount) : 0),
+          items:         Array.isArray(p.items) ? p.items : null,
+          status:        typeof p.status     === 'string' ? p.status     : 'pending',
+          notes:         typeof p.notes      === 'string' ? p.notes      : null,
+          order_date:    typeof p.order_date === 'string' ? p.order_date : new Date().toISOString().slice(0, 10),
+        };
+        const { error } = typeof p.id === 'string' && p.id
+          ? await supabase.from('orders').upsert({ ...safeRow, id: p.id }, { onConflict: 'id' })
+          : await supabase.from('orders').insert(safeRow);
         if (error) throw error;
       } else if (item.type === 'attendance_action') {
         const { kind, attendance_date, check_in_time, check_out_time, check_in_lat, check_in_lng } = item.payload as {

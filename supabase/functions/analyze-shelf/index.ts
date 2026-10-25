@@ -25,7 +25,7 @@ const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as co
 type MediaType = typeof MEDIA_TYPES[number];
 
 const cors = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "https://mydan.digityoucan.com",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 const json = (status: number, body: unknown) =>
@@ -200,8 +200,6 @@ Deno.serve(async (req) => {
     return json(404, { error: "audit not found" });
   }
   if (!audit.photo_url) return json(400, { error: "audit has no photo" });
-  if (audit.status === "processing") return json(409, { error: "analysis already running" });
-  if (audit.status === "completed")  return json(409, { error: "audit already analyzed" });
 
   // Rate limiting: daily cap + concurrent cap per company + hourly cap per supervisor.
   const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0);
@@ -238,7 +236,20 @@ Deno.serve(async (req) => {
     await admin.from("shelf_audit").update({ status: "failed" }).eq("id", audit.id);
     return json(status, { error });
   };
-  await admin.from("shelf_audit").update({ status: "processing" }).eq("id", audit.id);
+
+  // Atomic claim: UPDATE only succeeds when status is not already 'processing' or 'completed'.
+  // This eliminates the TOCTOU race where concurrent requests both pass the status check
+  // and then both proceed to run the AI analysis.
+  const { count: claimedCount } = await admin.from("shelf_audit")
+    .update({ status: "processing" })
+    .eq("id", audit.id)
+    .not("status", "in", "(processing,completed)")
+    .select("id", { count: "exact", head: true });
+  if (!claimedCount) {
+    const { data: cur } = await admin.from("shelf_audit").select("status").eq("id", audit.id).maybeSingle();
+    const msg = cur?.status === "completed" ? "audit already analyzed" : "analysis already running";
+    return json(409, { error: msg });
+  }
 
   try {
     // 3) Brand settings come from the company's own row.
