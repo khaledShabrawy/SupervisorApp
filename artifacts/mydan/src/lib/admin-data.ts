@@ -603,7 +603,6 @@ export function useSaveAdminCustomer() {
         name: c.name.trim(),
         customer_code: c.customer_code?.trim() || null,
         type: c.type.trim(),
-        customer_type: c.type.trim(),
         owner_name: c.owner_name.trim() || null,
         phone: c.phone.trim() || null,
         address: c.address.trim(),

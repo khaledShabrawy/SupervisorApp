@@ -140,7 +140,6 @@ export function useSaveProspects() {
         company_id: sc.companyId,
         supervisor_id: sc.supervisorId,
         name: s.name.trim() || 'عميل غير محدد الاسم',
-        customer_type: s.type,
         type: s.type,
         latitude: survey.latitude,
         longitude: survey.longitude,
