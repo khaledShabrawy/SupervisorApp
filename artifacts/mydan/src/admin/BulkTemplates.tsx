@@ -6,10 +6,26 @@ import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
 import { notify } from '@/lib/toast';
 
+/** Allowed customer types — must match the DB CHECK constraint exactly */
+const VALID_CUSTOMER_TYPES = ['بقالة', 'سوبر ماركت', 'هايبر ماركت', 'ميني ماركت', 'كافيه', 'مطعم', 'أخرى'] as const;
+
+/** Normalize free-text type values to the exact DB-allowed strings */
+function normalizeCustomerType(raw: string): string {
+  const v = raw.trim();
+  const exact = VALID_CUSTOMER_TYPES.find(t => t === v);
+  if (exact) return exact;
+  // Handle common one-word spellings (بدون مسافة) that users write
+  if (v === 'سوبرماركت' || v === 'سوبرمارکت') return 'سوبر ماركت';
+  if (v === 'هايبرماركت' || v === 'هيبرماركت') return 'هايبر ماركت';
+  if (v === 'مينيماركت') return 'ميني ماركت';
+  if (v === 'كافيهيه' || v === 'كافية') return 'كافيه';
+  return 'أخرى';
+}
+
 /** CSV template for bulk customer import */
 const CUSTOMER_CSV_TEMPLATE = `name,type,customer_type,owner_name,phone,address,latitude,longitude,branch,supervisor_id,is_active
-بقالة الأمل,بقالة,retail,أحمد محمد,01012345678,شارع النيل، القاهرة,30.0444,31.2357,القاهرة,,true
-سوبرماركت النور,سوبرماركت,wholesale,محمود علي,01098765432,ميدان التحرير، الجيزة,30.0626,31.2497,الجيزة,,true`;
+بقالة الأمل,بقالة,retail,أحمد محمد,01012345678,شارع النيل; القاهرة,30.0444,31.2357,القاهرة,,true
+سوبرماركت النور,سوبر ماركت,wholesale,محمود علي,01098765432,ميدان التحرير; الجيزة,30.0626,31.2497,الجيزة,,true`;
 
 /** CSV template for products import */
 const PRODUCT_CSV_TEMPLATE = `name,category,sku_code,item_code,master_brand,sub_brand,is_active
@@ -138,7 +154,7 @@ function useBulkImportCustomers() {
           company_id: sc.companyId,
           supervisor_id: row[supIdIdx]?.trim() || sc.supervisorId,
           name,
-          type: row[typeIdx]?.trim() || 'بقالة',
+          type: normalizeCustomerType(row[typeIdx]?.trim() || 'بقالة'),
           customer_type: row[customerTypeIdx]?.trim() || 'retail',
           owner_name: row[ownerIdx]?.trim() || null,
           phone: row[phoneIdx]?.trim() || null,
@@ -422,7 +438,7 @@ export function BulkTemplates() {
           <strong>{t('تنسيق الحقول:')}</strong>
           <ul style={{ marginTop: 4, paddingInlineStart: 20 }}>
             <li><code>name</code>: {t('اسم العميل (مطلوب)')}</li>
-            <li><code>type</code>: {t('النوع (بقالة، سوبرماركت، هايبرماركت، كيوسك، محل جملة، منظفات، صيدليات، أخرى)')}</li>
+            <li><code>type</code>: {t('النوع (القيم المسموحة: بقالة | سوبر ماركت | هايبر ماركت | ميني ماركت | كافيه | مطعم | أخرى)')}</li>
             <li><code>customer_type</code>: retail, wholesale</li>
             <li><code>address</code>: {t('العنوان (مطلوب)')}</li>
             <li><code>phone</code>, <code>latitude</code>, <code>longitude</code>, <code>branch</code>, <code>supervisor_id</code>: {t('اختياري')}</li>
