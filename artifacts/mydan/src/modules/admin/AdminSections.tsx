@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, type ChangeEvent, type FormEvent } from
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
-import { Bell, Camera, CheckCheck, Download, FileText, MapPin, Package, Plus, ShoppingCart, Store, Trash2, X } from '@/components/Icons';
+import { Bell, Camera, CheckCheck, Download, FileText, MapPin, Package, Plus, ShoppingCart, Store, Target, Trash2, X } from '@/components/Icons';
 import { exportToCsv } from '@/lib/csv-export';
 import { useAdminOrders, useUpdateOrderStatus, formatOrderWhatsAppMessage, openWhatsAppShare, type OrderRecord } from '@/lib/screen-orders';
 import { fmtDate, fmtTime, num } from '@/lib/format';
@@ -13,7 +13,7 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
   ASSET_STATUS, useAdminCustomers, useAdminSurveys, useAssets, useAuditLogs, useBranches, useBroadcast,
   useDeactivateRecord, useToggleActiveRecord, useSaveAdminCustomer, useSaveAsset, useDeleteAsset, useSaveBranch, useSaveProduct, useSaveSurvey, useUploadLogo,
-  useRegions, useSaveRegion,
+  useRegions, useSaveRegion, useAdminTargets, useDeleteTarget,
   type AdminCustomerRow, type AssetRow, type AuditRow, type Branch, type SurveyQuestion, type SurveyRow,
 } from '@/lib/admin-data';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
@@ -250,7 +250,249 @@ export function AdminCustomers() {
 }
 
 /* ---------- Targets (reuse AdminPanel form) ---------- */
-export function AdminTargets() { return <><h2>{t('الأهداف الشهرية')}</h2><div style={{ maxWidth: 560 }}><TargetForm /></div></>; }
+export function AdminTargets() {
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [search, setSearch] = useState('');
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const targetsQ = useAdminTargets(month, year);
+  const delMutation = useDeleteTarget();
+  const retry = useRefetch(targetsQ.refetch);
+
+  const filteredTargets = useMemo(() => {
+    if (!targetsQ.data) return [];
+    if (!search.trim()) return targetsQ.data;
+    const term = search.toLowerCase().trim();
+    return targetsQ.data.filter((row) => {
+      const sup = row.supervisors;
+      const supName = sup?.full_name?.toLowerCase() || '';
+      const supCode = sup?.supervisor_code?.toLowerCase() || '';
+      const branchName = row.branches?.name?.toLowerCase() || '';
+      return supName.includes(term) || supCode.includes(term) || branchName.includes(term);
+    });
+  }, [targetsQ.data, search]);
+
+  const criteriaLabels: Record<string, string> = {
+    visits: t('زيارات ميدانية'),
+    shelf_audit: t('مراجعات الرف'),
+    orders: t('فرص بيعية وأوردرات'),
+    new_opportunity: t('استقطاب عملاء'),
+  };
+
+  return (
+    <>
+      <div className="row between items-center" style={{ flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h2 style={{ margin: 0 }}>{t('الأهداف الشهرية')}</h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
+            {t('متابعة وتحديد المستهدفات الشهرية للمشرفين والفروع ونسبة الإنجاز الفعلية')}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => setShowAddModal(true)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <Plus size={18} /> {t('إضافة هدف جديد')}
+        </button>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="row items-center" style={{ gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
+        <div className="row items-center gap-1">
+          <span className="muted" style={{ fontSize: 13 }}>{t('الشهر')}:</span>
+          <select
+            className="input"
+            style={{ width: 130 }}
+            value={month}
+            onChange={(e) => setMonth(Number(e.target.value))}
+          >
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+              <option key={m} value={m}>{m} - {t('شهر {m}', { m })}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="row items-center gap-1">
+          <span className="muted" style={{ fontSize: 13 }}>{t('السنة')}:</span>
+          <input
+            className="input"
+            type="number"
+            style={{ width: 90 }}
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+          />
+        </div>
+
+        <input
+          className="input grow"
+          placeholder={t('بحث باسم المشرف أو الكود أو الفرع...')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      {targetsQ.isPending ? (
+        <SkeletonList n={4} />
+      ) : targetsQ.isError ? (
+        <ErrorState error={targetsQ.error} onRetry={retry} />
+      ) : filteredTargets.length === 0 ? (
+        <EmptyState
+          icon={<Target />}
+          title={t('لا توجد أهداف محددة لهذا الشهر')}
+          text={t('اضغط على "إضافة هدف جديد" أو قم باستيراد الأهداف عبر ملف التمبلت.')}
+        />
+      ) : (
+        <div className="adm-table-wrap" style={{ marginTop: 14 }}>
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th>{t('المشرف / النطاق')}</th>
+                <th>{t('الفرع')}</th>
+                <th>{t('نوع الهدف')}</th>
+                <th>{t('المستهدف')}</th>
+                <th>{t('الفعلي')}</th>
+                <th>{t('نسبة الإنجاز')}</th>
+                <th style={{ width: 80 }}>{t('إجراءات')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTargets.map((row) => {
+                const targetVal = row.criteria === 'orders' && row.target_amount ? row.target_amount : (row.visits_target || row.audit_target || 0);
+                const actualVal = row.criteria === 'shelf_audit' ? (row.actual_audits || 0) : (row.actual_visits || 0);
+                const pct = targetVal > 0 ? Math.min(100, Math.round((actualVal / targetVal) * 100)) : 0;
+                const isGeneral = row.scope_type === 'general';
+
+                return (
+                  <tr key={row.id}>
+                    <td>
+                      {isGeneral ? (
+                        <span className="badge b-blue">{t('عام لجميع المشرفين')}</span>
+                      ) : (
+                        <div>
+                          <div className="row items-center gap-1">
+                            <span className="title">{row.supervisors?.full_name ?? '—'}</span>
+                            {row.supervisors?.supervisor_code && (
+                              <span className="badge b-blue" style={{ fontSize: 11, fontFamily: 'monospace' }}>
+                                {row.supervisors.supervisor_code}
+                              </span>
+                            )}
+                          </div>
+                          {row.supervisors?.phone && (
+                            <div className="muted" dir="ltr" style={{ fontSize: 12 }}>{row.supervisors.phone}</div>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td>{row.branches?.name ?? t('كل الفروع')}</td>
+                    <td>
+                      <span className="badge b-gray">
+                        {criteriaLabels[row.criteria ?? 'visits'] || row.criteria || '—'}
+                      </span>
+                    </td>
+                    <td style={{ fontWeight: 600 }}>
+                      {row.criteria === 'orders' && row.target_amount
+                        ? `${num(row.target_amount)} ج.م`
+                        : `${row.visits_target || 0} زيارة`}
+                      {(row.audit_target ?? 0) > 0 && (
+                        <div className="muted" style={{ fontSize: 12 }}>
+                          {row.audit_target} {t('مراجعة')}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <div>
+                        {actualVal}
+                        <div className="muted" style={{ fontSize: 12 }}>{row.actual_audits || 0} {t('مراجعة')}</div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="row items-center gap-1" style={{ minWidth: 100 }}>
+                        <div style={{ flex: 1, height: 8, background: 'var(--border, #e2e8f0)', borderRadius: 4, overflow: 'hidden' }}>
+                          <div
+                            style={{
+                              width: `${pct}%`,
+                              height: '100%',
+                              background: pct >= 100 ? '#10b981' : pct >= 50 ? '#3b82f6' : '#f59e0b',
+                              transition: 'width 0.3s'
+                            }}
+                          />
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 600 }}>{pct}%</span>
+                      </div>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn sm danger-ghost"
+                        style={{ padding: '4px 8px', color: '#ef4444' }}
+                        onClick={() => setDeleteId(row.id)}
+                        title={t('حذف الهدف')}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Target Delete Modal */}
+      {deleteId && (
+        <div className="adm-modal-bg" onClick={() => setDeleteId(null)}>
+          <div className="adm-modal col" style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: 0, color: '#ef4444' }}>{t('حذف الهدف الشهري')}</h3>
+            <p style={{ margin: '8px 0', lineHeight: 1.5 }}>
+              {t('هل أنت متأكد من رغبتك في حذف هذا الهدف؟')}
+            </p>
+            <div className="row end gap-2" style={{ marginTop: 14 }}>
+              <button type="button" className="btn ghost" onClick={() => setDeleteId(null)}>
+                {t('إلغاء')}
+              </button>
+              <button
+                type="button"
+                className="btn danger"
+                disabled={delMutation.isPending}
+                onClick={() => {
+                  delMutation.mutate(deleteId, {
+                    onSuccess: () => {
+                      setDeleteId(null);
+                      targetsQ.refetch();
+                    }
+                  });
+                }}
+              >
+                {delMutation.isPending ? t('جاري الحذف...') : t('تأكيد الحذف')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Target Modal */}
+      {showAddModal && (
+        <div className="adm-modal-bg" onClick={() => setShowAddModal(false)}>
+          <div className="adm-modal col" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+            <div className="row between items-center">
+              <h3 style={{ margin: 0 }}>{t('إضافة هدف شهري جديد')}</h3>
+              <button type="button" className="icon-btn" onClick={() => setShowAddModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <TargetForm />
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 /* ---------- Products (catalog only; pricing is out of scope by design) ---------- */
 function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: () => void }) {

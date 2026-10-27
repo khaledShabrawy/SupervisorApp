@@ -125,18 +125,18 @@ export default function BeatPlanScreen() {
         : null
     }
 
-    {day === null || daysQ.isPending
+    {daysQ.isPending
       ? <SkeletonList />
       : daysQ.isError
         ? <ErrorState error={daysQ.error} onRetry={daysQ.refetch} />
         : availableDays.length === 0
-          ? <EmptyState icon={<Route />} title={t('لا توجد خطة زيارات مضافة')} />
-          : q.isPending
+          ? <EmptyState icon={<Route />} title={t('لا توجد خطة زيارات مضافة')} text={t('لم يتم تعيين خطة سير لهذا المشرف بعد. يمكن للإدارة رفع وتعيين خطة الزيارات.')} />
+          : day === null || q.isPending
             ? <SkeletonList />
             : q.isError
               ? <ErrorState error={q.error} onRetry={retry} />
               : q.data.plan.length === 0
-                ? <EmptyState icon={<Route />} title={t('لا توجد زيارات مخططة')} />
+                ? <EmptyState icon={<Route />} title={t('لا توجد زيارات مخططة')} text={t('لا توجد زيارات مسجلة لهذا اليوم.')} />
                 : <>
                     {/* ── Optimizer Banner ── */}
                     <div className="card row" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>

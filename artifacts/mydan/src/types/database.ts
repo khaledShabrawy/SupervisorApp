@@ -6,6 +6,7 @@ export interface Supervisor {
   company_id: ID; is_active: boolean;
   force_password_change?: boolean; password_changed_at?: string | null;
   device_id?: string | null;
+  supervisor_code?: string | null;
 }
 export interface Customer {
   id: ID; name: string; customer_type: string; address: string;
