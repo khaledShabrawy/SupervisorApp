@@ -326,7 +326,7 @@ export function TargetForm() {
           {t('المستخدم / المشرف المستهدف *')}
           <select className="input" value={sid} onChange={onSid} disabled={q.isPending} required>
             <option value="">{q.isPending ? t('جاري التحميل...') : t('اختر المستخدم')}</option>
-            {q.items.map((s) => <SelectOption key={s.id} value={s.id} label={s.full_name} />)}
+            {q.items.map((s) => <SelectOption key={s.id} value={s.id} label={s.supervisor_code ? `${s.full_name} (${s.supervisor_code})` : s.full_name} />)}
           </select>
         </label>
       )}

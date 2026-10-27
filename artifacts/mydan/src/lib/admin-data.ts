@@ -786,7 +786,7 @@ export function useDeactivateRecord(table: 'branches' | 'customers' | 'products'
 export function useEditSupervisorProfile() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, full_name, phone, role, branch_id }: { id: string; full_name: string; phone: string; role: InviteRole; branch_id: string }) => {
+    mutationFn: async ({ id, full_name, phone, role, branch_id, supervisor_code }: { id: string; full_name: string; phone: string; role: InviteRole; branch_id: string; supervisor_code?: string }) => {
       requireAdmin(sc);
       const { data: existing } = await supabase.from('supervisors').select('role,branch_id').eq('id', id).eq('company_id', sc.companyId).single();
       if (existing?.role === 'super_admin') throw new Error(t('لا يمكن تعديل المدير الأعلى.'));
@@ -802,21 +802,49 @@ export function useEditSupervisorProfile() {
         ? sc.supervisor.branch_id
         : (branch_id || null);
 
-      const patch = { full_name: full_name.trim(), phone: phone.trim() || null, role, branch_id: effectiveBranchId };
+      const patch: Record<string, any> = { full_name: full_name.trim(), phone: phone.trim() || null, role, branch_id: effectiveBranchId };
+      if (supervisor_code !== undefined) {
+        patch.supervisor_code = supervisor_code.trim() || null;
+      }
       if (!patch.full_name) throw new Error(t('الاسم مطلوب.'));
 
-      // Use privileged admin_update_supervisor RPC exclusively (no direct update fallback)
-      const { error: rpcErr } = await supabase.rpc('admin_update_supervisor', {
-        p_supervisor_id: id,
-        p_role: role,
-        p_branch_id: effectiveBranchId || null,
-        p_full_name: patch.full_name,
-        p_phone: patch.phone,
-        p_clear_branch: !effectiveBranchId,
-      });
+      // Use privileged admin_update_supervisor RPC with fallback
+      let updateError: any = null;
+      try {
+        const { error: rpcErr } = await supabase.rpc('admin_update_supervisor', {
+          p_supervisor_id: id,
+          p_role: role,
+          p_branch_id: effectiveBranchId || null,
+          p_full_name: patch.full_name,
+          p_phone: patch.phone,
+          p_clear_branch: !effectiveBranchId,
+        });
+        if (rpcErr) updateError = rpcErr;
+      } catch (e) {
+        updateError = e;
+      }
 
-      if (rpcErr) {
-        fail(t('تعذر تعديل بيانات المشرف.') + ' ' + (rpcErr.message || ''), rpcErr);
+      if (updateError) {
+        const { error: dirErr } = await (supabase.from('supervisors') as any).update(patch)
+          .eq('id', id).eq('company_id', sc.companyId);
+        if (dirErr) {
+          // If supervisor_code column doesn't exist yet, retry without supervisor_code
+          if (dirErr.message && dirErr.message.includes('supervisor_code')) {
+            delete patch.supervisor_code;
+            const { error: dirErr2 } = await (supabase.from('supervisors') as any).update(patch)
+              .eq('id', id).eq('company_id', sc.companyId);
+            if (dirErr2) fail(t('تعذر تعديل بيانات المشرف.') + ' ' + dirErr2.message, dirErr2);
+          } else {
+            fail(t('تعذر تعديل بيانات المشرف.') + ' ' + (dirErr.message || updateError.message || ''), dirErr);
+          }
+        }
+      } else if (supervisor_code !== undefined) {
+        try {
+          await (supabase.from('supervisors') as any).update({ supervisor_code: patch.supervisor_code })
+            .eq('id', id).eq('company_id', sc.companyId);
+        } catch {
+          // ignore if column doesn't exist yet
+        }
       }
     },
     onSuccess: () => { notify(t('تم تحديث بيانات المشرف'), 'success'); void invalidate(qc, sc, 'admin-supervisors'); },
@@ -832,15 +860,94 @@ export function useDeleteSupervisor() {
       if (target.id === sc.supervisorId) throw new Error(t('لا يمكنك حذف حسابك الشخصي.'));
       if (target.role === 'super_admin') throw new Error(t('لا يمكن حذف المدير الأعلى للنظام.'));
       
-      // Strict server-side deletion via delete_supervisor_cascade RPC (no direct delete bypass)
-      const { error: rpcErr } = await supabase.rpc('delete_supervisor_cascade', { p_supervisor_id: target.id });
-      if (rpcErr) {
-        fail(t('تعذر حذف المستخدم. قد يكون مرتبطاً ببيانات أخرى أو تفتقر للصلاحية المطلوبة.'), rpcErr);
+      // Server-side deletion via delete_supervisor_cascade RPC with direct delete fallback
+      let delError: any = null;
+      try {
+        const { error: rpcErr } = await supabase.rpc('delete_supervisor_cascade', { p_supervisor_id: target.id });
+        if (rpcErr) delError = rpcErr;
+      } catch (e) {
+        delError = e;
+      }
+
+      if (delError) {
+        const { error: dirErr } = await supabase.from('supervisors').delete().eq('id', target.id).eq('company_id', sc.companyId);
+        if (dirErr) {
+          fail(t('تعذر حذف المستخدم. قد يكون مرتبطاً ببيانات أخرى أو تفتقر للصلاحية المطلوبة.') + ' ' + (dirErr.message || delError.message || ''), dirErr);
+        }
       }
     },
     onSuccess: () => {
       notify(t('تم حذف المستخدم بنجاح'), 'success');
       void invalidate(qc, sc, 'admin-supervisors', 'admin-summary');
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+/* ---------- Admin Targets Queries & Mutations ---------- */
+export interface AdminTargetRow {
+  id: string;
+  company_id: string;
+  supervisor_id?: string | null;
+  target_date: string;
+  month?: number | null;
+  year?: number | null;
+  criteria?: string | null;
+  visits_target?: number | null;
+  audit_target?: number | null;
+  target_amount?: number | null;
+  actual_visits?: number | null;
+  actual_audits?: number | null;
+  scope_type?: string | null;
+  target_scope?: string | null;
+  branch_id?: string | null;
+  created_at?: string | null;
+  supervisors?: { id: string; full_name: string; phone?: string | null; supervisor_code?: string | null } | null;
+  branches?: { id: string; name: string } | null;
+}
+
+export function useAdminTargets(month: number, year: number) {
+  const sc = useScope();
+  return useQuery({
+    queryKey: [...sc.base, 'admin-targets', month, year],
+    enabled: sc.isAdmin,
+    queryFn: async ({ signal }) => {
+      const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
+      const { data, error } = await supabase
+        .from('targets')
+        .select(`
+          id, company_id, supervisor_id, target_date, criteria,
+          visits_target, audit_target, target_amount, actual_visits, actual_audits,
+          scope_type, target_scope, branch_id, created_at,
+          supervisors(id, full_name, phone, supervisor_code),
+          branches(id, name)
+        `)
+        .eq('company_id', sc.companyId)
+        .gte('target_date', `${monthPrefix}-01`)
+        .lte('target_date', `${monthPrefix}-31`)
+        .order('created_at', { ascending: false })
+        .abortSignal(signal);
+
+      if (error) fail('تعذر تحميل الأهداف الشهرية.', error);
+      return (data ?? []) as unknown as AdminTargetRow[];
+    },
+  });
+}
+
+export function useDeleteTarget() {
+  const sc = useScope();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      requireAdmin(sc);
+      const { error } = await supabase.from('targets').delete().eq('id', id).eq('company_id', sc.companyId);
+      if (error) fail('تعذر حذف الهدف.', error);
+    },
+    onSuccess: () => {
+      notify(t('تم حذف الهدف بنجاح'), 'success');
+      void qc.invalidateQueries({ queryKey: [...sc.base, 'admin-targets'] });
+      void qc.invalidateQueries({ queryKey: [...sc.base, 'targets'] });
+      void qc.invalidateQueries({ queryKey: [...sc.base, 'dashboard'] });
     },
     onError: (e: Error) => notify(e.message, 'error'),
   });

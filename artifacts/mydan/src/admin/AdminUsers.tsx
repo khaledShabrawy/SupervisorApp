@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Key, Plus, RefreshCw, ShieldCheck, X } from '@/components/Icons';
+import { Key, Plus, RefreshCw, ShieldCheck, X, Pencil, Trash2, UserCheck, UserX } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupervisors, useUpdateSupervisor } from '@/lib/data';
 import {
@@ -96,18 +96,22 @@ function SetPasswordModal({ s, onClose }: { s: Supervisor; onClose: () => void }
 function EditSupervisorModal({ s, onClose }: { s: Supervisor; onClose: () => void }) {
   const m = useEditSupervisorProfile(); const branches = useBranches();
   const [name, setName] = useState(s.full_name); const [phone, setPhone] = useState(s.phone ?? '');
+  const [code, setCode] = useState(s.supervisor_code ?? '');
   const [role, setRole] = useState<InviteRole>((['supervisor', 'senior_supervisor', 'branch_manager', 'admin'].includes(s.role) ? s.role : 'supervisor') as InviteRole);
   const [branch, setBranch] = useState(s.branch_id ?? '');
   const submit = useCallback((e: FormEvent) => {
     e.preventDefault();
-    m.mutate({ id: s.id, full_name: name, phone, role, branch_id: branch }, { onSuccess: onClose });
-  }, [m, s.id, name, phone, role, branch, onClose]);
+    m.mutate({ id: s.id, full_name: name, phone, role, branch_id: branch, supervisor_code: code }, { onSuccess: onClose });
+  }, [m, s.id, name, phone, role, branch, code, onClose]);
   return <div className="adm-modal-bg" onClick={onClose}>
     <form className="adm-modal col" role="dialog" aria-modal="true" aria-label={t('تعديل بيانات المستخدم')} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
       <div className="row between"><h2 style={{ margin: 0, fontSize: 18 }}>{t('تعديل بيانات المستخدم')}</h2>
         <button type="button" className="icon-btn" aria-label={t('إغلاق')} onClick={onClose}><X /></button></div>
       <label className="f">{t('الاسم بالكامل *')}<input className="input" required value={name} onChange={useInput(setName)} /></label>
-      <label className="f">{t('الهاتف')}<input className="input" dir="ltr" inputMode="tel" value={phone} onChange={useInput(setPhone)} /></label>
+      <div className="row">
+        <label className="f grow">{t('كود المشرف')}<input className="input" dir="ltr" placeholder="SUP-001" value={code} onChange={useInput(setCode)} /></label>
+        <label className="f grow">{t('الهاتف')}<input className="input" dir="ltr" inputMode="tel" value={phone} onChange={useInput(setPhone)} /></label>
+      </div>
       <div className="row">
         <label className="f grow">{t('الدور')}<select className="input" value={role} onChange={(e) => setRole(e.target.value as InviteRole)}>
           {INVITE_ROLES.map((r) => <option key={r} value={r}>{ROLE[r]}</option>)}</select></label>
@@ -161,7 +165,14 @@ const Row = memo(function Row({
 
   return <tr data-testid={`row-supervisor-${s.id}`}>
     <td>
-      <div className="title">{s.full_name}{self && t(' (أنت)')}</div>
+      <div className="row items-center gap-1">
+        <span className="title">{s.full_name}{self && t(' (أنت)')}</span>
+        {s.supervisor_code && (
+          <span className="badge b-blue" style={{ fontSize: 11, fontFamily: 'monospace', padding: '1px 6px' }}>
+            {s.supervisor_code}
+          </span>
+        )}
+      </div>
       <div className="muted" dir="ltr" style={{ textAlign: 'start', fontSize: 12 }}>{s.phone ?? '—'}</div>
     </td>
     <td>{branch}</td>
@@ -191,27 +202,77 @@ const Row = memo(function Row({
     </td>
     <td><span className={`badge ${s.is_active ? 'b-green' : 'b-red'}`}>{s.is_active ? t('نشط') : t('معطل')}</span></td>
     <td>
-      <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
-        <button className="btn sm ghost" onClick={() => onSetPw(s)} title={t('تعيين كلمة المرور يدوياً')}>
-          <Key size={14} /> {t('الباسورد')}
+      <div className="row items-center" style={{ gap: 6, flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
+        <button
+          type="button"
+          className="btn sm ghost"
+          style={{ padding: '6px 8px' }}
+          onClick={() => onSetPw(s)}
+          title={t('تعيين كلمة المرور')}
+          aria-label={t('تعيين كلمة المرور')}
+        >
+          <Key size={14} />
         </button>
-        <button className="btn sm ghost" onClick={() => onResend(s)} disabled={resending} title={t('إعادة إرسال رابط التفعيل والدعوة')}>
-          <RefreshCw size={14} /> {t('إعادة الرابط')}
+        <button
+          type="button"
+          className="btn sm ghost"
+          style={{ padding: '6px 8px' }}
+          onClick={() => onResend(s)}
+          disabled={resending}
+          title={t('إعادة إرسال رابط التفعيل والدعوة')}
+          aria-label={t('إعادة إرسال رابط التفعيل والدعوة')}
+        >
+          <RefreshCw size={14} />
         </button>
-        {!locked && <button className="btn sm ghost" onClick={() => onEdit(s)}>{t('تعديل')}</button>}
-        {!locked && <button className={`btn sm ${s.is_active ? 'danger-ghost' : 'success'}`} onClick={toggle}>{s.is_active ? t('تعطيل') : t('تفعيل')}</button>}
+        {!locked && (
+          <button
+            type="button"
+            className="btn sm ghost"
+            style={{ padding: '6px 8px' }}
+            onClick={() => onEdit(s)}
+            title={t('تعديل')}
+            aria-label={t('تعديل')}
+          >
+            <Pencil size={14} />
+          </button>
+        )}
+        {!locked && (
+          <button
+            type="button"
+            className={`btn sm ${s.is_active ? 'danger-ghost' : 'success'}`}
+            style={{ padding: '6px 8px' }}
+            onClick={toggle}
+            title={s.is_active ? t('تعطيل الحساب') : t('تفعيل الحساب')}
+            aria-label={s.is_active ? t('تعطيل الحساب') : t('تفعيل الحساب')}
+          >
+            {s.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
+          </button>
+        )}
         {!locked && (
           <button
             type="button"
             className="btn sm danger-ghost"
-            style={{ color: '#ef4444', borderColor: '#fca5a5' }}
+            style={{ padding: '6px 8px', color: '#ef4444', borderColor: '#fca5a5' }}
             onClick={() => setConfirmDelete(true)}
             title={t('حذف المستخدم نهائياً')}
+            aria-label={t('حذف المستخدم نهائياً')}
           >
-            {t('حذف')}
+            <Trash2 size={14} />
           </button>
         )}
-        {!['admin', 'super_admin'].includes(s.role) && <button className="btn sm ghost" onClick={() => onPerms(s)} data-testid={`button-perms-${s.id}`}>{t('الصلاحيات')}</button>}
+        {!['admin', 'super_admin'].includes(s.role) && (
+          <button
+            type="button"
+            className="btn sm ghost"
+            style={{ padding: '6px 8px' }}
+            onClick={() => onPerms(s)}
+            data-testid={`button-perms-${s.id}`}
+            title={t('الصلاحيات')}
+            aria-label={t('الصلاحيات')}
+          >
+            <ShieldCheck size={14} />
+          </button>
+        )}
       </div>
 
       {confirmDelete && (

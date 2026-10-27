@@ -139,9 +139,9 @@ export function useCustomerById(id: string | null) {
   return useQuery({ queryKey: [...sc.base, 'customers', 'selected', id], enabled: !!id, retry: 1,
     queryFn: async ({ signal }) => {
       const r = await sc.scope(supabase.from('customers').select(CUSTOMER_COLUMNS)).eq('id', id!)
-        .eq('is_active', true).abortSignal(signal).single();
-      errorMessage('تعذر تحميل العميل المحدد.', r.error);
-      return r.data as Customer;
+        .abortSignal(signal).maybeSingle();
+      if (r.error) errorMessage('تعذر تحميل العميل المحدد.', r.error);
+      return r.data as Customer | null;
     } });
 }
 export function useMonthlyTargets() {
@@ -199,52 +199,60 @@ export function useSaveMonthlyTarget() {
       if (!Number.isInteger(input.month) || input.month < 1 || input.month > 12
         || !Number.isInteger(input.year) || input.year < 2000 || input.year > 2100) throw new Error('الشهر أو السنة غير صالحة.');
 
-      const values: Record<string, any> = {
-        month: input.month,
-        year: input.year,
+      const targetDate = `${input.year}-${String(input.month).padStart(2, '0')}-01`;
+      const targetMonthPrefix = targetDate.slice(0, 7);
+      const supervisorId = input.scope_type === 'per_user' && input.supervisor_id ? input.supervisor_id : null;
+      const branchId = input.target_scope === 'specific_branch' ? (input.branch_id || null) : null;
+
+      const payload: Record<string, any> = {
+        company_id: sc.companyId,
+        supervisor_id: supervisorId,
+        target_date: targetDate,
         visits_target: Number(input.visits_target) || 0,
         audit_target: Number(input.audit_target) || 0,
         criteria: input.criteria || 'visits',
         scope_type: input.scope_type || 'per_user',
         target_scope: input.target_scope || 'all_branches',
-        branch_id: input.branch_id || null,
+        branch_id: branchId,
         target_amount: Number(input.target_amount) || 0,
       };
 
-      if (input.scope_type === 'per_user' && input.supervisor_id) {
-        values.supervisor_id = input.supervisor_id;
-      } else {
-        values.supervisor_id = null;
-      }
-
       let query = supabase.from('targets').select('id').eq('company_id', sc.companyId)
-        .eq('month', input.month).eq('year', input.year).eq('criteria', values.criteria);
-      if (values.supervisor_id) {
-        query = query.eq('supervisor_id', values.supervisor_id);
+        .gte('target_date', `${targetMonthPrefix}-01`).lte('target_date', `${targetMonthPrefix}-31`)
+        .eq('criteria', payload.criteria);
+      if (supervisorId) {
+        query = query.eq('supervisor_id', supervisorId);
       } else {
         query = query.is('supervisor_id', null);
       }
-      if (values.branch_id) {
-        query = query.eq('branch_id', values.branch_id);
+      if (branchId) {
+        query = query.eq('branch_id', branchId);
       }
 
       const existing = await query.maybeSingle();
 
-      const r = existing.data
-        ? await supabase.from('targets').update(values).eq('id', existing.data.id).eq('company_id', sc.companyId).select('id').single()
-        : await supabase.from('targets').insert({
-            ...values,
-            company_id: sc.companyId,
-            target_date: `${input.year}-${String(input.month).padStart(2, '0')}-01`,
-            actual_visits: 0,
-            actual_audits: 0,
-          }).select('id').single();
+      // Attempt write without generated month/year columns first
+      let r = existing.data
+        ? await (supabase.from('targets') as any).update(payload).eq('id', existing.data.id).eq('company_id', sc.companyId).select('id').single()
+        : await (supabase.from('targets') as any).insert({ ...payload, actual_visits: 0, actual_audits: 0 }).select('id').single();
+
+      // If the table requires explicit month/year columns (not generated)
+      if (r.error && (r.error.message?.includes('null value in column "month"') || r.error.message?.includes('column "month" of relation "targets" does not exist') === false && r.error.message?.includes('month'))) {
+        payload.month = input.month;
+        payload.year = input.year;
+        r = existing.data
+          ? await (supabase.from('targets') as any).update(payload).eq('id', existing.data.id).eq('company_id', sc.companyId).select('id').single()
+          : await (supabase.from('targets') as any).insert({ ...payload, actual_visits: 0, actual_audits: 0 }).select('id').single();
+      }
+
       errorMessage('تعذر حفظ الهدف الشهري.', r.error);
     },
     onSuccess: () => {
       notify('تم حفظ الأهداف بنجاح', 'success');
+      void qc.invalidateQueries({ queryKey: [...sc.base, 'admin-targets'] });
       void qc.invalidateQueries({ queryKey: [...sc.base, 'targets'] });
       void qc.invalidateQueries({ queryKey: [...sc.base, 'dashboard'] });
+      void qc.invalidateQueries({ queryKey: ['targets'] });
     },
     onError: (e: Error) => notify(e.message, 'error'),
   });

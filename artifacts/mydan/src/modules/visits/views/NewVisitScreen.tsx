@@ -89,12 +89,15 @@ export default function NewVisitScreen() {
   const nav = useNavigate(); const { supervisor } = useAuth(); const s = useAppSettings();
   const gps = useGeolocation(); const m = useCreateVisit();
   const [params] = useSearchParams();
-  const existingId = params.get('visit'); const preId = existingId ? null : params.get('customer');
-  const existing = useVisitToStart(existingId); const pre = useCustomerById(preId);
+  const existingId = params.get('visit');
+  const paramCustomerId = params.get('customer');
+  const existing = useVisitToStart(existingId);
+  const fallbackCustId = (!existingId ? paramCustomerId : (existing.data?.customer_id || paramCustomerId));
+  const pre = useCustomerById(fallbackCustId);
   const [picked, setPicked] = useState<Customer | null>(null);
   const [oorPending, setOorPending] = useState<OorPending | null>(null);
   const [oorReason, setOorReason] = useState<string>(OOR_REASONS[0]);
-  const customer = existingId ? existing.data?.customers ?? null : picked ?? pre.data ?? null;
+  const customer = picked ?? existing.data?.customers ?? pre.data ?? null;
   const [editedNotes, setNotes] = useState<string | null>(null);
   const notes = editedNotes ?? existing.data?.notes ?? '';
   const here = useMemo<Gps | null>(() => gps.latitude != null && gps.longitude != null
@@ -128,7 +131,7 @@ export default function NewVisitScreen() {
   const retryExisting = useRefetch(existing.refetch); const retryPre = useRefetch(pre.refetch);
   const back = useCallback(() => nav('/visits'), [nav]);
   const clear = useCallback(() => setPicked(null), []);
-  const focused = !!existingId || !!preId || !!customer;
+  const focused = !!existingId || !!paramCustomerId || !!customer || !!picked;
 
   return <div className="page" aria-label={s.app_name} data-role={supervisor?.role}>
     <PageTitle action={<button className="icon-btn" aria-label={t('رجوع إلى الزيارات')} onClick={back}><ArrowRight className="flip-ltr" /></button>}>{existingId ? t('بدء زيارة معلقة') : t('زيارة جديدة')}</PageTitle>
@@ -153,21 +156,23 @@ export default function NewVisitScreen() {
 
     {focused ? <>
       <div className="card col"><span className="title">{t('العميل')}</span>
-        {existingId ? existing.isPending ? <SkeletonList n={1} />
-          : existing.isError ? <ErrorState error={existing.error} onRetry={retryExisting} />
-          : <div className="row" style={{ alignItems: 'center', gap: 6 }}>
-              {customer?.customer_code && <span className="badge b-blue" style={{ fontFamily: 'monospace' }}>{customer.customer_code}</span>}
-              <strong>{customer?.name ?? t('تعذر العثور على بيانات العميل')}</strong>
-            </div>
+        {existingId && existing.isPending ? <SkeletonList n={1} />
+          : existingId && existing.isError ? <ErrorState error={existing.error} onRetry={retryExisting} />
           : customer ? <div className="row between">
               <div className="alert ok grow row" style={{ alignItems: 'center', gap: 6, margin: 0 }}>
                 {customer.customer_code && <span className="badge b-blue" style={{ fontFamily: 'monospace' }}>{customer.customer_code}</span>}
                 <span>{customer.name}</span>
               </div>
-              {picked && <button className="btn sm ghost" onClick={clear}>{t('تغيير')}</button>}
+              <button className="btn sm ghost" onClick={clear}>{t('تغيير')}</button>
             </div>
-          : pre.isPending ? <SkeletonList n={1} /> : null}
-        {preId && pre.isError && <ErrorState error={pre.error} onRetry={retryPre} />}
+          : (pre.isPending || (existingId && existing.isPending)) ? <SkeletonList n={1} />
+          : <div className="col gap-2">
+              <div className="alert warn row" style={{ alignItems: 'center', gap: 6, margin: 0 }}>
+                <span>{t('تعذر العثور على بيانات العميل تلقائياً. يمكنك اختيار العميل من القائمة أدناه.')}</span>
+              </div>
+              <CustomerPicker value={picked} onChange={setPicked} />
+            </div>}
+        {fallbackCustId && pre.isError && <ErrorState error={pre.error} onRetry={retryPre} />}
         {customer && <NavigateButton c={customer} />}
         {check && <div className={`alert row ${check.on_beat ? 'ok' : 'warn'}`} role="status">{check.on_beat && <ShieldCheck />}<span>{geoText(check, s.geofence_radius_m)}</span></div>}
       </div>
