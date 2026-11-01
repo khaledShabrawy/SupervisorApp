@@ -8,6 +8,8 @@ const config: CapacitorConfig = {
   android: {
     // Supabase is HTTPS-only; never allow cleartext or mixed content in the APK.
     allowMixedContent: false,
+    // Disable WebView remote debugging in production builds.
+    webContentsDebuggingEnabled: false,
   },
 };
 
