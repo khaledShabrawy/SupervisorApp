@@ -979,17 +979,36 @@ export function useBeatPlan(day: number) {
 
     queryFn: async ({ signal }) => {
 
-      const { data, error } = await sc.scope(supabase.from('beat_plans').select(`id,supervisor_id,day_of_week,customer_id,company_id,customers(${CUSTOMER_COLUMNS})`))
-
-        .eq('day_of_week', day).limit(300).abortSignal(signal);
+      // Fetch the single beat plan row for this day_of_week (UNIQUE per supervisor+plan_date)
+      const { data: planRows, error } = await sc.scope(
+        supabase.from('beat_plans').select(`id,supervisor_id,day_of_week,customer_id,company_id,customer_ids_ordered,customers(${CUSTOMER_COLUMNS})`)
+      ).eq('day_of_week', day).limit(10).abortSignal(signal);
 
       if (error) fail('تعذر تحميل خطة الزيارات.', error);
+
+      // Expand customer_ids_ordered into individual BeatRow entries (preserving visit order)
+      const expanded: BeatRow[] = [];
+      for (const row of (planRows ?? []) as (BeatPlan & { customers: Customer | null; customer_ids_ordered?: string[] })[]) {
+        const orderedIds: string[] = row.customer_ids_ordered ?? (row.customer_id ? [row.customer_id] : []);
+        if (orderedIds.length <= 1) {
+          expanded.push(row as BeatRow);
+        } else {
+          // Fetch all customers in the ordered list in one query
+          const { data: custData } = await supabase.from('customers')
+            .select(CUSTOMER_COLUMNS).in('id', orderedIds).eq('company_id', sc.companyId).abortSignal(signal);
+          const custMap = new Map((custData as Customer[] ?? []).map(c => [c.id, c]));
+          for (const cid of orderedIds) {
+            const cust = custMap.get(cid) ?? null;
+            expanded.push({ ...row, customer_id: cid, customers: cust } as BeatRow);
+          }
+        }
+      }
 
       const visits = await sc.scope(supabase.from('visits').select('customer_id,status')).eq('visit_date', todayStr()).limit(1000).abortSignal(signal);
 
       if (visits.error) fail('تعذر تحميل زيارات اليوم.', visits.error);
 
-      return { plan: data as BeatRow[], visited: new Map((visits.data as Visit[]).map((v) => [v.customer_id, v.status])) };
+      return { plan: expanded, visited: new Map((visits.data as Visit[]).map((v) => [v.customer_id, v.status])) };
 
     },
 
