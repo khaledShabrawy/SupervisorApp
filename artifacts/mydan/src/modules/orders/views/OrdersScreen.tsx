@@ -74,7 +74,7 @@ const OrderCard = memo(function OrderCard({ order }: { order: OrderRecord }) {
               border: 'none',
               padding: '2px 10px',
               fontSize: 12,
-              minHeight: 28,
+              minHeight: 44,
               borderRadius: 6,
               fontWeight: 600,
             }}
@@ -99,7 +99,7 @@ const OrderCard = memo(function OrderCard({ order }: { order: OrderRecord }) {
             type="button"
             className="btn sm ghost"
             onClick={() => setExpanded((x) => !x)}
-            style={{ fontSize: 12, padding: '2px 8px', minHeight: 28 }}
+            style={{ fontSize: 12, padding: '0 10px', minHeight: 44 }}
           >
             {expanded ? t('إخفاء') : t('الأصناف')}
           </button>

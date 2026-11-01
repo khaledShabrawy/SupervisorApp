@@ -575,7 +575,7 @@ export default function ShelfAuditScreen() {
                   <button
                     type="button"
                     className="btn sm ghost"
-                    style={{ fontSize: 11, padding: '2px 8px', minHeight: 24 }}
+                    style={{ fontSize: 12, padding: '0 10px', minHeight: 44, minWidth: 44 }}
                     onClick={() => pickAudit(item.id)}
                   >
                     {t('التقرير')}

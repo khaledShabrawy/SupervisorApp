@@ -138,9 +138,9 @@ export function SyncActionBar() {
             fontSize: 13,
             fontWeight: 700,
             cursor: isRefreshing ? 'wait' : 'pointer',
-            transition: 'all 0.15s ease',
+            transition: 'opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease',
             opacity: isRefreshing ? 0.75 : 1,
-            minHeight: 38,
+            minHeight: 44,
           }}
           title={t('تحديث وتنزيل أحدث خطط الزيارات والبيانات من السيرفر')}
           data-testid="btn-sync-down"
@@ -171,9 +171,9 @@ export function SyncActionBar() {
             fontSize: 13,
             fontWeight: 700,
             cursor: isUploading ? 'wait' : 'pointer',
-            transition: 'all 0.15s ease',
+            transition: 'opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease',
             opacity: isUploading ? 0.75 : 1,
-            minHeight: 38,
+            minHeight: 44,
           }}
           title={t('رفع ومزامنة البيانات والزيارات المسجلة دون اتصال')}
           data-testid="btn-sync-up"
