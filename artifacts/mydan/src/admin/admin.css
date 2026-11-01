@@ -32,7 +32,7 @@
 @keyframes adm-in{from{transform:translateX(30px);opacity:0}}
 .adm-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;border-bottom:1px solid var(--line)}
 .adm-toggle input{width:24px;height:24px}
-@media(min-width:900px){
+@media(min-width:768px){
   .adm{grid-template-columns:240px 1fr}
   .adm-side{position:sticky;top:0;height:100dvh;max-height:100dvh;overflow:hidden;padding:20px 14px;box-sizing:border-box}
   .adm-nav{flex-direction:column;overflow-y:auto;overflow-x:hidden;flex:1;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;padding-bottom:12px}
