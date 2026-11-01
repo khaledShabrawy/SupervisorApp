@@ -108,6 +108,10 @@ export default function AdminTraining() {
       notify(t('يرجى كتابة عنوان الدرس ورفع الفيديو أولاً'), 'error');
       return;
     }
+    if (!/^https?:\/\//i.test(lessonForm.video_url.trim())) {
+      notify(t('رابط الفيديو يجب أن يبدأ بـ https://'), 'error');
+      return;
+    }
     await saveLesson.mutateAsync({
       id: lessonForm.id || undefined,
       course_id: lessonForm.course_id,
@@ -257,7 +261,7 @@ export default function AdminTraining() {
                                 </div>
                               </div>
                               <a
-                                href={lesson.video_url}
+                                href={/^https?:\/\//i.test(lesson.video_url ?? '') ? lesson.video_url : '#'}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="btn ghost"
