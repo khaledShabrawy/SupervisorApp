@@ -545,8 +545,24 @@ function useBulkImportTargets() {
         throw new Error(t('الملف يحتوي على حروف تالفة (علامات استفهام ???). يرجى حفظ الملف من Excel بصيغة: CSV UTF-8 (Comma delimited) لضمان حفظ اللغة العربية بشكل سليم.'));
       }
 
+      // Fetch supervisors to resolve phone, full name, or id to UUID
+      const { data: supLookup } = await supabase
+        .from('supervisors')
+        .select('id, full_name, phone')
+        .eq('company_id', sc.companyId)
+        .limit(1000);
+
+      const supCodeMap = new Map<string, string>();
+      if (supLookup) {
+        for (const s of supLookup as any[]) {
+          if (s.id) supCodeMap.set(s.id.toLowerCase().trim(), s.id);
+          if (s.phone) supCodeMap.set(normalizeDigits(s.phone).trim(), s.id);
+          if (s.full_name) supCodeMap.set(s.full_name.toLowerCase().trim(), s.id);
+        }
+      }
+
       const headers = rows[0];
-      const supIdx = findColumnIndex(headers, ['supervisor_id', 'supervisor', 'مشرف', 'المشرف', 'معرف المشرف']);
+      const supIdx = findColumnIndex(headers, ['supervisor_id', 'supervisor', 'مشرف', 'المشرف', 'معرف المشرف', 'اسم المشرف', 'هاتف المشرف', 'كود المشرف']);
       const monthIdx = findColumnIndex(headers, ['month', 'شهر', 'الشهر']);
       const yearIdx = findColumnIndex(headers, ['year', 'سنة', 'السنة', 'عام']);
       const visitsIdx = findColumnIndex(headers, ['visits_target', 'visits', 'زيارات', 'هدف الزيارات']);
@@ -574,7 +590,7 @@ function useBulkImportTargets() {
         }
 
         const rawSup = supIdx !== -1 ? row[supIdx]?.trim() : '';
-        const supervisorId = cleanUUID(rawSup);
+        const supervisorId = (rawSup ? supCodeMap.get(rawSup.toLowerCase()) || cleanUUID(rawSup) : null) || null;
         const visitsTarget = Number(visitsIdx !== -1 ? normalizeDigits(row[visitsIdx] || '') : 0) || 0;
         const auditTarget = Number(auditIdx !== -1 ? normalizeDigits(row[auditIdx] || '') : 0) || 0;
         const targetAmount = Number(amountIdx !== -1 ? normalizeDigits(row[amountIdx] || '') : 0) || 0;
@@ -624,8 +640,24 @@ function useBulkImportBeatPlans() {
         throw new Error(t('الملف يحتوي على حروف تالفة (علامات استفهام ???). يرجى حفظ الملف من Excel بصيغة: CSV UTF-8 (Comma delimited) لضمان حفظ اللغة العربية بشكل سليم.'));
       }
 
+      // Fetch supervisors to resolve phone, full name, or id to UUID
+      const { data: supLookup } = await supabase
+        .from('supervisors')
+        .select('id, full_name, phone')
+        .eq('company_id', sc.companyId)
+        .limit(1000);
+
+      const supCodeMap = new Map<string, string>();
+      if (supLookup) {
+        for (const s of supLookup as any[]) {
+          if (s.id) supCodeMap.set(s.id.toLowerCase().trim(), s.id);
+          if (s.phone) supCodeMap.set(normalizeDigits(s.phone).trim(), s.id);
+          if (s.full_name) supCodeMap.set(s.full_name.toLowerCase().trim(), s.id);
+        }
+      }
+
       const headers = rows[0];
-      const supIdIdx = findColumnIndex(headers, ['supervisor_id', 'supervisor', 'مشرف', 'المشرف', 'معرف المشرف']);
+      const supIdIdx = findColumnIndex(headers, ['supervisor_id', 'supervisor', 'مشرف', 'المشرف', 'معرف المشرف', 'اسم المشرف', 'هاتف المشرف', 'كود المشرف']);
       const dayIdx = findColumnIndex(headers, ['day_of_week', 'day', 'اليوم', 'يوم', 'يوم_الاسبوع']);
       const dateIdx = findColumnIndex(headers, ['plan_date', 'date', 'التاريخ', 'تاريخ_الزيارة']);
       const custIdIdx = findColumnIndex(headers, ['customer_id', 'customer', 'عميل', 'العميل', 'كود العميل', 'customer_code', 'code']);
@@ -656,7 +688,7 @@ function useBulkImportBeatPlans() {
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
         const rawSup = supIdIdx !== -1 ? row[supIdIdx]?.trim() : '';
-        const supId = cleanUUID(rawSup) || cleanUUID(sc.supervisorId);
+        const supId = (rawSup ? supCodeMap.get(rawSup.toLowerCase()) || cleanUUID(rawSup) : null) || cleanUUID(sc.supervisorId) || null;
 
         const rawCust = custIdIdx !== -1 ? row[custIdIdx]?.trim() : '';
         let custId = cleanUUID(rawCust);
