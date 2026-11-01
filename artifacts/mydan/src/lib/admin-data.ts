@@ -825,19 +825,9 @@ export function useEditSupervisorProfile() {
       }
 
       if (updateError) {
-        const { error: dirErr } = await (supabase.from('supervisors') as any).update(patch)
-          .eq('id', id).eq('company_id', sc.companyId);
-        if (dirErr) {
-          // If supervisor_code column doesn't exist yet, retry without supervisor_code
-          if (dirErr.message && dirErr.message.includes('supervisor_code')) {
-            delete patch.supervisor_code;
-            const { error: dirErr2 } = await (supabase.from('supervisors') as any).update(patch)
-              .eq('id', id).eq('company_id', sc.companyId);
-            if (dirErr2) fail(t('تعذر تعديل بيانات المشرف.') + ' ' + dirErr2.message, dirErr2);
-          } else {
-            fail(t('تعذر تعديل بيانات المشرف.') + ' ' + (dirErr.message || updateError.message || ''), dirErr);
-          }
-        }
+        // Do NOT fall back to direct DB write — the RPC enforces role-ceiling and branch-scope.
+        // A direct write would allow role escalation bypassing those guards.
+        fail(t('تعذر تعديل بيانات المشرف.') + ' ' + (updateError.message || ''), updateError);
       } else if (supervisor_code !== undefined) {
         try {
           await (supabase.from('supervisors') as any).update({ supervisor_code: patch.supervisor_code })

@@ -194,17 +194,15 @@ export async function uploadPendingOfflineActions(companyId?: string, supervisor
         }
       } else if (item.type === 'update_visit_status') {
         const { id, status, check_out_time, company_id } = item.payload;
+        if (!company_id) throw new Error('Tenant isolation violation: company_id missing from update_visit_status payload');
         const patch: Record<string, any> = { status };
         if (status === 'completed') patch.check_out_time = check_out_time || new Date().toISOString();
-        let u = supabase.from('visits').update(patch).eq('id', id);
-        if (company_id) u = u.eq('company_id', company_id);
-        const { error } = await u;
+        const { error } = await supabase.from('visits').update(patch).eq('id', id).eq('company_id', company_id);
         if (error) throw error;
       } else if (item.type === 'set_visit_outcome') {
         const { id, outcome, company_id } = item.payload;
-        let u = supabase.from('visits').update({ visit_outcome: outcome }).eq('id', id);
-        if (company_id) u = u.eq('company_id', company_id);
-        const { error } = await u;
+        if (!company_id) throw new Error('Tenant isolation violation: company_id missing from set_visit_outcome payload');
+        const { error } = await supabase.from('visits').update({ visit_outcome: outcome }).eq('id', id).eq('company_id', company_id);
         if (error) throw error;
       } else if (item.type === 'save_order') {
         // Explicitly whitelist known fields — prevents injecting unexpected columns

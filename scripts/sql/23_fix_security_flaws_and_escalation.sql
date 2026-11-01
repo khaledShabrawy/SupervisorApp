@@ -343,6 +343,7 @@ AS $$
 DECLARE
   v_caller_role text;
   v_caller_company_id uuid;
+  v_caller_branch_id uuid;
   v_caller_is_active boolean;
   v_target_record public.supervisors%ROWTYPE;
 BEGIN
@@ -352,8 +353,8 @@ BEGIN
   END IF;
 
   -- 2. Fetch Caller Credentials
-  SELECT role, company_id, is_active
-  INTO v_caller_role, v_caller_company_id, v_caller_is_active
+  SELECT role, company_id, branch_id, is_active
+  INTO v_caller_role, v_caller_company_id, v_caller_branch_id, v_caller_is_active
   FROM public.supervisors
   WHERE user_id = auth.uid()
   LIMIT 1;
@@ -378,6 +379,13 @@ BEGIN
   -- 4. Multi-Tenant Company Match
   IF v_caller_role <> 'super_admin' AND v_target_record.company_id IS DISTINCT FROM v_caller_company_id THEN
     RAISE EXCEPTION 'Forbidden: Cannot delete supervisors outside your company';
+  END IF;
+
+  -- 4b. Branch-Scope for branch_manager (mirrors admin_update_supervisor guard)
+  IF v_caller_role = 'branch_manager' THEN
+    IF v_caller_branch_id IS NULL OR v_target_record.branch_id IS DISTINCT FROM v_caller_branch_id THEN
+      RAISE EXCEPTION 'Forbidden: Branch manager can only delete supervisors within their own branch';
+    END IF;
   END IF;
 
   -- 5. Super Admin and Self-Delete Protections

@@ -16,7 +16,12 @@ const SCREENS = ["new_visit", "shelf_audit", "competitor_products", "my_reports"
 const ALLOWED_REDIRECTS = ["https://mydan.digityoucan.com"];
 const safeRedirectTo = (url: unknown): string | undefined => {
   if (typeof url !== "string" || !url) return undefined;
-  return ALLOWED_REDIRECTS.some(a => url.startsWith(a)) ? url : undefined;
+  try {
+    const parsed = new URL(url);
+    return ALLOWED_REDIRECTS.some(a => parsed.origin === new URL(a).origin) ? url : undefined;
+  } catch {
+    return undefined;
+  }
 };
 
 Deno.serve(async (req) => {

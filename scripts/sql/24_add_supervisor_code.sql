@@ -34,8 +34,12 @@ BEGIN
   END LOOP;
 END $$;
 
--- 3. Update permissions so authenticated users can read/update supervisor_code
-GRANT UPDATE (full_name, phone, device_id, is_active, role, branch_id, supervisor_code)
+-- 3. Update permissions so authenticated users can update personal fields only.
+-- supervisor_code is intentionally excluded: any supervisor could overwrite their code to
+-- match a peer's, redirecting CSV-imported targets/beat-plans to themselves.
+-- supervisor_code must be updated exclusively through the admin_update_supervisor RPC (SECURITY DEFINER).
+GRANT UPDATE (full_name, phone, device_id, is_active, role, branch_id)
   ON public.supervisors TO authenticated;
+REVOKE UPDATE (supervisor_code) ON public.supervisors FROM authenticated;
 
 COMMIT;

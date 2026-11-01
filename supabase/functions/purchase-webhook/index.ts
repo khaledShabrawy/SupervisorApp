@@ -58,12 +58,14 @@ Deno.serve(async (req) => {
 
   const rawBody = await req.text();
   const wcSecret = Deno.env.get("WC_WEBHOOK_SECRET");
-  if (wcSecret) {
-    const sig = req.headers.get("x-wc-webhook-signature") ?? "";
-    if (!sig || !(await verifySignature(wcSecret, rawBody, sig))) {
-      console.error("[purchase-webhook] invalid signature");
-      return reply(401, { error: "Invalid webhook signature" });
-    }
+  if (!wcSecret) {
+    console.error("[purchase-webhook] WC_WEBHOOK_SECRET not configured — rejecting request");
+    return reply(401, { error: "Webhook secret not configured" });
+  }
+  const sig = req.headers.get("x-wc-webhook-signature") ?? "";
+  if (!sig || !(await verifySignature(wcSecret, rawBody, sig))) {
+    console.error("[purchase-webhook] invalid signature");
+    return reply(401, { error: "Invalid webhook signature" });
   }
 
   let order: Record<string, unknown>;
