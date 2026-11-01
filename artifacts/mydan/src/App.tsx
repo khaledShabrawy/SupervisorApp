@@ -71,7 +71,6 @@ function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/set-password" element={<SetPassword />} />
                   {!IS_ANDROID && (
-                    <Route element={<RequireAuth />}>
                       <Route path="/admin" element={<AdminLayout />}>
                         <Route index element={<AdminDashboard />} />
                         <Route path="live-map" element={<AdminLiveMap />} />
@@ -93,7 +92,6 @@ function App() {
                         <Route path="prospects" element={<AdminProspects />} />
                         <Route path="field-surveys" element={<AdminFieldSurveys />} />
                       </Route>
-                    </Route>
                   )}
                   <Route element={<RequireAuth />}>
                     <Route index element={<Dashboard />} />
