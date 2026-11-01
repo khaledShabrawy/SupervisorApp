@@ -220,7 +220,7 @@ Deno.serve(async (req) => {
     admin.from("shelf_audit")
       .select("id", { count: "exact", head: true })
       .eq("supervisor_id", caller.id)
-      .gte("audited_at", oneHourAgo),
+      .or(`audited_at.gte.${oneHourAgo},status.eq.processing`),
   ]);
   if ((userHourly ?? 0) >= maxPerHour)
     return json(429, { error: `تجاوزت الحد المسموح به لتحليلات الذكاء الاصطناعي (${maxPerHour} تحليل/ساعة). يرجى الانتظار قليلاً.` });
