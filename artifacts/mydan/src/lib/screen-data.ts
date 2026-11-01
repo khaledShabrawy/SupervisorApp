@@ -75,7 +75,7 @@ export function useScreenDashboard() {
     queryKey: [...sc.base, 'dashboard', 'task-execution', day.start], retry: 1, gcTime: 300_000,
     queryFn: async ({ signal }) => {
       const [visitsRes, auditsRes, actualVisitsRes, targetsRes, recentRes] = await Promise.allSettled([
-        countRows(sc, 'visits', signal, q => q.eq('visit_date', day.start)),
+        countRows(sc, 'visits', signal, q => q.gte('visit_date', day.start).lt('visit_date', day.end)),
         countRows(sc, 'shelf_audit', signal, q => q.gte('created_at', day.startIso).lt('created_at', day.endIso)),
         countRows(sc, 'visits', signal, q => q.eq('status', 'completed').gte('visit_date', mr.start).lt('visit_date', mr.end)),
         targetsFor(sc, month, year, signal),
