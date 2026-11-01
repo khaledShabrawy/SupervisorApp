@@ -4,7 +4,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const cors = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "https://mydan.digityoucan.com",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 const reply = (status: number, body: Record<string, unknown>) =>
@@ -13,6 +13,11 @@ const err = (status: number, error_ar: string) => reply(status, { error_ar });
 
 const ROLES = ["supervisor", "senior_supervisor", "branch_manager", "admin"];
 const SCREENS = ["new_visit", "shelf_audit", "competitor_products", "my_reports", "notifications", "beat_plan", "field_survey"];
+const ALLOWED_REDIRECTS = ["https://mydan.digityoucan.com"];
+const safeRedirectTo = (url: unknown): string | undefined => {
+  if (typeof url !== "string" || !url) return undefined;
+  return ALLOWED_REDIRECTS.some(a => url.startsWith(a)) ? url : undefined;
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -37,7 +42,7 @@ Deno.serve(async (req) => {
   // -------------------------------------------------------------
   if (action === "resend_invite") {
     const supervisorId = String(body.supervisor_id ?? "").trim();
-    const redirectTo = typeof body.redirect_to === "string" ? body.redirect_to : undefined;
+    const redirectTo = safeRedirectTo(body.redirect_to);
 
     if (!supervisorId) return err(400, "معرّف المستخدم مطلوب.");
     const { data: targetSup, error: supErr } = await admin.from("supervisors")
@@ -59,7 +64,8 @@ Deno.serve(async (req) => {
         options: { redirectTo },
       });
       if (linkErr) return err(500, "تعذر إنشاء رابط الدعوة الجديد.");
-      return reply(200, { success: true, link: linkData.properties?.action_link, message: "تم إنشاء رابط استعادة جديد بنجاح." });
+      console.log("[invite-supervisor] recovery link generated for", targetEmail);
+      return reply(200, { success: true, message: "تم إنشاء رابط استعادة جديد بنجاح." });
     }
 
     await admin.from("audit_logs").insert({
@@ -81,7 +87,7 @@ Deno.serve(async (req) => {
   const phone = body.phone ? String(body.phone).trim() : null;
   const role = String(body.role ?? "supervisor");
   const branchId = body.branch_id ? String(body.branch_id) : null;
-  const redirectTo = typeof body.redirect_to === "string" ? body.redirect_to : undefined;
+  const redirectTo = safeRedirectTo(body.redirect_to);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return err(400, "البريد الإلكتروني غير صالح.");
   if (!fullName || fullName.length > 120) return err(400, "الاسم مطلوب.");
   if (!ROLES.includes(role)) return err(400, "دور غير مسموح.");

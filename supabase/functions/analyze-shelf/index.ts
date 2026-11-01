@@ -307,8 +307,7 @@ Deno.serve(async (req) => {
       model: modelUsed
     });
   } catch (err: any) {
-    console.error("analyze-shelf error:", err);
-    const msg = err?.message || "internal error";
-    return await fail(500, msg);
+    console.error("[analyze-shelf] error:", err);
+    return await fail(500, "فشل تحليل الرف — يرجى المحاولة مرة أخرى");
   }
 });

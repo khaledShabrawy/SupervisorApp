@@ -71,26 +71,28 @@ function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/set-password" element={<SetPassword />} />
                   {!IS_ANDROID && (
-                    <Route path="/admin" element={<AdminLayout />}>
-                      <Route index element={<AdminDashboard />} />
-                      <Route path="live-map" element={<AdminLiveMap />} />
-                      <Route path="orders" element={<AdminOrders />} />
-                      <Route path="users" element={<AdminUsers />} />
-                      <Route path="branches" element={<AdminBranches />} />
-                      <Route path="customers" element={<AdminCustomers />} />
-                      <Route path="products" element={<AdminProducts />} />
-                      <Route path="targets" element={<AdminTargets />} />
-                      <Route path="assets" element={<AdminAssets />} />
-                      <Route path="surveys" element={<AdminSurveys />} />
-                      <Route path="notifications" element={<AdminNotifications />} />
-                      <Route path="settings" element={<AdminSettings />} />
-                      <Route path="audit" element={<AdminAuditLogs />} />
-                      <Route path="bulk-import" element={<BulkImport />} />
-                      <Route path="companies" element={<AdminCompanies />} />
-                      <Route path="training" element={<AdminTraining />} />
-                      <Route path="reports" element={<AdminReports />} />
-                      <Route path="prospects" element={<AdminProspects />} />
-                      <Route path="field-surveys" element={<AdminFieldSurveys />} />
+                    <Route element={<RequireAuth />}>
+                      <Route path="/admin" element={<AdminLayout />}>
+                        <Route index element={<AdminDashboard />} />
+                        <Route path="live-map" element={<AdminLiveMap />} />
+                        <Route path="orders" element={<AdminOrders />} />
+                        <Route path="users" element={<AdminUsers />} />
+                        <Route path="branches" element={<AdminBranches />} />
+                        <Route path="customers" element={<AdminCustomers />} />
+                        <Route path="products" element={<AdminProducts />} />
+                        <Route path="targets" element={<AdminTargets />} />
+                        <Route path="assets" element={<AdminAssets />} />
+                        <Route path="surveys" element={<AdminSurveys />} />
+                        <Route path="notifications" element={<AdminNotifications />} />
+                        <Route path="settings" element={<AdminSettings />} />
+                        <Route path="audit" element={<AdminAuditLogs />} />
+                        <Route path="bulk-import" element={<BulkImport />} />
+                        <Route path="companies" element={<AdminCompanies />} />
+                        <Route path="training" element={<AdminTraining />} />
+                        <Route path="reports" element={<AdminReports />} />
+                        <Route path="prospects" element={<AdminProspects />} />
+                        <Route path="field-surveys" element={<AdminFieldSurveys />} />
+                      </Route>
                     </Route>
                   )}
                   <Route element={<RequireAuth />}>
@@ -107,8 +109,7 @@ function App() {
                     <Route path="targets" element={<RequireScreen screen="my_reports"><Targets /></RequireScreen>} />
                     <Route path="beat-plan" element={<RequireScreen screen="beat_plan"><BeatPlan /></RequireScreen>} />
                     <Route path="notifications" element={<RequireScreen screen="notifications"><Notifications /></RequireScreen>} />
-                    <Route path="field-survey" element={<FieldSurvey />} />
-                    <Route path="live-map" element={<AdminLiveMap />} />
+                    <Route path="field-survey" element={<RequireScreen screen="field_survey"><FieldSurvey /></RequireScreen>} />
                     <Route path="*" element={<NotFound />} />
                   </Route>
                   <Route path="*" element={<NotFound />} />
