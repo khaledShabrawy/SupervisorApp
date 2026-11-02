@@ -25,6 +25,7 @@ import { AssetTypes, SettingsForm, TargetForm } from '@/screens/AdminPanel';
 import { useInput, useRefetch } from '@/screens/shared';
 import { useAdminProspects, useAdminFieldSurveys, useConvertProspect, type FieldSurveyRecord } from '@/lib/screen-survey';
 import { t } from '@/i18n';
+import { confirm } from '@/lib/confirm';
 
 function Modal({ title, onClose, onSubmit, children }: { title: string; onClose: () => void; onSubmit: (e: FormEvent) => void; children: React.ReactNode }) {
   return <div className="adm-modal-bg" onClick={onClose}>
@@ -846,16 +847,16 @@ export function AdminAssets() {
                 <div className="row gap-1">
                   <button className="btn sm ghost" onClick={() => setEdit(a)}>{t('تعديل')}</button>
                   {a.is_active !== false ? (
-                    <button className="btn sm ghost danger" title={t('تعطيل')} onClick={() => { if (confirm(t('تعطيل الأصل؟'))) toggleActive.mutate({ id: a.id, is_active: false }); }}><Trash2 size={14} /></button>
+                    <button className="btn sm ghost danger" title={t('تعطيل')} onClick={async () => { if (await confirm('تعطيل الأصل؟')) toggleActive.mutate({ id: a.id, is_active: false }); }}><Trash2 size={14} /></button>
                   ) : (
-                    <button className="btn sm ghost success" title={t('تفعيل')} onClick={() => { if (confirm(t('إعادة تفعيل الأصل؟'))) toggleActive.mutate({ id: a.id, is_active: true }); }}>{t('تفعيل')}</button>
+                    <button className="btn sm ghost success" title={t('تفعيل')} onClick={async () => { if (await confirm('إعادة تفعيل الأصل؟')) toggleActive.mutate({ id: a.id, is_active: true }); }}>{t('تفعيل')}</button>
                   )}
                   <button
                     className="btn sm ghost danger"
                     title={t('حذف')}
                     disabled={deleteAsset.isPending}
-                    onClick={() => {
-                      if (window.confirm(t('هل أنت متأكد من حذف هذا الأصل؟'))) {
+                    onClick={async () => {
+                      if (await confirm('هل أنت متأكد من حذف هذا الأصل؟')) {
                         deleteAsset.mutate(a.id);
                       }
                     }}
@@ -1512,8 +1513,8 @@ export function AdminOrders() {
                           className="btn sm success"
                           style={{ whiteSpace: 'nowrap', gap: 4 }}
                           disabled={updateStatus.isPending}
-                          onClick={() => {
-                            if (window.confirm(t('تأكيد تسليم الطلب؟ سيتم رفع إنتاجية المشرف إلى 100%.'))) {
+                          onClick={async () => {
+                            if (await confirm('تأكيد تسليم الطلب؟ سيتم رفع إنتاجية المشرف إلى 100%.')) {
                               updateStatus.mutate({ id: o.id, status: 'delivered' });
                             }
                           }}
@@ -1526,8 +1527,8 @@ export function AdminOrders() {
                           className="btn sm ghost"
                           style={{ fontSize: 12, whiteSpace: 'nowrap' }}
                           disabled={updateStatus.isPending}
-                          onClick={() => {
-                            if (window.confirm(t('إلغاء حالة التسليم وإعادة الطلب لقيد المتابعة؟'))) {
+                          onClick={async () => {
+                            if (await confirm('إلغاء حالة التسليم وإعادة الطلب لقيد المتابعة؟')) {
                               updateStatus.mutate({ id: o.id, status: 'pending' });
                             }
                           }}
@@ -1644,8 +1645,8 @@ export function AdminOrders() {
                 <button
                   className="btn success"
                   disabled={updateStatus.isPending}
-                  onClick={() => {
-                    if (!window.confirm(t('تأكيد تسليم الطلب؟'))) return;
+                  onClick={async () => {
+                    if (!await confirm('تأكيد تسليم الطلب؟')) return;
                     updateStatus.mutate({ id: selectedOrder.id, status: 'delivered' });
                     setSelectedOrder(null);
                   }}

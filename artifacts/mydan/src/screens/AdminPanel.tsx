@@ -18,6 +18,7 @@ import type { Supervisor } from '@/types/database';
 import CustomersScreen from './CustomersScreen';
 import { Chip, SelectOption, useInput, useRefetch } from './shared';
 import { t } from '@/i18n';
+import { confirm } from '@/lib/confirm';
 
 export const ROLE: Record<string, string> = { admin: t('مدير'), supervisor: t('مشرف'), senior_supervisor: t('مشرف أول'), branch_manager: t('مدير فرع'), super_admin: t('مدير أعلى') };
 type AssetType = { id: string; name_ar: string; name_en: string | null; icon: string; color: string; requires_qr: boolean; is_active: boolean };
@@ -104,8 +105,8 @@ export function AssetTypes() {
               className="btn sm ghost danger"
               title={t('حذف')}
               disabled={del.isPending}
-              onClick={() => {
-                if (window.confirm(t('هل أنت متأكد من حذف نوع الأصل هذا؟'))) {
+              onClick={async () => {
+                if (await confirm('هل أنت متأكد من حذف نوع الأصل هذا؟')) {
                   del.mutate(a.id);
                 }
               }}
@@ -124,8 +125,8 @@ type Tab = typeof TABS[number][0];
 
 const SupRow = memo(function SupRow({ s, self, onPatch }: { s: Supervisor; self: boolean; onPatch: (s: Supervisor, p: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => void }) {
   const locked = self || s.role === 'super_admin';
-  const toggle = useCallback(() => {
-    if (!s.is_active || window.confirm(t('تعطيل حساب {name}؟', { name: s.full_name }))) onPatch(s, { is_active: !s.is_active });
+  const toggle = useCallback(async () => {
+    if (!s.is_active || await confirm(`تعطيل حساب ${s.full_name}؟`)) onPatch(s, { is_active: !s.is_active });
   }, [s, onPatch]);
   const role = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => onPatch(s, { role: e.target.value as 'admin' | 'supervisor' }), [s, onPatch]);
   return <div className="card col" data-testid={`card-supervisor-${s.id}`}>
