@@ -15,6 +15,9 @@ jobs:
     name: Typecheck, Test & Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://ywdlrrdkjbtpfgacuuoy.supabase.co' }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3ZGxycmRramJ0cGZnYWN1dW95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMDAzNTgsImV4cCI6MjEwNjY3NjM1OH0.YY7pE4WNMkDLgvVg73jYFCZdVUv3YZD7kQzYsYSyPq8' }}
 
     steps:
       - name: Checkout repository
@@ -28,7 +31,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -41,7 +44,4 @@ jobs:
         run: pnpm test
 
       - name: Verify Production Build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://ywdlrrdkjbtpfgacuuoy.supabase.co' }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3ZGxycmRramJ0cGZnYWN1dW95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMDAzNTgsImV4cCI6MjEwNjY3NjM1OH0.YY7pE4WNMkDLgvVg73jYFCZdVUv3YZD7kQzYsYSyPq8' }}
         run: pnpm run build
