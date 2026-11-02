@@ -80,6 +80,37 @@ Deno.serve(async (req) => {
   }
 
   // -------------------------------------------------------------
+  // ACTION: SET PASSWORD FOR EXISTING SUPERVISOR
+  // -------------------------------------------------------------
+  if (action === "set_password") {
+    const supervisorId = String(body.supervisor_id ?? "").trim();
+    const newPassword = String(body.new_password ?? "").trim();
+    const forceChange = body.force_change === true;
+
+    if (!supervisorId) return err(400, "معرّف المستخدم مطلوب.");
+    if (!newPassword || newPassword.length < 8) return err(400, "كلمة المرور يجب أن تكون 8 أحرف على الأقل.");
+
+    const { data: targetSup, error: supErr } = await admin.from("supervisors")
+      .select("id,user_id").eq("id", supervisorId).eq("company_id", companyId).maybeSingle();
+    if (supErr || !targetSup) return err(404, "المستخدم غير موجود.");
+
+    const { error: pwErr } = await admin.auth.admin.updateUserById(targetSup.user_id, { password: newPassword });
+    if (pwErr) return err(500, "تعذر تعيين كلمة المرور: " + pwErr.message);
+
+    if (forceChange) {
+      await admin.from("supervisors").update({ force_password_change: true })
+        .eq("id", supervisorId).eq("company_id", companyId);
+    }
+
+    await admin.from("audit_logs").insert({
+      company_id: companyId, table_name: "supervisors", action: "UPDATE",
+      performed_by: auth.user.id, new_data: { supervisor_id: supervisorId, action: "set_password" },
+    }).then(({ error }) => error && console.warn("audit log skipped", error.message));
+
+    return reply(200, { success: true, message: "تم تعيين كلمة المرور بنجاح." });
+  }
+
+  // -------------------------------------------------------------
   // ACTION: INVITE NEW SUPERVISOR (DEFAULT)
   // -------------------------------------------------------------
   const email = String(body.email ?? "").trim().toLowerCase();

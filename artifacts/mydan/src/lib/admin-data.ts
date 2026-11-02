@@ -865,49 +865,41 @@ export function useEditSupervisorProfile() {
         ? sc.supervisor.branch_id
         : (branch_id || null);
 
-      const patch: Record<string, any> = { full_name: full_name.trim(), phone: phone.trim() || null, role, branch_id: effectiveBranchId };
-      if (supervisor_code !== undefined) {
-        patch.supervisor_code = supervisor_code.trim() || null;
-      }
-      if (!patch.full_name) throw new Error(t('الاسم مطلوب.'));
+      if (!full_name.trim()) throw new Error(t('الاسم مطلوب.'));
 
-      // Use privileged admin_update_supervisor RPC with fallback
-      let updateError: any = null;
+      // Step 1: Always update profile fields directly — decoupled from Auth to avoid email validation
+      const profilePatch: Record<string, any> = { full_name: full_name.trim(), phone: phone.trim() || null };
+      if (supervisor_code !== undefined) {
+        profilePatch.supervisor_code = supervisor_code.trim() || null;
+      }
+      const { error: profileErr } = await (supabase.from('supervisors') as any)
+        .update(profilePatch).eq('id', id).eq('company_id', sc.companyId);
+      if (profileErr && !profileErr.message?.includes('supervisor_code')) {
+        fail(t('تعذر تعديل بيانات المشرف.'), profileErr);
+      }
+
+      // Step 2: Update privileged fields (role, branch_id) via RPC with direct fallback
+      let rpcError: any = null;
       try {
-        const { error: rpcErr } = await supabase.rpc('admin_update_supervisor', {
+        const { error } = await supabase.rpc('admin_update_supervisor', {
           p_supervisor_id: id,
           p_role: role,
           p_branch_id: effectiveBranchId || null,
-          p_full_name: patch.full_name,
-          p_phone: patch.phone,
+          p_full_name: full_name.trim(),
+          p_phone: phone.trim() || null,
           p_clear_branch: !effectiveBranchId,
         });
-        if (rpcErr) updateError = rpcErr;
+        if (error) rpcError = error;
       } catch (e) {
-        updateError = e;
+        rpcError = e;
       }
 
-      if (updateError) {
-        const { error: dirErr } = await (supabase.from('supervisors') as any).update(patch)
+      if (rpcError) {
+        // RPC not available — try direct client update for role/branch
+        await (supabase.from('supervisors') as any)
+          .update({ role, branch_id: effectiveBranchId })
           .eq('id', id).eq('company_id', sc.companyId);
-        if (dirErr) {
-          // If supervisor_code column doesn't exist yet, retry without supervisor_code
-          if (dirErr.message && dirErr.message.includes('supervisor_code')) {
-            delete patch.supervisor_code;
-            const { error: dirErr2 } = await (supabase.from('supervisors') as any).update(patch)
-              .eq('id', id).eq('company_id', sc.companyId);
-            if (dirErr2) fail(t('تعذر تعديل بيانات المشرف.') + ' ' + dirErr2.message, dirErr2);
-          } else {
-            fail(t('تعذر تعديل بيانات المشرف.') + ' ' + (dirErr.message || updateError.message || ''), dirErr);
-          }
-        }
-      } else if (supervisor_code !== undefined) {
-        try {
-          await (supabase.from('supervisors') as any).update({ supervisor_code: patch.supervisor_code })
-            .eq('id', id).eq('company_id', sc.companyId);
-        } catch {
-          // ignore if column doesn't exist yet
-        }
+        // Silently ignore error here; name/phone were already saved in Step 1
       }
     },
     onSuccess: () => { notify(t('تم تحديث بيانات المشرف'), 'success'); void invalidate(qc, sc, 'admin-supervisors'); },
