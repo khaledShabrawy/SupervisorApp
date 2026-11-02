@@ -7,13 +7,15 @@ import { exportToCsv } from '@/lib/csv-export';
 import { useAdminOrders, useUpdateOrderStatus, formatOrderWhatsAppMessage, openWhatsAppShare, type OrderRecord } from '@/lib/screen-orders';
 import { fmtDate, fmtTime, num } from '@/lib/format';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCustomerSearch, useSupervisors } from '@/lib/data';
 import { useAdminProducts, useSaveSettings, type CatalogProduct } from '@/lib/screen-data';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
   ASSET_STATUS, useAdminCustomers, useAdminSurveys, useAssets, useAuditLogs, useBranches, useBroadcast,
-  useDeactivateRecord, useToggleActiveRecord, useSaveAdminCustomer, useSaveAsset, useDeleteAsset, useSaveBranch, useSaveProduct, useSaveSurvey, useUploadLogo,
-  useRegions, useSaveRegion, useAdminTargets, useDeleteTarget,
+  useDeactivateRecord, useToggleActiveRecord, useSaveAdminCustomer, useSaveAsset, useDeleteAsset,
+  useSaveBranch, useDeleteBranch, useSaveProduct, useSaveSurvey, useUploadLogo,
+  useRegions, useSaveRegion, useAdminTargets, useDeleteTarget, useDeleteAdminCustomer,
   type AdminCustomerRow, type AssetRow, type AuditRow, type Branch, type SurveyQuestion, type SurveyRow,
 } from '@/lib/admin-data';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
@@ -90,9 +92,10 @@ function BranchForm({ edit, onClose }: { edit: Branch | null; onClose: () => voi
 }
 export function AdminBranches() {
   const q = useBranches(); const sups = useSupervisors(); const regions = useRegions(); const retry = useRefetch(q.refetch);
-  const deactivate = useDeactivateRecord('branches', 'admin-branches');
+  const deleteBranch = useDeleteBranch();
   const [edit, setEdit] = useState<Branch | null | undefined>(undefined);
   const [showRegionModal, setShowRegionModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Branch | null>(null);
   const name = (id: string | null) => sups.items.find((s) => s.id === id)?.full_name ?? '—';
   const regionMap = useMemo(() => new Map(regions.data?.map((r) => [r.id, r.name]) ?? []), [regions.data]);
 
@@ -115,11 +118,42 @@ export function AdminBranches() {
             <td><span className={`badge ${b.is_active ? 'b-green' : 'b-gray'}`}>{b.is_active ? t('نشط') : t('متوقف')}</span></td>
             <td className="row gap-1">
               <button className="btn sm ghost" onClick={() => setEdit(b)}>{t('تعديل')}</button>
-              {b.is_active && <button className="btn sm ghost danger" title={t('تعطيل')} onClick={() => { if (confirm(t('تعطيل الفرع؟'))) deactivate.mutate(b.id); }}><Trash2 size={14} /></button>}
+              <button
+                className="btn sm danger-ghost"
+                style={{ padding: '4px 8px', color: '#ef4444' }}
+                title={t('حذف الفرع نهائياً')}
+                disabled={deleteBranch.isPending}
+                onClick={() => setDeleteTarget(b)}
+              ><Trash2 size={14} /></button>
             </td></tr>)}</tbody>
         </table></div>}
     {edit !== undefined && <BranchForm edit={edit} onClose={() => setEdit(undefined)} />}
     {showRegionModal && <RegionModal onClose={() => setShowRegionModal(false)} />}
+
+    {/* Branch delete confirmation */}
+    {deleteTarget && (
+      <div className="adm-modal-bg" onClick={() => setDeleteTarget(null)}>
+        <div className="adm-modal col" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+          <h3 style={{ margin: 0, color: '#ef4444' }}>{t('حذف الفرع نهائياً')}</h3>
+          <p style={{ margin: '8px 0', lineHeight: 1.6 }}>
+            {t('هل أنت متأكد من حذف فرع "{name}" نهائياً؟ لا يمكن التراجع عن هذا الإجراء. يُمنع الحذف إذا كان الفرع يحتوي على مشرفين أو عملاء مرتبطين.', { name: deleteTarget.name })}
+          </p>
+          <div className="row end gap-2" style={{ marginTop: 14 }}>
+            <button type="button" className="btn ghost" onClick={() => setDeleteTarget(null)}>{t('إلغاء')}</button>
+            <button
+              type="button"
+              className="btn danger"
+              disabled={deleteBranch.isPending}
+              onClick={() => {
+                deleteBranch.mutate(deleteTarget, { onSuccess: () => setDeleteTarget(null) });
+              }}
+            >
+              {deleteBranch.isPending ? t('جاري الحذف...') : t('تأكيد الحذف')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </>;
 }
 
@@ -165,6 +199,7 @@ function CustomerForm({ edit, sups, onClose }: { edit: AdminCustomerRow | null; 
   </Modal>;
 }
 export function AdminCustomers() {
+  const { supervisor } = useAuth();
   const [search, setSearch] = useState('');
   const [supFilter, setSupFilter] = useState('all');
   const sups = useSupervisors();
@@ -172,7 +207,10 @@ export function AdminCustomers() {
   const retry = useRefetch(q.refetch);
   const toggleActive = useToggleActiveRecord('customers', 'admin-customers');
   const deactivate = useDeactivateRecord('customers', 'admin-customers');
+  const deleteCustomer = useDeleteAdminCustomer();
   const [edit, setEdit] = useState<AdminCustomerRow | null | undefined>(undefined);
+  const [deleteTarget, setDeleteTarget] = useState<AdminCustomerRow | null>(null);
+  const canDelete = ['admin', 'super_admin', 'branch_manager', 'manager'].includes(supervisor?.role ?? '');
 
   const handleExportCustomers = () => {
     if (!q.items.length) return;
@@ -241,11 +279,46 @@ export function AdminCustomers() {
               ) : (
                 <button className="btn sm ghost success" title={t('تفعيل')} onClick={() => { if (confirm(t('إعادة تفعيل العميل؟'))) toggleActive.mutate({ id: c.id, is_active: true }); }}>{t('تفعيل')}</button>
               )}
+              {canDelete && (
+                <button
+                  className="btn sm danger"
+                  style={{ padding: '4px 8px', fontSize: 11 }}
+                  title={t('حذف نهائي (مدراء فقط)')}
+                  onClick={() => setDeleteTarget(c)}
+                >
+                  {t('حذف')}
+                </button>
+              )}
             </td>
           </tr>)}</tbody>
         </table></div>}
     <LoadMore q={q} />
     {edit !== undefined && <CustomerForm edit={edit} sups={sups.items} onClose={() => setEdit(undefined)} />}
+
+    {/* Customer permanent delete confirmation */}
+    {deleteTarget && (
+      <div className="adm-modal-bg" onClick={() => setDeleteTarget(null)}>
+        <div className="adm-modal col" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
+          <h3 style={{ margin: 0, color: '#ef4444' }}>{t('حذف العميل نهائياً')}</h3>
+          <p style={{ margin: '8px 0', lineHeight: 1.6 }}>
+            {t('هل أنت متأكد من حذف العميل "{name}" نهائياً من النظام؟ هذا الإجراء لا يمكن التراجع عنه وسيُمنع إذا كان العميل مرتبطاً بزيارات أو أوردرات سابقة.', { name: deleteTarget.name })}
+          </p>
+          <div className="row end gap-2" style={{ marginTop: 14 }}>
+            <button type="button" className="btn ghost" onClick={() => setDeleteTarget(null)}>{t('إلغاء')}</button>
+            <button
+              type="button"
+              className="btn danger"
+              disabled={deleteCustomer.isPending}
+              onClick={() => {
+                deleteCustomer.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) });
+              }}
+            >
+              {deleteCustomer.isPending ? t('جاري الحذف...') : t('تأكيد الحذف')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </>;
 }
 

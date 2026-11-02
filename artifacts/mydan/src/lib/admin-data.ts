@@ -260,6 +260,48 @@ export function useSaveBranch() {
   });
 }
 
+export function useDeleteBranch() {
+  const sc = useScope(); const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (branch: Branch) => {
+      requireAdmin(sc);
+      // Check for any supervisors linked to this branch
+      const { count: supCount, error: supErr } = await supabase
+        .from('supervisors')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', sc.companyId)
+        .eq('branch_id', branch.id);
+      if (supErr) fail(t('تعذر التحقق من ارتباطات الفرع.'), supErr);
+      if ((supCount ?? 0) > 0) {
+        throw new Error(
+          t('لا يمكن حذف هذا الفرع لأنه يحتوي على {n} مشرف/مشرفين مرتبطين به. يرجى نقل هؤلاء المشرفين إلى فرع آخر أو إلغاء ارتباطهم بالفرع أولاً ثم إعادة المحاولة.', { n: supCount ?? 0 })
+        );
+      }
+      // Check for customers with matching branch name
+      const { count: custCount, error: custErr } = await supabase
+        .from('customers')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', sc.companyId)
+        .eq('branch', branch.name);
+      if (custErr) fail(t('تعذر التحقق من ارتباطات الفرع.'), custErr);
+      if ((custCount ?? 0) > 0) {
+        throw new Error(
+          t('لا يمكن حذف هذا الفرع لأنه مرتبط بـ {n} عميل في النظام. يرجى تحديث بيانات العملاء المعنيين أولاً.', { n: custCount ?? 0 })
+        );
+      }
+      // Safe to delete
+      const { error } = await supabase
+        .from('branches')
+        .delete()
+        .eq('id', branch.id)
+        .eq('company_id', sc.companyId);
+      if (error) fail(t('تعذر حذف الفرع. قد يكون مرتبطاً ببيانات أخرى في النظام.'), error);
+    },
+    onSuccess: () => { notify(t('تم حذف الفرع بنجاح'), 'success'); void invalidate(qc, sc, 'branches'); },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
 /* ---------- Supervisors: invite + permissions ---------- */
 export type InviteRole = 'supervisor' | 'senior_supervisor' | 'branch_manager' | 'admin';
 export function useInviteSupervisor() {
@@ -619,6 +661,27 @@ export function useSaveAdminCustomer() {
       if (!r.data?.length) throw new Error('لم يتم الحفظ. قد لا تملك الصلاحية.');
     },
     onSuccess: () => { notify('تم حفظ العميل', 'success'); void invalidate(qc, sc, 'admin-customers', 'customers'); },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+export function useDeleteAdminCustomer() {
+  const sc = useScope(); const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      requireAdmin(sc);
+      const role = sc.supervisor.role as string;
+      if (!['admin', 'super_admin', 'branch_manager', 'manager'].includes(role)) {
+        throw new Error(t('حذف العملاء نهائياً متاح للمدراء ومسؤولي النظام فقط.'));
+      }
+      const { error } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', id)
+        .eq('company_id', sc.companyId);
+      if (error) fail(t('تعذر حذف العميل. قد يكون مرتبطاً بزيارات أو أوردرات سابقة.'), error);
+    },
+    onSuccess: () => { notify(t('تم حذف العميل بنجاح'), 'success'); void invalidate(qc, sc, 'admin-customers', 'customers'); },
     onError: (e: Error) => notify(e.message, 'error'),
   });
 }

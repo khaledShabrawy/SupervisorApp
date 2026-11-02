@@ -163,7 +163,7 @@ export function useMonthlyTargets() {
 export function useAdminProducts(availability: 'all' | 'active' | 'inactive' = 'all') {
   const sc = useScope();
   return usePaged<CatalogProduct>(sc, 'products', [availability], async (from, to, signal) => {
-    let q = supabase.from('products').select('id,name,category,sku:sku_code,item_code,master_brand,sub_brand,is_active').eq('company_id', sc.companyId);
+    let q = supabase.from('products').select('id,name,category,sku:sku_code,item_code,master_brand,sub_brand,unit,price,units_per_carton,carton_price,is_active').eq('company_id', sc.companyId);
     if (availability === 'active') q = q.eq('is_active', true);
     if (availability === 'inactive') q = q.or('is_active.eq.false,is_active.is.null');
     const r = await q.order('name').order('id').range(from, to).abortSignal(signal);

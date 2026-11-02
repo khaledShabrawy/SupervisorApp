@@ -113,7 +113,17 @@ function Shell() {
       {home || ['/visits', '/customers', '/targets', '/notifications'].includes(pathname)
         ? (s.logo_url ? <img className="logo" src={s.logo_url} alt={s.app_name} loading="lazy" /> : <span className="logo">{s.app_name.slice(0, 1)}</span>)
         : <button className="icon-btn" aria-label={t('رجوع')} onClick={goBack}><ArrowRight className="flip-ltr" /></button>}
-      <h1><span className="header-brand">{s.app_name}</span><small>{supervisor!.full_name}</small></h1>
+      <h1>
+        <span className="header-brand">{s.app_name}</span>
+        <small>
+          {supervisor!.full_name}
+          {supervisor!.supervisor_code && (
+            <span style={{ marginInlineStart: 6, fontSize: 10, fontFamily: 'monospace', background: 'rgba(255,255,255,0.2)', padding: '1px 5px', borderRadius: 4, letterSpacing: '0.5px' }}>
+              {supervisor!.supervisor_code}
+            </span>
+          )}
+        </small>
+      </h1>
       <LanguageToggle />
       <button className="icon-btn" aria-label={t('الإشعارات')} data-testid="button-notifications" onClick={goNotifications}>
         <Bell size={21} />
