@@ -14,6 +14,7 @@ import { useInput } from '@/screens/shared';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { compressImage } from '@/lib/image-compression';
 import { t } from '@/i18n';
+import { confirm } from '@/lib/confirm';
 
 interface CompetitorProduct { id: string; brand_name: string; product_name: string | null; quantity: number | null; notes: string | null; photo_url: string | null; created_at: string; }
 
@@ -75,7 +76,7 @@ function useDeleteCompetitor() {
 const DEFAULT_COMPETITOR_BRANDS = ['فاين', 'بابيا', 'وايت', 'زيزينيا', 'كلينكس', 'فلورا', 'أخرى'];
 
 const CompetitorItem = memo(function CompetitorItem({ item, onDelete }: { item: CompetitorProduct; onDelete: (id: string) => void; }) {
-  const del = useCallback(() => { if (!window.confirm(t('حذف هذا المنتج؟'))) return; onDelete(item.id); }, [onDelete, item.id]);
+  const del = useCallback(async () => { if (!await confirm('حذف هذا المنتج؟')) return; onDelete(item.id); }, [onDelete, item.id]);
   return (
     <div className="card row" style={{ padding: '10px 14px', gap: 10 }}>
       <div style={{ flex: 1, minWidth: 0 }}>

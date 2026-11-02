@@ -18,6 +18,7 @@ import { fmtDate, fmtTime, visitMinutes } from '@/lib/format';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Customer, Visit } from '@/types/database';
 import { t } from '@/i18n';
+import { confirm } from '@/lib/confirm';
 
 interface VisitTask {
   id: string;
@@ -216,14 +217,14 @@ export default function VisitDetailScreen() {
 
   const handleComplete = useCallback((taskId: string, visitId: string) => { completeTask.mutate({ taskId, visitId }); }, [completeTask]);
 
-  const handleCheckOut = useCallback(() => {
+  const handleCheckOut = useCallback(async () => {
     if (!id || !detail.data) return;
     if (!isVisitOutcome(detail.data.visit_outcome)) { notify(t('اختر نتيجة الزيارة أولاً: متعامل / غير متعامل / غير موجود'), 'error'); return; }
     // Mandatory tasks only apply when the outlet is trading with us.
     const open = detail.data.visit_outcome === 'متعامل'
       ? detail.data.visit_tasks.filter((t) => t.is_mandatory && !t.is_completed).length : 0;
-    const msg = open ? t('توجد {n} مهام إلزامية غير منجزة. إنهاء الزيارة على أي حال؟', { n: open }) : t('إنهاء الزيارة وتسجيل الخروج؟');
-    if (!window.confirm(msg)) return;
+    const msg = open ? `توجد ${open} مهام إلزامية غير منجزة. إنهاء الزيارة على أي حال؟` : 'إنهاء الزيارة وتسجيل الخروج؟';
+    if (!await confirm(msg)) return;
     checkOut.mutate({ id, status: 'completed' }, { onSuccess: () => nav('/visits', { replace: true }) });
   }, [checkOut, id, nav, detail.data]);
 

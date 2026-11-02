@@ -15,6 +15,7 @@ import { PageTitle } from '@/components/Layout';
 import { fmtDate, fmtTime, num, visitMinutes } from '@/lib/format';
 import { Chip, distanceLabel, usePullRefresh, useSentinel } from '@/screens/shared';
 import { t } from '@/i18n';
+import { confirm } from '@/lib/confirm';
 
 type Row = VisitRow & { customers: (VisitRow['customers'] & { latitude?: number | null; longitude?: number | null }) | null };
 type Period = 'today' | 'week' | 'month';
@@ -85,8 +86,8 @@ export default function VisitsScreen() {
   const more = useCallback(() => { if (q.hasNextPage && !q.isFetchingNextPage) void q.fetchNextPage(); }, [q]);
   const sentinel = useSentinel(!!q.hasNextPage, more);
   const onStart = useCallback((id: string) => nav(`/visits/new?visit=${id}`), [nav]);
-  const onStatus = useCallback((id: string, status: 'completed' | 'skipped') => {
-    if (status === 'skipped' && !window.confirm(t('هل تريد إلغاء هذه الزيارة؟'))) return;
+  const onStatus = useCallback(async (id: string, status: 'completed' | 'skipped') => {
+    if (status === 'skipped' && !await confirm('هل تريد إلغاء هذه الزيارة؟')) return;
     m.mutate({ id, status });
   }, [m]);
   const create = useCallback(() => nav('/visits/new'), [nav]);

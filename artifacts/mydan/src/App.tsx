@@ -6,6 +6,7 @@ import { AppSettingsProvider } from '@/contexts/AppSettingsContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Toast from '@/components/Toast';
+import { ConfirmSheet } from '@/components/ConfirmSheet';
 import { RequireAuth } from '@/components/Layout';
 import { RequireScreen } from '@/components/RequireScreen';
 
@@ -116,6 +117,7 @@ function App() {
                 </Routes>
               </Suspense>
               <Toast />
+              <ConfirmSheet />
             </BrowserRouter>
           </ErrorBoundary>
         </AppSettingsProvider>

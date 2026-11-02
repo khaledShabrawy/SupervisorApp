@@ -15,6 +15,7 @@ import { useInput, useRefetch } from '@/screens/shared';
 import type { Supervisor } from '@/types/database';
 import { useResetDeviceBinding } from '@/lib/device-binding';
 import { t } from '@/i18n';
+import { confirm } from '@/lib/confirm';
 
 type SortKey = 'full_name' | 'role' | 'is_active';
 const INVITE_ROLES: InviteRole[] = ['supervisor', 'senior_supervisor', 'branch_manager', 'admin'];
@@ -159,8 +160,8 @@ const Row = memo(function Row({
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const locked = self || s.role === 'super_admin';
-  const toggle = useCallback(() => {
-    if (!s.is_active || window.confirm(t('تعطيل حساب {name}؟', { name: s.full_name }))) onPatch(s, { is_active: !s.is_active });
+  const toggle = useCallback(async () => {
+    if (!s.is_active || await confirm(`تعطيل حساب ${s.full_name}؟`)) onPatch(s, { is_active: !s.is_active });
   }, [s, onPatch]);
 
   return <tr data-testid={`row-supervisor-${s.id}`}>
@@ -329,8 +330,8 @@ export default function AdminUsers() {
   const onPatch = useCallback((target: Supervisor, patch: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => mutate({ target, patch }), [mutate]);
   const branchName = useMemo(() => new Map(branches.data?.map((b) => [b.id, b.name]) ?? []), [branches.data]);
 
-  const onResend = useCallback((target: Supervisor) => {
-    if (window.confirm(t('إعادة إرسال رابط الدعوة إلى بريد {name}؟', { name: target.full_name }))) {
+  const onResend = useCallback(async (target: Supervisor) => {
+    if (await confirm(`إعادة إرسال رابط الدعوة إلى بريد ${target.full_name}؟`)) {
       resend.mutate(target.id);
     }
   }, [resend]);
@@ -374,8 +375,8 @@ export default function AdminUsers() {
   const closePw = useCallback(() => setPwTarget(null), []);
 
   const resetDevice = useResetDeviceBinding();
-  const onResetDevice = useCallback((target: Supervisor) => {
-    if (window.confirm(t('إلغاء ارتباط جهاز المشرف {name}؟ سيتمكن من ربط جهاز جديد عند تسجيل الدخول القادم.', { name: target.full_name }))) {
+  const onResetDevice = useCallback(async (target: Supervisor) => {
+    if (await confirm(`إلغاء ارتباط جهاز المشرف ${target.full_name}؟ سيتمكن من ربط جهاز جديد عند تسجيل الدخول القادم.`)) {
       resetDevice.mutate(target.id);
     }
   }, [resetDevice]);
