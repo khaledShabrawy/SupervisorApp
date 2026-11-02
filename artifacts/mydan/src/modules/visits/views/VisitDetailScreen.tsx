@@ -116,7 +116,7 @@ const TaskItem = memo(function TaskItem({
           border: 'none',
           padding: '2px 8px',
           fontSize: 13,
-          minHeight: 28,
+          minHeight: 44,
           borderRadius: 6,
           fontWeight: 600,
           display: 'inline-flex',
@@ -334,7 +334,7 @@ export default function VisitDetailScreen() {
                         border: 'none',
                         padding: '2px 8px',
                         fontSize: 12,
-                        minHeight: 26,
+                        minHeight: 44,
                         borderRadius: 6,
                         fontWeight: 600,
                       }}

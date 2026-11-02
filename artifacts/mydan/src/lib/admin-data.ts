@@ -895,12 +895,12 @@ export function useEditSupervisorProfile() {
       }
 
       if (rpcError) {
-        // RPC not available — try direct client update for role/branch
-        await (supabase.from('supervisors') as any)
-          .update({ role, branch_id: effectiveBranchId })
-          .eq('id', id).eq('company_id', sc.companyId);
-        // Silently ignore error here; name/phone were already saved in Step 1
+        // Do NOT fall back to direct DB write — the RPC enforces role-ceiling and branch-scope.
+        // A direct write would allow role escalation bypassing those guards (Security fix H3).
+        // Note: name/phone/supervisor_code were already saved in Step 1 above.
+        fail(t('تعذر تعديل بيانات المشرف.') + ' ' + ((rpcError as any)?.message || ''), rpcError as Error);
       }
+      // Note: supervisor_code is handled in Step 1 profilePatch above.
     },
     onSuccess: () => { notify(t('تم تحديث بيانات المشرف'), 'success'); void invalidate(qc, sc, 'admin-supervisors'); },
     onError: (e: Error) => notify(e.message, 'error'),

@@ -188,7 +188,7 @@ export default function NewVisitScreen() {
     {oorPending && (
       <div role="dialog" aria-modal="true" aria-labelledby="oor-title"
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, overscrollBehavior: 'contain' }}>
         <div className="card col" style={{ maxWidth: 420, width: '100%', gap: 16 }}>
           <strong id="oor-title" style={{ fontSize: 16 }}>{t('تسجيل زيارة خارج النطاق')}</strong>
           <div className="alert warn" style={{ margin: 0 }}>

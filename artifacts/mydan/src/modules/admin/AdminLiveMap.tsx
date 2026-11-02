@@ -562,7 +562,7 @@ export default function AdminLiveMap() {
                           <button
                             type="button"
                             className={`btn sm ${isSelected ? 'primary' : 'ghost'}`}
-                            style={{ fontSize: 11, padding: '2px 8px', minHeight: 26 }}
+                            style={{ fontSize: 11, padding: '0 10px', minHeight: 44, minWidth: 44 }}
                             onClick={() => handleSelectSupervisor(trk.supervisorId)}
                             title={t('تتبع خط السير على الخريطة')}
                           >
