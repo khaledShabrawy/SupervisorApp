@@ -65,7 +65,7 @@ export default function AdminLayout() {
     <aside className="adm-side">
       <div className="adm-brand">
         {s.logo_url ? <img className="logo" src={s.logo_url} alt="" /> : <span className="logo">{s.app_name.slice(0, 1)}</span>}
-        <div className="grow">{s.app_name}<small>{supervisor!.full_name}</small></div>
+        <div className="grow">{s.app_name}<small style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 8px #22C55E', flex: 'none' }} />{supervisor!.full_name}</small></div>
         <span className="adm-lang-mobile"><LanguageToggle /></span>
       </div>
       <nav className="adm-nav" aria-label={t('قائمة الإدارة')}>
