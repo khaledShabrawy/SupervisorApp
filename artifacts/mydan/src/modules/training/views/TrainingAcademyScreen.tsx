@@ -194,10 +194,10 @@ export default function TrainingAcademyScreen() {
               <div className="card" style={{ marginBottom: 16, borderTop: '3px solid #3B82F6' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                   <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: '0 0 6px', fontSize: 18, color: '#0F172A' }}>{currentLesson.title}</h3>
+                    <h3 style={{ margin: '0 0 6px', fontSize: 18, color: '#0F172A' }}>{t(currentLesson.title)}</h3>
                     {currentLesson.description && (
                       <p style={{ margin: 0, fontSize: 14, color: '#64748B', lineHeight: 1.5 }}>
-                        {currentLesson.description}
+                        {t(currentLesson.description)}
                       </p>
                     )}
                   </div>
@@ -311,7 +311,7 @@ export default function TrainingAcademyScreen() {
                               color: isActive ? '#1D4ED8' : '#1E293B',
                             }}
                           >
-                            {lesson.title}
+                            {t(lesson.title)}
                           </div>
                           {lesson.duration_seconds > 0 && (
                             <div style={{ fontSize: 12, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -409,17 +409,17 @@ export default function TrainingAcademyScreen() {
                     borderRadius: 20,
                   }}
                 >
-                  {course.category}
+                  {t(course.category)}
                 </span>
                 <span style={{ fontSize: 13, color: '#64748B' }}>
                   {course.total_lessons} {t('دروس')}
                 </span>
               </div>
 
-              <h3 style={{ margin: '0 0 6px', fontSize: 17, color: '#0F172A' }}>{course.title}</h3>
+              <h3 style={{ margin: '0 0 6px', fontSize: 17, color: '#0F172A' }}>{t(course.title)}</h3>
               {course.description && (
                 <p style={{ margin: '0 0 14px', fontSize: 13.5, color: '#64748B', lineHeight: 1.5 }}>
-                  {course.description}
+                  {t(course.description)}
                 </p>
               )}
 

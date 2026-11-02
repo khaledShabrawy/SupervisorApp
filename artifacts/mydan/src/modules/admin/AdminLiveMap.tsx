@@ -204,6 +204,11 @@ export default function AdminLiveMap() {
       }
 
       const map = leafletMapRef.current;
+      setTimeout(() => {
+        if (!cancelled && leafletMapRef.current) {
+          leafletMapRef.current.invalidateSize();
+        }
+      }, 250);
       const layerGroup = leafletLayerGroupRef.current;
       layerGroup.clearLayers();
 
@@ -328,7 +333,14 @@ export default function AdminLiveMap() {
 
   // Clean up Leaflet instance on screen unmount
   useEffect(() => {
+    const handleResize = () => {
+      if (leafletMapRef.current) {
+        leafletMapRef.current.invalidateSize();
+      }
+    };
+    window.addEventListener('resize', handleResize);
     return () => {
+      window.removeEventListener('resize', handleResize);
       if (leafletMapRef.current) {
         leafletMapRef.current.remove();
         leafletMapRef.current = null;
@@ -622,8 +634,8 @@ export default function AdminLiveMap() {
         </div>
 
         {/* Free OpenStreetMap Container */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div className="live-map-leaflet-container" ref={mapContainerRef} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} dir="ltr">
+          <div className="live-map-leaflet-container" ref={mapContainerRef} style={{ width: "100%", minHeight: 480 }} dir="ltr" />
           <div className="row between muted" style={{ fontSize: 11, padding: '0 4px' }}>
             <span>🗺️ خريطة شوارع مصر مفتوحة المصدر (OpenStreetMap) · تفاصيل الأحياء والشوارع باللغة العربية</span>
             <span>⏱️ يتم التحديث التلقائي كل 30 ثانية</span>

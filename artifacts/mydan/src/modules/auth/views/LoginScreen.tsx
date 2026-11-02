@@ -102,7 +102,7 @@ export default function LoginScreen() {
               {([
                 { num: '94%', lbl: t('حضور الرف'),   color: '#34D399' },
                 { num: '287', lbl: t('زيارة اليوم'), color: '#60A5FA' },
-                { num: '3.2k',lbl: t('أوردر'),        color: '#A78BFA' },
+                { num: '3.2k',lbl: t('طلب'),        color: '#A78BFA' },
               ] as const).map((k) => (
                 <div key={k.lbl} className="lp-kpi">
                   <div className="lp-kpi-num" style={{ color: k.color }}>{k.num}</div>

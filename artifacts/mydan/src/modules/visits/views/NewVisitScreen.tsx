@@ -71,7 +71,11 @@ function NearestCustomers({ gps, busy, onLog }: { gps: Gps; busy: boolean; onLog
         </select>
       </label>
     </div>
-    {q.isPending ? <SkeletonList n={3} /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
+    {q.isPending ? <SkeletonList n={3} /> : q.isError ? (
+      <div className="alert warn row" style={{ alignItems: 'center', gap: 6 }}>
+        <span>{t('تعذر تحديد العملاء القريبين تلقائياً. يمكنك اختيار العميل من البحث بالأسفل.')}</span>
+      </div>
+    )
       : ranked.length === 0 ? <EmptyState icon={<Store />} title={t('لا يوجد عملاء بإحداثيات')} text={t('أضف موقع العملاء من شاشة العملاء أو ابحث بالاسم بالأسفل.')} />
       : ranked.map((c) => <NearCard key={c.id} c={c} radius={s.geofence_radius_m} busy={busy} onLog={onLog} />)}
   </div>;

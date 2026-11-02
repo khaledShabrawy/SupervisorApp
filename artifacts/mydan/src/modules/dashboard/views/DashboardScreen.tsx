@@ -97,7 +97,7 @@ export default function DashboardScreen() {
               <GraduationCap /> {t('أكاديمية التدريب')}
             </Act>
             <Act id="/orders" onAct={go} className="s-act" style={{ background: '#0F1B2D', color: '#fff' }}>
-              <ShoppingCart /> {t('الأوردرات')}
+              <ShoppingCart /> {t('الطلبات')}
             </Act>
             <Act id="/beat-plan" onAct={go} className="s-act s-purple">
               <Route /> {t('خطة الزيارات')}

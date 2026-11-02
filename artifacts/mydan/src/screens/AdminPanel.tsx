@@ -316,7 +316,7 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
         <select className="input" value={criteria} onChange={(e) => setCriteria(e.target.value as any)}>
           <option value="visits">{t('زيارات ميدانية')}</option>
           <option value="shelf_audit">{t('مراجعات الرف (Shelf Audits)')}</option>
-          <option value="orders">{t('فرص بيعية وأوردرات')}</option>
+          <option value="orders">{t('فرص بيعية وطلبات')}</option>
           <option value="new_opportunity">{t('استقطاب عملاء جدد (Prospects)')}</option>
         </select>
       </label>
@@ -367,7 +367,7 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
 
       <div className="row">
         <label className="f grow">
-          {criteria === 'orders' ? t('هدف عدد الأوردرات') : t('هدف الزيارات')}
+          {criteria === 'orders' ? t('هدف عدد الطلبات') : t('هدف الزيارات')}
           <input className="input" type="number" min="0" inputMode="numeric" value={v} onChange={onV} />
         </label>
         <label className="f grow">

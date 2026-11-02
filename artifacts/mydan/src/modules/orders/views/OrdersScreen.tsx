@@ -166,13 +166,13 @@ export default function OrdersScreen() {
           </button>
         }
       >
-        {t('أوردراتي (الفرص البيعية)')}
+        {t('طلباتي (الفرص البيعية)')}
       </PageTitle>
 
       {/* KPI Performance Bar */}
       <div className="card col" style={{ padding: 14, gap: 10, background: 'linear-gradient(135deg, #0F1B2D 0%, #1A2E4C 100%)', color: '#fff' }}>
         <div className="row between">
-          <div style={{ fontWeight: 700, fontSize: 15 }}>📊 {t('مؤشرات إنجاز الأوردرات')}</div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>📊 {t('مؤشرات إنجاز الطلبات')}</div>
           <span className="badge" style={{ background: kpi.deliveryRate === 100 ? '#10B981' : kpi.deliveryRate > 0 ? '#F59E0B' : '#EF4444', color: '#fff', fontWeight: 800 }}>
             {t('نسبة الإنجاز: {n}%', { n: num(kpi.deliveryRate) })}
           </span>
@@ -211,7 +211,7 @@ export default function OrdersScreen() {
         </div>
 
         <div style={{ fontSize: 11.5, opacity: 0.75, textAlign: 'center' }}>
-          💡 {t('تسجيل الأوردرات كفرص بيعية لا يمنح نسبة إنجاز إلا بعد تأكيد التسليم في لوحة التحكم')}
+          💡 {t('تسجيل الطلبات كفرص بيعية لا يمنح نسبة إنجاز إلا بعد تأكيد التسليم في لوحة التحكم')}
         </div>
       </div>
 
@@ -255,11 +255,11 @@ export default function OrdersScreen() {
       ) : filteredOrders.length === 0 ? (
         <EmptyState
           icon={<ShoppingCart />}
-          title={search ? t('لا توجد نتائج بحث') : t('لا توجد أوردرات مسجلة')}
+          title={search ? t('لا توجد نتائج بحث') : t('لا توجد طلبات مسجلة')}
           text={
             search
               ? t('لا يوجد عميل يطابق بحثك.')
-              : t('أثناء زيارتك للعميل، يمكنك تسجيل فرصة بيعية من زر "تسجيل أوردر" داخل الزيارة.')
+              : t('أثناء زيارتك للعميل، يمكنك تسجيل فرصة بيعية من زر "تسجيل طلب" داخل الزيارة.')
           }
           action={{
             label: t('الذهاب للزيارات'),

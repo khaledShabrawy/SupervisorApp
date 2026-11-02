@@ -639,21 +639,46 @@ export function useNearestCustomers(lat: number | null, lng: number | null, limi
     retry: 1,
 
     queryFn: async ({ signal }) => {
+      // Primary: Server-side Haversine RPC
+      try {
+        const { data, error } = await supabase.rpc('mdn_nearest_customers_v1', {
+          p_lat:   lat!,
+          p_lng:   lng!,
+          p_limit: limit === 'all' ? 0 : limit,
+        }).abortSignal(signal);
 
-      const { data, error } = await supabase.rpc('mdn_nearest_customers_v1', {
+        if (!error && Array.isArray(data)) {
+          return data as (Customer & { distance_km: number })[];
+        }
+      } catch {
+        // Fall through to client fallback
+      }
 
-        p_lat:   lat!,
+      // Resilient Fallback: Query active customers and calculate distance locally
+      try {
+        const { data, error } = await sc.scope(
+          supabase.from('customers').select('*').eq('is_active', true)
+        ).limit(100).abortSignal(signal);
 
-        p_lng:   lng!,
+        if (error || !data) return [];
 
-        p_limit: limit === 'all' ? 0 : limit,
+        const rad = Math.PI / 180;
+        const withDistance = data.map((cust: any) => {
+          let distance_km = 9999;
+          if (cust.latitude != null && cust.longitude != null && lat != null && lng != null) {
+            const dLat = (cust.latitude - lat) * rad;
+            const dLng = (cust.longitude - lng) * rad;
+            const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat * rad) * Math.cos(cust.latitude * rad) * Math.sin(dLng / 2) ** 2;
+            const cVal = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            distance_km = 6371 * cVal;
+          }
+          return { ...cust, distance_km };
+        }).sort((a: any, b: any) => a.distance_km - b.distance_km);
 
-      }).abortSignal(signal);
-
-      if (error) fail('تعذر تحميل العملاء القريبين.', error);
-
-      return (data ?? []) as (Customer & { distance_km: number })[];
-
+        return (limit === 'all' ? withDistance : withDistance.slice(0, limit)) as (Customer & { distance_km: number })[];
+      } catch {
+        return [];
+      }
     },
 
   });

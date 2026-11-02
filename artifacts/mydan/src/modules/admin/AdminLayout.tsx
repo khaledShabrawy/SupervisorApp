@@ -15,8 +15,9 @@ import { useCompanySubscription, SubscriptionLockedView } from '@/lib/subscripti
 export const ADMIN_NAV = [
   { to: '/admin', label: t('لوحة المؤشرات'), icon: BarChart3, end: true },
   { to: '/admin/live-map', label: t('تتبع المشرفين 🗺️'), icon: MapPin },
+  { to: '/admin/shelf-share', label: t('حصة الرف'), icon: BarChart3 },
   { to: '/admin/training', label: t('أكاديمية التدريب 🎓'), icon: GraduationCap },
-  { to: '/admin/orders', label: t('الأوردرات'), icon: ShoppingCart },
+  { to: '/admin/orders', label: t('الطلبات'), icon: ShoppingCart },
   { to: '/admin/users', label: t('المستخدمين'), icon: Users },
   { to: '/admin/companies', label: t('الشركات'), icon: Building2, superAdminOnly: true },
   { to: '/admin/branches', label: t('الفروع'), icon: MapPin },

@@ -32,7 +32,7 @@ function normalizeCriteria(raw?: string | null): string {
   if (!raw) return 'visits';
   const v = raw.trim().toLowerCase();
   if (['visits', 'زيارات', 'زيارة'].includes(v)) return 'visits';
-  if (['orders', 'طلبيات', 'أوردرات', 'اوردرات', 'مبيعات'].includes(v)) return 'orders';
+  if (['orders', 'طلبيات', 'طلبات', 'طلبات', 'اوردرات', 'مبيعات'].includes(v)) return 'orders';
   if (['shelf_audit', 'تدقيق رف', 'رفوف', 'مراجعة الرف'].includes(v)) return 'shelf_audit';
   if (['new_opportunity', 'عملاء جدد', 'فرص جديدة'].includes(v)) return 'new_opportunity';
   return 'visits';
@@ -943,7 +943,7 @@ export function BulkTemplates() {
             <li><code>visits_target</code>: {t('عدد الزيارات المستهدفة')}</li>
             <li><code>audit_target</code>: {t('عدد مراجعات الرف')}</li>
             <li><code>criteria</code>: {t('visits, orders, shelf_audit, new_opportunity')}</li>
-            <li><code>target_amount</code>: {t('القيمة المالية المستهدفة (للأوردرات)')}</li>
+            <li><code>target_amount</code>: {t('القيمة المالية المستهدفة (للطلبات)')}</li>
             <li><code>supervisor_id</code>: {t('معرّف المشرف (اختياري، اتركه فارغاً للهدف العام)')}</li>
           </ul>
         </div>

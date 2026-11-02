@@ -592,7 +592,7 @@ export function useSupervisorOrders(period: 'today' | 'week' | 'month' | 'all' =
 
       const { data, error } = await q.limit(200);
 
-      if (error) throw new Error(t('تعذر تحميل أوردرات المشرف.'));
+      if (error) throw new Error(t('تعذر تحميل طلبات المشرف.'));
 
 
 
@@ -654,7 +654,7 @@ export function useVisitOrders(visitId: string) {
 
 
 
-      if (error) throw new Error(t('تعذر تحميل أوردرات الزيارة.'));
+      if (error) throw new Error(t('تعذر تحميل طلبات الزيارة.'));
 
 
 
@@ -790,11 +790,11 @@ export function useAdminOrders(filter?: AdminOrdersFilter) {
 
         if (error.code === '42703' || error.message?.includes('items') || error.message?.includes('total_amount')) {
 
-          throw new Error('يرجى تطبيق ملف التحديث (10_orders_opportunity.sql) في Supabase SQL Editor لتفعيل حقول الأوردرات.');
+          throw new Error('يرجى تطبيق ملف التحديث (10_orders_opportunity.sql) في Supabase SQL Editor لتفعيل حقول الطلبات.');
 
         }
 
-        throw new Error(error.message || t('تعذر تحميل جدول أوردرات الشركة.'));
+        throw new Error(error.message || t('تعذر تحميل جدول طلبات الشركة.'));
 
       }
 
@@ -992,7 +992,7 @@ export function useSaveOrder() {
 
       if (error) {
 
-        throw new Error(error.message || t('تعذر حفظ الأوردر. تحقق من الصلاحيات أو تواصل مع المدير.'));
+        throw new Error(error.message || t('تعذر حفظ الطلب. تحقق من الصلاحيات أو تواصل مع المدير.'));
 
       }
 
@@ -1004,9 +1004,9 @@ export function useSaveOrder() {
 
       const msg = navigator.onLine
 
-        ? `✅ ${t('تم تسجيل الأوردر بنجاح — الإجمالي:')} ${num(total)} ${t('ج.م')}`
+        ? `✅ ${t('تم تسجيل الطلب بنجاح — الإجمالي:')} ${num(total)} ${t('ج.م')}`
 
-        : `📶 ${t('تم حفظ الأوردر محلياً دون اتصال — الإجمالي:')} ${num(total)} ${t('ج.م. اضغط "رفع البيانات" عند توفر الشبكة')}`;
+        : `📶 ${t('تم حفظ الطلب محلياً دون اتصال — الإجمالي:')} ${num(total)} ${t('ج.م. اضغط "رفع البيانات" عند توفر الشبكة')}`;
 
       notify(msg, 'success');
 
@@ -1078,9 +1078,9 @@ export function useUpdateOrderStatus() {
             .update({ status })
             .eq('id', id)
             .eq('company_id', sc.companyId);
-          if (e2) throw new Error(`${t('تعذر تحديث حالة الأوردر')}: ${e2.message}`);
+          if (e2) throw new Error(`${t('تعذر تحديث حالة الطلب')}: ${e2.message}`);
         } else {
-          throw new Error(`${t('تعذر تحديث حالة الأوردر')}: ${error.message}`);
+          throw new Error(`${t('تعذر تحديث حالة الطلب')}: ${error.message}`);
         }
       }
       return status;
@@ -1091,11 +1091,11 @@ export function useUpdateOrderStatus() {
 
       if (status === 'delivered') {
 
-        notify(`🎉 ${t('تم تأكيد تسليم الأوردر — الإنتاجية 100%!')}`, 'success');
+        notify(`🎉 ${t('تم تأكيد تسليم الطلب — الإنتاجية 100%!')}`, 'success');
 
       } else {
 
-        notify(t('تم تحديث حالة الأوردر'), 'success');
+        notify(t('تم تحديث حالة الطلب'), 'success');
 
       }
 

@@ -301,7 +301,7 @@ export function AdminCustomers() {
         <div className="adm-modal col" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
           <h3 style={{ margin: 0, color: '#ef4444' }}>{t('حذف العميل نهائياً')}</h3>
           <p style={{ margin: '8px 0', lineHeight: 1.6 }}>
-            {t('هل أنت متأكد من حذف العميل "{name}" نهائياً من النظام؟ هذا الإجراء لا يمكن التراجع عنه وسيُمنع إذا كان العميل مرتبطاً بزيارات أو أوردرات سابقة.', { name: deleteTarget.name })}
+            {t('هل أنت متأكد من حذف العميل "{name}" نهائياً من النظام؟ هذا الإجراء لا يمكن التراجع عنه وسيُمنع إذا كان العميل مرتبطاً بزيارات أو طلبات سابقة.', { name: deleteTarget.name })}
           </p>
           <div className="row end gap-2" style={{ marginTop: 14 }}>
             <button type="button" className="btn ghost" onClick={() => setDeleteTarget(null)}>{t('إلغاء')}</button>
@@ -364,7 +364,7 @@ export function AdminTargets() {
   const criteriaLabels: Record<string, string> = {
     visits: t('زيارات ميدانية'),
     shelf_audit: t('مراجعات الرف'),
-    orders: t('فرص بيعية وأوردرات'),
+    orders: t('فرص بيعية وطلبات'),
     new_opportunity: t('استقطاب عملاء'),
   };
 
@@ -1274,7 +1274,7 @@ export function AdminOrders() {
     exportToCsv(
       `Orders_${new Date().toISOString().slice(0, 10)}`,
       [
-        { header: t('تاريخ الأوردر'), accessor: (o) => fmtDate(o.order_date || o.created_at) },
+        { header: t('تاريخ الطلب'), accessor: (o) => fmtDate(o.order_date || o.created_at) },
         { header: t('المشرف'), accessor: (o) => o.supervisors?.full_name || '' },
         { header: t('العميل'), accessor: (o) => o.customers?.name || '' },
         { header: t('كود العميل'), accessor: (o) => o.customers?.customer_code || '' },
@@ -1300,9 +1300,9 @@ export function AdminOrders() {
   return <>
     <div className="row between">
       <div>
-        <h2>{t('أوردرات الشركة والفرص البيعية')}</h2>
+        <h2>{t('طلبات الشركة والفرص البيعية')}</h2>
         <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
-          {t('الأوردرات التي يلتقطها المشرفون أثناء جولاتهم الميدانية لعرضها على المناديب. بمجرد تأكيد التسليم تصبح إنتاجية المشرف 100%.')}
+          {t('الطلبات التي يلتقطها المشرفون أثناء جولاتهم الميدانية لعرضها على المناديب. بمجرد تأكيد التسليم تصبح إنتاجية المشرف 100%.')}
         </p>
       </div>
       <div className="row gap-2 items-center">
@@ -1311,18 +1311,18 @@ export function AdminOrders() {
           className="btn ghost"
           onClick={handleExportOrders}
           disabled={!q.data?.length}
-          title={t('تصدير قائمة الأوردرات المصفاة إلى Excel')}
+          title={t('تصدير قائمة الطلبات المصفاة إلى Excel')}
         >
           <Download size={16} /> {t('تصدير Excel')}
         </button>
-        {q.data && <span className="badge b-blue" style={{ fontSize: 14 }}>{num(q.data.length)} {t('أوردر')}</span>}
+        {q.data && <span className="badge b-blue" style={{ fontSize: 14 }}>{num(q.data.length)} {t('طلب')}</span>}
       </div>
     </div>
 
     {/* KPI Summary Cards */}
     <div className="adm-kpis" style={{ marginTop: 12 }}>
       <div className="card col" style={{ padding: 14, gap: 4 }}>
-        <span className="muted" style={{ fontSize: 12 }}>{t('إجمالي الأوردرات')}</span>
+        <span className="muted" style={{ fontSize: 12 }}>{t('إجمالي الطلبات')}</span>
         <strong style={{ fontSize: 22 }}>{num(kpi.totalOrders)}</strong>
         <span className="muted" style={{ fontSize: 12 }}>{num(kpi.totalAmount)} {t('ج.م')}</span>
       </div>
@@ -1417,8 +1417,8 @@ export function AdminOrders() {
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} /> : !q.data?.length ? (
       <EmptyState
         icon={<ShoppingCart />}
-        title={t('لا توجد أوردرات')}
-        text={search || status !== 'all' || supId !== 'all' ? t('لا توجد نتائج مطابقة لخيارات التصفية.') : t('لم يسجل أي مشرف أوردرات أو فرص بيعية بعد.')}
+        title={t('لا توجد طلبات')}
+        text={search || status !== 'all' || supId !== 'all' ? t('لا توجد نتائج مطابقة لخيارات التصفية.') : t('لم يسجل أي مشرف طلبات أو فرص بيعية بعد.')}
       />
     ) : (
       <div className="adm-table-wrap">
@@ -1513,7 +1513,7 @@ export function AdminOrders() {
                           style={{ whiteSpace: 'nowrap', gap: 4 }}
                           disabled={updateStatus.isPending}
                           onClick={() => {
-                            if (window.confirm(t('تأكيد تسليم الأوردر؟ سيتم رفع إنتاجية المشرف إلى 100%.'))) {
+                            if (window.confirm(t('تأكيد تسليم الطلب؟ سيتم رفع إنتاجية المشرف إلى 100%.'))) {
                               updateStatus.mutate({ id: o.id, status: 'delivered' });
                             }
                           }}
@@ -1527,7 +1527,7 @@ export function AdminOrders() {
                           style={{ fontSize: 12, whiteSpace: 'nowrap' }}
                           disabled={updateStatus.isPending}
                           onClick={() => {
-                            if (window.confirm(t('إلغاء حالة التسليم وإعادة الأوردر لقيد المتابعة؟'))) {
+                            if (window.confirm(t('إلغاء حالة التسليم وإعادة الطلب لقيد المتابعة؟'))) {
                               updateStatus.mutate({ id: o.id, status: 'pending' });
                             }
                           }}
@@ -1550,7 +1550,7 @@ export function AdminOrders() {
       <div className="adm-modal-bg" onClick={() => setSelectedOrder(null)}>
         <div className="adm-modal col" onClick={(e) => e.stopPropagation()} style={{ gap: 14 }}>
           <div className="row between">
-            <h3 style={{ margin: 0 }}>📦 {t('تفاصيل الأوردر')}</h3>
+            <h3 style={{ margin: 0 }}>📦 {t('تفاصيل الطلب')}</h3>
             <button className="icon-btn" onClick={() => setSelectedOrder(null)}><X size={18} /></button>
           </div>
 

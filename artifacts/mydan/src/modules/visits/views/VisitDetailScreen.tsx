@@ -306,7 +306,7 @@ export default function VisitDetailScreen() {
               <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn sm ghost grow" onClick={goShelfAudit} style={{ whiteSpace: 'nowrap', minWidth: 90 }}><Camera size={16} /> {t('مراجعة الرف')}</button>
                 <button className="btn sm ghost grow" onClick={goCompetitors} style={{ whiteSpace: 'nowrap', minWidth: 80 }}><Plus size={16} /> {t('منافسين')}</button>
-                <button className="btn sm ghost grow" onClick={goOrder} data-testid="button-quick-order" style={{ whiteSpace: 'nowrap', minWidth: 70 }}><ShoppingCart size={16} /> {t('أوردر')}</button>
+                <button className="btn sm ghost grow" onClick={goOrder} data-testid="button-quick-order" style={{ whiteSpace: 'nowrap', minWidth: 70 }}><ShoppingCart size={16} /> {t('طلب')}</button>
                 {fieldSurveyAllowed && <button className="btn sm ghost grow" onClick={goFieldSurvey} style={{ whiteSpace: 'nowrap', minWidth: 80 }}><ScanSearch size={16} /> {t('مسح ميداني')}</button>}
               </div>
             </div>
@@ -315,8 +315,8 @@ export default function VisitDetailScreen() {
           {orders.data && orders.data.length > 0 && (
             <div className="card col" style={{ gap: 8 }}>
               <div className="row between">
-                <div className="title" style={{ fontSize: 15 }}><ShoppingCart size={16} style={{ display: 'inline', marginInlineEnd: 6 }} />{t('الأوردرات المسجلة في الزيارة')}</div>
-                <span className="badge b-blue">{t('{n} أوردر', { n: num(orders.data.length) })}</span>
+                <div className="title" style={{ fontSize: 15 }}><ShoppingCart size={16} style={{ display: 'inline', marginInlineEnd: 6 }} />{t('الطلبات المسجلة في الزيارة')}</div>
+                <span className="badge b-blue">{t('{n} طلب', { n: num(orders.data.length) })}</span>
               </div>
               {orders.data.map((ord) => (
                 <div key={ord.id} className="card row between" style={{ padding: '8px 12px', background: '#F8FAFC', margin: 0, border: '1px solid var(--line)' }}>

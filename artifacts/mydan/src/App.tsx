@@ -35,6 +35,7 @@ const NotFound = lazy(() => import('@/pages/NotFound'));
 const AdminLayout = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminLayout'));
 const AdminDashboard = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminDashboard'));
 const AdminTraining = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminTraining'));
+const AdminShelfShare = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminShelfShare'));
 const AdminUsers = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminUsers'));
 const section = (name: 'AdminBranches' | 'AdminCustomers' | 'AdminProducts' | 'AdminTargets' | 'AdminAssets' | 'AdminSurveys' | 'AdminNotifications' | 'AdminSettings' | 'AdminAuditLogs' | 'AdminProspects' | 'AdminOrders' | 'AdminFieldSurveys') =>
   lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminSections').then((m) => ({ default: m[name] })));
@@ -74,6 +75,7 @@ function App() {
                       <Route path="/admin" element={<AdminLayout />}>
                         <Route index element={<AdminDashboard />} />
                         <Route path="live-map" element={<AdminLiveMap />} />
+                        <Route path="shelf-share" element={<AdminShelfShare />} />
                         <Route path="orders" element={<AdminOrders />} />
                         <Route path="users" element={<AdminUsers />} />
                         <Route path="branches" element={<AdminBranches />} />

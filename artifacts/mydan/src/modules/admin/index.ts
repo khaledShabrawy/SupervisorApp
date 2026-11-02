@@ -8,3 +8,5 @@ export { default as AdminTraining } from './AdminTraining';
 export * from './AdminSections';
 export * from './BulkTemplates';
 export * from '@/lib/admin-data';
+
+export { default as AdminShelfShare } from '@/admin/AdminShelfShare';

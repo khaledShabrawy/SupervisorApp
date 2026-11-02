@@ -18,7 +18,7 @@ export function isValidEmail(email: string): boolean {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Supervisor } from '@/types/database';
 import { supabase } from './supabase';
-import { useScope, usePaged } from './data';
+import { useScope, usePaged, PHOTO_BUCKET } from './data';
 import { useAuth } from '@/contexts/AuthContext';
 import { readExactCount } from './read-count';
 import { notify } from './toast';
@@ -679,7 +679,7 @@ export function useDeleteAdminCustomer() {
         .delete()
         .eq('id', id)
         .eq('company_id', sc.companyId);
-      if (error) fail(t('تعذر حذف العميل. قد يكون مرتبطاً بزيارات أو أوردرات سابقة.'), error);
+      if (error) fail(t('تعذر حذف العميل. قد يكون مرتبطاً بزيارات أو طلبات سابقة.'), error);
     },
     onSuccess: () => { notify(t('تم حذف العميل بنجاح'), 'success'); void invalidate(qc, sc, 'admin-customers', 'customers'); },
     onError: (e: Error) => notify(e.message, 'error'),
@@ -1042,5 +1042,112 @@ export function useDeleteTarget() {
       void qc.invalidateQueries({ queryKey: [...sc.base, 'dashboard'] });
     },
     onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+
+export interface AdminShelfAuditRow {
+  id: string;
+  visit_id: string;
+  supervisor_id: string;
+  company_id: string;
+  photo_url: string | null;
+  signed_photo_url?: string | null;
+  audit_summary_ar: string | null;
+  audit_score: number | null;
+  ai_detailed_report: any;
+  status: string;
+  audited_at: string | null;
+  created_at?: string;
+  supervisor_name?: string;
+  supervisor_code?: string;
+  customer_name?: string;
+  branch_name?: string;
+  our_facings?: number;
+  competitor_facings?: number;
+  shelf_share_pct?: number;
+  [key: string]: any;
+}
+
+export function useAdminShelfAudits(filters: { branchId?: string; supervisorId?: string; dateFrom?: string; dateTo?: string } = {}) {
+  const sc = useScope();
+  return useQuery({
+    queryKey: ['admin-shelf-audits', sc.companyId, filters],
+    queryFn: async () => {
+      requireAdmin(sc);
+      let q = (supabase.from('shelf_audit') as any)
+        .select(`
+          id, visit_id, supervisor_id, company_id, photo_url, audit_summary_ar,
+          audit_score, ai_detailed_report, status, audited_at, created_at,
+          supervisors(id, full_name, supervisor_code, branch_id, branches(id, name)),
+          visits(id, customer_id, customers(id, name, customer_code))
+        `)
+        .eq('company_id', sc.companyId)
+        .order('audited_at', { ascending: false })
+        .limit(200);
+
+      if (filters.supervisorId) q = q.eq('supervisor_id', filters.supervisorId);
+      if (filters.dateFrom) q = q.gte('audited_at', filters.dateFrom);
+      if (filters.dateTo) q = q.lte('audited_at', filters.dateTo + 'T23:59:59');
+
+      let { data, error } = await q;
+
+      // Resilient fallback if foreign table relationships differ
+      if (error) {
+        let fallbackQ = (supabase.from('shelf_audit') as any)
+          .select('*')
+          .eq('company_id', sc.companyId)
+          .order('audited_at', { ascending: false })
+          .limit(200);
+        if (filters.supervisorId) fallbackQ = fallbackQ.eq('supervisor_id', filters.supervisorId);
+        if (filters.dateFrom) fallbackQ = fallbackQ.gte('audited_at', filters.dateFrom);
+        if (filters.dateTo) fallbackQ = fallbackQ.lte('audited_at', filters.dateTo + 'T23:59:59');
+        const res = await fallbackQ;
+        if (res.error) throw res.error;
+        data = res.data;
+      }
+
+      const rows: AdminShelfAuditRow[] = await Promise.all((data ?? []).map(async (row: any) => {
+        const sup = row.supervisors;
+        const visit = row.visits;
+        const cust = visit?.customers;
+
+        // Extract facings from ai_detailed_report if available
+        const report = row.ai_detailed_report;
+        const our = report?.target_brand_metrics?.facings ?? report?.our_facings ?? 0;
+        const comp = report?.competitors_metrics?.reduce?.((sum: number, c: any) => sum + (c.facings || 0), 0) ?? report?.competitor_facings ?? 0;
+        const total = our + comp;
+        const share = total > 0 ? Math.round((our / total) * 100) : (row.audit_score ?? null);
+
+        // Generate signed URL if photo exists
+        let signedUrl = row.photo_url;
+        if (row.photo_url && !row.photo_url.startsWith('http')) {
+          try {
+            const { data: s } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(row.photo_url, 600);
+            if (s?.signedUrl) signedUrl = s.signedUrl;
+          } catch {}
+        }
+
+        return {
+          ...row,
+          signed_photo_url: signedUrl,
+          supervisor_name: sup?.full_name || '—',
+          supervisor_code: sup?.supervisor_code || '',
+          customer_name: cust?.name || '—',
+          branch_name: sup?.branches?.name || '',
+          our_facings: our,
+          competitor_facings: comp,
+          shelf_share_pct: share,
+        };
+      }));
+
+      // Filter by branch if requested
+      if (filters.branchId) {
+        return rows.filter((r: any) => r.supervisors?.branch_id === filters.branchId);
+      }
+
+      return rows;
+    },
+    enabled: !!sc.companyId,
   });
 }

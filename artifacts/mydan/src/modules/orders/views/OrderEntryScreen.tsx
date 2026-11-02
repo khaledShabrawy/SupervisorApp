@@ -212,11 +212,11 @@ export default function OrderEntryScreen() {
   if (saved) {
     return (
       <div className="page" aria-label={settings.app_name}>
-        <PageTitle>{t('تسجيل الأوردر')}</PageTitle>
+        <PageTitle>{t('تسجيل الطلب')}</PageTitle>
         <div className="card col" style={{ alignItems: 'center', padding: 32, gap: 16, textAlign: 'center' }}>
           <div style={{ fontSize: 56 }}>📦</div>
           <div className="title" style={{ fontSize: 20 }}>{t('تم تسجيل فرصة البيع بنجاح!')}</div>
-          <div className="muted">{t('تم تسجيل طلب العميل كأوردر قيد الانتظار لمندوب المبيعات.')}</div>
+          <div className="muted">{t('تم تسجيل طلب العميل قيد الانتظار لمندوب المبيعات.')}</div>
           <div className="card col" style={{ width: '100%', background: '#F8FAFC', padding: 16, gap: 6, margin: '8px 0' }}>
             <div className="row between"><span className="muted">{t('العميل')}:</span><strong>{customerName}</strong></div>
             <div className="row between"><span className="muted">{t('عدد الأصناف')}:</span><strong>{num(lines.length)} {t('صنف')} ({num(totalUnits)} {t('وحدة')})</strong></div>
@@ -268,7 +268,7 @@ export default function OrderEntryScreen() {
               </button>
             )}
             <button className="btn ghost grow" onClick={() => { setItemsMap({}); setNotes(''); setSaved(false); }}>
-              {t('أوردر آخر')}
+              {t('طلب آخر')}
             </button>
           </div>
         </div>
@@ -278,7 +278,7 @@ export default function OrderEntryScreen() {
 
   return (
     <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
-      <PageTitle>{t('تسجيل أوردر')}</PageTitle>
+      <PageTitle>{t('تسجيل طلب')}</PageTitle>
 
       <div className="card col" style={{ padding: '12px 16px', gap: 4 }}>
         <div className="row between">
@@ -348,7 +348,7 @@ export default function OrderEntryScreen() {
       <div style={{ position: 'sticky', bottom: 'calc(var(--bottom-nav-height) + var(--sab) + 8px)', background: 'var(--color-bg)', padding: '10px 0', zIndex: 10 }}>
         <div className="card row between" style={{ padding: '12px 16px', border: lines.length > 0 ? '1.5px solid var(--color-primary)' : '1px solid var(--line)' }}>
           <div>
-            <div className="muted" style={{ fontSize: 12 }}>{t('إجمالي الأوردر')}</div>
+            <div className="muted" style={{ fontSize: 12 }}>{t('إجمالي الطلب')}</div>
             <div className="big" style={{ color: lines.length > 0 ? 'var(--color-primary)' : 'var(--muted)', fontSize: 22, fontWeight: 800 }}>
               {num(total)} <span style={{ fontSize: 15 }}>{t('ج.م')}</span>
             </div>
@@ -367,12 +367,12 @@ export default function OrderEntryScreen() {
           data-testid="button-submit-order"
         >
           <ShoppingCart size={18} />
-          {save.isPending ? t('جاري الحفظ...') : t('تأكيد وتسجيل الأوردر')}
+          {save.isPending ? t('جاري الحفظ...') : t('تأكيد وتسجيل الطلب')}
         </button>
 
         {!visitId && (
           <div className="alert warn" style={{ marginTop: 8, fontSize: 13 }}>
-            ⚠️ {t('يجب فتح هذه الشاشة من داخل زيارة نشطة لربط الأوردر بالعميل.')}
+            ⚠️ {t('يجب فتح هذه الشاشة من داخل زيارة نشطة لربط الطلب بالعميل.')}
           </div>
         )}
       </div>
