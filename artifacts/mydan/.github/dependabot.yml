@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/artifacts/mydan"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Africa/Cairo"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      react:
+        patterns:
+          - "react*"
+          - "@types/react*"
+      supabase:
+        patterns:
+          - "@supabase/*"
+      vite:
+        patterns:
+          - "vite*"
+          - "@vitejs/*"

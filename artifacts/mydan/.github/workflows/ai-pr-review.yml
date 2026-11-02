@@ -1,0 +1,78 @@
+name: AI PR Review (GitHub Models)
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - "artifacts/mydan/src/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+  models: read
+
+jobs:
+  review:
+    name: AI Code Review
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD -- 'artifacts/mydan/src/**' \
+            | head -c 12000 > /tmp/pr_diff.txt
+          echo "diff_size=$(wc -c < /tmp/pr_diff.txt)" >> $GITHUB_OUTPUT
+
+      - name: AI Review via GitHub Models
+        if: steps.diff.outputs.diff_size > 0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          REPO: ${{ github.repository }}
+        run: |
+          DIFF=$(cat /tmp/pr_diff.txt)
+
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://models.inference.ai.azure.com/chat/completions" \
+            -d "$(jq -n \
+              --arg diff "$DIFF" \
+              --arg title "$PR_TITLE" \
+              '{
+                model: "gpt-4o-mini",
+                max_tokens: 800,
+                messages: [
+                  {
+                    role: "system",
+                    content: "أنت مراجع كود متخصص في React 18, TypeScript, Supabase وتطبيقات FMCG. راجع الـ diff التالي وقدّم ملاحظاتك باللغة العربية بشكل موجز ومنظم. ركّز على: 1) مشاكل الأمان (security) 2) أخطاء TypeScript محتملة 3) مشاكل الأداء 4) تحسينات UX للـ mobile. لا تذكر أشياء جيدة — فقط ما يحتاج تحسين أو تصحيح. إذا لم تجد مشاكل، قل ذلك باختصار."
+                  },
+                  {
+                    role: "user",
+                    content: "PR: \($title)\n\nDiff:\n\($diff)"
+                  }
+                ]
+              }'
+            )")
+
+          REVIEW=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // "لم يتمكن الـ AI من مراجعة هذا الـ PR."')
+
+          COMMENT="## 🤖 مراجعة الكود بالذكاء الاصطناعي
+
+${REVIEW}
+
+---
+*مراجعة تلقائية بواسطة GitHub Models (GPT-4o mini)*"
+
+          curl -s -X POST \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            -d "$(jq -n --arg body "$COMMENT" '{body: $body}')"
