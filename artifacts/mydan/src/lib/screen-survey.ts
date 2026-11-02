@@ -58,7 +58,7 @@ export function useUploadSurveyPhoto() {
 
       const { error: uploadError } = await supabase.storage
         .from(SURVEY_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
-      if (uploadError) throw new Error('تعذر رفع صورة المسح الميداني. تحقق من وجود bucket "survey-photos".');
+      if (uploadError) throw new Error(`تعذر رفع صورة المسح الميداني. (${uploadError.message})`);
 
       const { data, error: insertError } = await supabase.from('field_surveys').insert({
         company_id: sc.companyId,
