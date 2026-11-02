@@ -1,8 +1,8 @@
-// analyze-shelf v4 — Google Gemini Flash API (Primary & Free) with Claude Vision Fallback.
+// analyze-shelf v5 — Google Gemini Flash Vision with Multi-Model Fallback and Claude Vision Backup.
 //
 // Secrets (Dashboard → Edge Functions → Secrets):
 //   GEMINI_API_KEY      recommended (Free tier: 15 RPM / 1,500 RPD at https://aistudio.google.com/)
-//   GEMINI_MODEL        optional, defaults to gemini-2.5-flash (or gemini-1.5-flash / gemini-2.0-flash)
+//   GEMINI_MODEL        optional, defaults to [gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash]
 //   ANTHROPIC_API_KEY   optional fallback
 //   CLAUDE_MODEL        optional fallback, defaults to claude-sonnet-4-6
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are injected by Supabase.
@@ -18,7 +18,13 @@ import { zodOutputFormat } from "npm:@anthropic-ai/sdk/helpers/zod";
 import { z } from "npm:zod@3";
 
 const PHOTO_BUCKET = "shelf-photos";
-const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
+const CANDIDATE_GEMINI_MODELS = [
+  Deno.env.get("GEMINI_MODEL"),
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+].filter(Boolean) as string[];
+
 const CLAUDE_MODEL = Deno.env.get("CLAUDE_MODEL") ?? "claude-sonnet-4-6";
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB limit
 const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
@@ -62,10 +68,16 @@ const AuditSchema = z.object({
 
 type AuditResult = z.infer<typeof AuditSchema>;
 
-const SYSTEM = `أنت خبير مراجعة رفوف متاجر FMCG في السوق المصري. تحلل صورة الرف وتقيّم التوزيع والعرض التجاري.
-اكتب كل النصوص بالعربية وبمصطلحات تجارية احترافية (Facings, Share of Shelf, OOS, POSM).
-score هو Perfect Store Score من 0 إلى 100. النسب المئوية من 0 إلى 100.
-إذا لم تكن الصورة لرف متجر، أعطِ score = 0 واذكر ذلك في الملخص.`;
+const SYSTEM = `أنت خبير تدقيق ومراجعة رفوف متاجر السلع الاستهلاكية (FMCG Perfect Store Auditor) في السوق المصري والشرق الأوسط.
+تقوم بتحليل صورة الرف بدقة هندسية واستخراج المقاييس التجارية الأساسية:
+1. الواجهات (Facings): احسب عدد الواجهات الأفقية المستقلة المعروضة لكل منتج.
+2. حصة الرف (Share of Shelf %): النسبة المئوية لمساحة واجهات علامتنا مقارنة بإجمالي واجهات الرف المرئية (علامتنا + المنافسون). يجب أن يكون مجموع حصة علامتنا + حصة المنافسين = 100%.
+3. نواقص المخزون (Out of Stock / OOS): رصد أي فراغات فارغة (Empty Slots) أو نفاد لأصناف العلامة، وذكر أسماء الأصناف الناقصة في oos_items.
+4. المنافسون (Competitors): رصد أسماء العلامات التجارية المنافسة المعروضة وحصتها الإجمالية.
+5. المواد الإعلانية وبطاقات الأسعار (POSM & Price Tags): التحقق من وجود بطاقات أسعار واضحة ومواد ترويجية (Wobblers, Posters, Shelf Talkers).
+6. التقرير التفصيلي: صياغة نقد تجاري احترافي دقيق وواقعي بالعربية لأداء الرف وأولويات التحرك.
+score هو تقييم المتجر النموذجي (Perfect Store Score) من 0 إلى 100 (يعتمد على توافر المنتجات + الحصة السوقية + ترتيب العرض + وضوح الأسعار).
+إذا لم تكن الصورة لرف متجر FMCG، أعطِ score = 0 مع توضيح ذلك في الملخص.`;
 
 function storagePath(photoUrl: string): string {
   const marker = `/${PHOTO_BUCKET}/`;
@@ -73,10 +85,8 @@ function storagePath(photoUrl: string): string {
   return decodeURIComponent(i >= 0 ? photoUrl.slice(i + marker.length).split("?")[0] : photoUrl);
 }
 
-/** Analyze shelf using Google Gemini Flash API (Free Tier available) */
-async function callGemini(apiKey: string, base64Data: string, mediaType: string, brand: string, competitors: string): Promise<AuditResult> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
-
+/** Analyze shelf using Google Gemini Flash API with automatic multi-model fallback */
+async function callGemini(apiKey: string, base64Data: string, mediaType: string, brand: string, competitors: string): Promise<{ result: AuditResult; model: string }> {
   const prompt = `${SYSTEM}
 
 العلامة المستهدفة: ${brand}
@@ -111,35 +121,46 @@ async function callGemini(apiKey: string, base64Data: string, mediaType: string,
   }
 }`;
 
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{
-        parts: [
-          { inline_data: { mime_type: mediaType, data: base64Data } },
-          { text: prompt }
-        ]
-      }],
-      generationConfig: {
-        response_mime_type: "application/json",
-        temperature: 0.1
-      }
-    })
-  });
+  let lastError: Error | null = null;
+  for (const model of CANDIDATE_GEMINI_MODELS) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: mediaType, data: base64Data } },
+              { text: prompt }
+            ]
+          }],
+          generationConfig: {
+            response_mime_type: "application/json",
+            temperature: 0.1
+          }
+        })
+      });
 
-  if (!resp.ok) {
-    const errText = await resp.text();
-    throw new Error(`Gemini API HTTP ${resp.status}: ${errText}`);
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Gemini ${model} HTTP ${resp.status}: ${errText}`);
+      }
+
+      const jsonResp = await resp.json();
+      const rawText = jsonResp?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) throw new Error(`Gemini ${model} returned empty or blocked output`);
+
+      const cleanJson = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '');
+      const parsed = JSON.parse(cleanJson);
+      return { result: AuditSchema.parse(parsed), model };
+    } catch (err: any) {
+      console.warn(`[analyze-shelf] Gemini model ${model} attempt failed:`, err?.message ?? err);
+      lastError = err;
+    }
   }
 
-  const jsonResp = await resp.json();
-  const rawText = jsonResp?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) throw new Error("Gemini returned empty or blocked output");
-
-  const cleanJson = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '');
-  const parsed = JSON.parse(cleanJson);
-  return AuditSchema.parse(parsed);
+  throw lastError ?? new Error("All candidate Gemini models failed");
 }
 
 /** Fallback to Anthropic Claude Vision if ANTHROPIC_API_KEY is configured */
@@ -238,8 +259,6 @@ Deno.serve(async (req) => {
   };
 
   // Atomic claim: UPDATE only succeeds when status is not already 'processing' or 'completed'.
-  // This eliminates the TOCTOU race where concurrent requests both pass the status check
-  // and then both proceed to run the AI analysis.
   const { count: claimedCount } = await admin.from("shelf_audit")
     .update({ status: "processing" })
     .eq("id", audit.id)
@@ -266,14 +285,15 @@ Deno.serve(async (req) => {
     const mediaType = (MEDIA_TYPES as readonly string[]).includes(blob.type) ? blob.type as MediaType : "image/jpeg";
     const base64Data = encodeBase64(new Uint8Array(await blob.arrayBuffer()));
 
-    // 5) Execute analysis: Primary is Gemini Flash (Free), fallback is Anthropic
+    // 5) Execute analysis: Primary is Gemini Flash Vision, fallback is Anthropic
     let result: AuditResult;
     let modelUsed: string;
 
     if (geminiKey) {
       try {
-        result = await callGemini(geminiKey, base64Data, mediaType, brand, competitors);
-        modelUsed = GEMINI_MODEL;
+        const geminiRes = await callGemini(geminiKey, base64Data, mediaType, brand, competitors);
+        result = geminiRes.result;
+        modelUsed = geminiRes.model;
       } catch (geminiErr) {
         console.warn("Gemini Flash failed, attempting fallback if available:", geminiErr);
         if (anthropicKey) {

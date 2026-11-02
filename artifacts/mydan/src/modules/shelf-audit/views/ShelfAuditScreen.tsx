@@ -245,6 +245,30 @@ export default function ShelfAuditScreen() {
   const score = audit?.audit_score ?? null;
   const color = score == null ? 'var(--muted)' : score > 75 ? 'var(--color-success)' : score >= 50 ? '#B45309' : 'var(--color-danger)';
 
+  const targetMetrics = useMemo(() => (report.target_brand_metrics ?? {}) as {
+    brand_present?: boolean;
+    facings?: number;
+    share_of_shelf_percentage?: number;
+    out_of_stock?: boolean;
+    oos_items?: string[];
+  }, [report.target_brand_metrics]);
+
+  const competitorMetrics = useMemo(() => (report.competitor_metrics ?? {}) as {
+    competitor_presence_detected?: boolean;
+    competitor_share_pct?: number;
+    brands_detected?: string[];
+  }, [report.competitor_metrics]);
+
+  const detailedReport = useMemo(() => (report.detailed_report ?? {}) as {
+    brand_analysis?: string;
+    competitor_analysis?: string;
+    display_quality?: string;
+    action_priority?: string;
+  }, [report.detailed_report]);
+
+  const posmPresent = report.posm_present as boolean | undefined;
+  const priceTagVisible = report.price_tag_visible as boolean | undefined;
+
   const [selectedCause, setSelectedCause] = useState<string>(() => (report.root_cause as string) ?? '');
   const [auditNotes, setAuditNotes] = useState<string>(() => (report.audit_notes as string) ?? '');
   const [isUpdatingCause, setIsUpdatingCause] = useState(false);
@@ -308,11 +332,39 @@ export default function ShelfAuditScreen() {
     if (!audit) return;
     const causeHtml = report.root_cause ? `<h3>${esc(t('السبب الجذري'))}</h3><p>${esc(String(report.root_cause))}</p>` : '';
     const notesHtml = report.audit_notes ? `<h3>${esc(t('ملاحظات التدقيق'))}</h3><p>${esc(String(report.audit_notes))}</p>` : '';
-    const html = `<!doctype html><html lang="${LANG}" dir="${DIR}"><meta charset="utf-8"><title>${esc(t('تقرير الرف'))}</title><body style="font-family:sans-serif;max-width:640px;margin:auto;padding:16px"><h1>${esc(t('تقرير مراجعة الرف'))}</h1><p>${esc(settings.app_name)} - ${esc(supervisor?.full_name ?? '')}</p><p>${esc(fmtDateTime(audit.audited_at))}</p><h2>${esc(t('النتيجة: {score}', { score: audit.audit_score ?? '-' }))}</h2><p>${esc(audit.audit_summary_ar ?? '')}</p><h3>${esc(t('الملاحظات'))}</h3><ul>${issues.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><h3>${esc(t('التوصيات'))}</h3><ul>${recs.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>${causeHtml}${notesHtml}</body></html>`;
+    const brandName = settings.target_brand_name || t('علامتنا');
+    const sharePct = targetMetrics.share_of_shelf_percentage ?? 0;
+    const compPct = competitorMetrics.competitor_share_pct ?? (100 - sharePct);
+    const facings = targetMetrics.facings ?? 0;
+    const oosText = targetMetrics.out_of_stock ? t('نفاد مخزون (OOS)') : t('متوفر بالكامل');
+    const posmText = posmPresent ? t('متوفرة') : t('غير متوفرة');
+    const priceText = priceTagVisible ? t('واضحة ومطابقة') : t('غير واضحة');
+    const compBrands = competitorMetrics.brands_detected?.join('، ') || '—';
+
+    const kpiTable = `
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
+        <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:10px;font-weight:bold">${esc(t('حصة الرف (Share of Shelf)'))}</td><td style="padding:10px">${brandName}: ${num(sharePct)}% vs ${esc(t('المنافسون'))}: ${num(compPct)}%</td></tr>
+        <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:10px;font-weight:bold">${esc(t('واجهات العرض'))}</td><td style="padding:10px">${num(facings)} ${esc(t('واجهة'))}</td></tr>
+        <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:10px;font-weight:bold">${esc(t('حالة التوافر'))}</td><td style="padding:10px">${esc(oosText)}</td></tr>
+        <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:10px;font-weight:bold">${esc(t('المواد الدعائية'))}</td><td style="padding:10px">${esc(posmText)}</td></tr>
+        <tr style="border-bottom:1px solid #e2e8f0"><td style="padding:10px;font-weight:bold">${esc(t('بطاقات الأسعار'))}</td><td style="padding:10px">${esc(priceText)}</td></tr>
+        <tr><td style="padding:10px;font-weight:bold">${esc(t('العلامات المنافسة المرصودة'))}</td><td style="padding:10px">${esc(compBrands)}</td></tr>
+      </table>
+    `;
+
+    const stratHtml = (detailedReport.brand_analysis || detailedReport.competitor_analysis || detailedReport.display_quality) ? `
+      <h3>${esc(t('التحليل الاستراتيجي للعرض'))}</h3>
+      ${detailedReport.brand_analysis ? `<p><strong>${esc(t('تحليل تواجد علامتنا'))}:</strong> ${esc(detailedReport.brand_analysis)}</p>` : ''}
+      ${detailedReport.competitor_analysis ? `<p><strong>${esc(t('تحليل انتشار المنافسين'))}:</strong> ${esc(detailedReport.competitor_analysis)}</p>` : ''}
+      ${detailedReport.display_quality ? `<p><strong>${esc(t('جودة وترتيب العرض'))}:</strong> ${esc(detailedReport.display_quality)}</p>` : ''}
+      ${detailedReport.action_priority ? `<p><strong>${esc(t('أولوية التحرك'))}:</strong> ${esc(detailedReport.action_priority)}</p>` : ''}
+    ` : '';
+
+    const html = `<!doctype html><html lang="${LANG}" dir="${DIR}"><meta charset="utf-8"><title>${esc(t('تقرير الرف'))}</title><body style="font-family:sans-serif;max-width:640px;margin:auto;padding:16px"><h1>${esc(t('تقرير مراجعة الرف'))}</h1><p>${esc(settings.app_name)} - ${esc(supervisor?.full_name ?? '')}</p><p>${esc(fmtDateTime(audit.audited_at))}</p><h2>${esc(t('النتيجة: {score}', { score: audit.audit_score ?? '-' }))}</h2><p>${esc(audit.audit_summary_ar ?? '')}</p>${kpiTable}${stratHtml}<h3>${esc(t('الملاحظات'))}</h3><ul>${issues.map((x) => `<li>${esc(x)}</li>`).join('')}</ul><h3>${esc(t('التوصيات'))}</h3><ul>${recs.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>${causeHtml}${notesHtml}</body></html>`;
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = `shelf-report-${audit.id}.html`; a.click(); URL.revokeObjectURL(url);
     notify(t('التقرير محفوظ في النظام وتم تنزيل نسخة منه'), 'success');
-  }, [audit, settings.app_name, supervisor?.full_name, issues, recs, report.root_cause, report.audit_notes]);
+  }, [audit, settings.app_name, settings.target_brand_name, supervisor?.full_name, issues, recs, report.root_cause, report.audit_notes, targetMetrics, competitorMetrics, detailedReport, posmPresent, priceTagVisible]);
 
   const busy = upload.isPending || request.isPending;
   const photo = audit?.photo_url ? <img src={audit.photo_url} alt={t('صورة الرف')} loading="lazy" style={{ width: '100%', borderRadius: 12, maxHeight: 240, objectFit: 'cover' }} /> : null;
@@ -648,11 +700,166 @@ export default function ShelfAuditScreen() {
           </a>
         </div>
       )}
+      <div className="row center" style={{ marginTop: -4, marginBottom: 4 }}>
+        <span
+          className={`badge ${score != null && score >= 85 ? 'b-green' : score != null && score >= 70 ? 'b-blue' : score != null && score >= 50 ? 'b-amber' : 'b-red'}`}
+          style={{ fontSize: 13, padding: '4px 12px', fontWeight: 600 }}
+        >
+          {score != null && score >= 85
+            ? t('متجر نموذجي (Perfect Store)')
+            : score != null && score >= 70
+              ? t('عرض تجاري جيد')
+              : score != null && score >= 50
+                ? t('يحتاج تحسينات')
+                : t('أداء ضعيف بحاجة لمعالجة')}
+        </span>
+      </div>
+
       {audit.audit_summary_ar && (
         <div style={{ background: 'var(--card-subtle, rgba(0,0,0,0.03))', borderRadius: 12, padding: 14, fontWeight: 600 }}>
           {audit.audit_summary_ar}
         </div>
       )}
+
+      {/* Share of Shelf Comparative Card */}
+      {(targetMetrics.share_of_shelf_percentage != null || competitorMetrics.competitor_share_pct != null) && (
+        <div className="col" style={{ gap: 10, background: 'var(--card-subtle, #F8FAFC)', padding: 14, borderRadius: 14, border: '1px solid var(--line)' }}>
+          <div className="row between" style={{ alignItems: 'center' }}>
+            <span style={{ fontWeight: 700, fontSize: 14 }}>📊 {t('حصة الرف (Share of Shelf)')}</span>
+            <span className="badge b-blue" style={{ fontSize: 12 }}>
+              {settings.target_brand_name || t('علامتنا')}: {num(targetMetrics.share_of_shelf_percentage ?? 0)}%
+            </span>
+          </div>
+
+          <div style={{ width: '100%', height: 12, borderRadius: 6, background: '#E2E8F0', overflow: 'hidden', display: 'flex' }}>
+            <div
+              style={{
+                width: `${Math.min(100, Math.max(0, targetMetrics.share_of_shelf_percentage ?? 0))}%`,
+                background: 'var(--color-primary, #1A56DB)',
+                transition: 'width 0.4s ease',
+              }}
+              title={`${settings.target_brand_name || t('علامتنا')}: ${targetMetrics.share_of_shelf_percentage ?? 0}%`}
+            />
+            <div
+              style={{
+                width: `${Math.min(100, Math.max(0, competitorMetrics.competitor_share_pct ?? (100 - (targetMetrics.share_of_shelf_percentage ?? 0))))}%`,
+                background: '#F59E0B',
+                transition: 'width 0.4s ease',
+              }}
+              title={`${t('المنافسون')}: ${competitorMetrics.competitor_share_pct ?? 0}%`}
+            />
+          </div>
+
+          <div className="row between muted" style={{ fontSize: 12 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-primary, #1A56DB)' }} />
+              {settings.target_brand_name || t('علامتنا')} ({num(targetMetrics.share_of_shelf_percentage ?? 0)}%)
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#F59E0B' }} />
+              {t('المنافسون')} ({num(competitorMetrics.competitor_share_pct ?? (100 - (targetMetrics.share_of_shelf_percentage ?? 0)))}%)
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* 4 Quick Shelf KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div className="card col" style={{ margin: 0, padding: 12, gap: 4, background: 'var(--card-subtle, #F8FAFC)', borderRadius: 12 }}>
+          <div className="muted" style={{ fontSize: 11 }}>📦 {t('واجهات العرض')}</div>
+          <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--color-primary)' }}>
+            {num(targetMetrics.facings ?? 0)} <span style={{ fontSize: 12, fontWeight: 500 }}>{t('واجهة')}</span>
+          </div>
+        </div>
+
+        <div className="card col" style={{ margin: 0, padding: 12, gap: 4, background: 'var(--card-subtle, #F8FAFC)', borderRadius: 12 }}>
+          <div className="muted" style={{ fontSize: 11 }}>🔍 {t('حالة التوافر')}</div>
+          <div style={{ fontWeight: 700, fontSize: 13, color: targetMetrics.out_of_stock ? 'var(--color-danger)' : 'var(--color-success)' }}>
+            {targetMetrics.out_of_stock ? `⚠️ ${t('نفاد مخزون (OOS)')}` : `✅ ${t('متوفر بالكامل')}`}
+          </div>
+        </div>
+
+        <div className="card col" style={{ margin: 0, padding: 12, gap: 4, background: 'var(--card-subtle, #F8FAFC)', borderRadius: 12 }}>
+          <div className="muted" style={{ fontSize: 11 }}>🏷️ {t('المواد الدعائية')}</div>
+          <div style={{ fontWeight: 700, fontSize: 13, color: posmPresent ? 'var(--color-success)' : 'var(--muted)' }}>
+            {posmPresent ? `✅ ${t('متوفرة')}` : `⚪ ${t('غير متوفرة')}`}
+          </div>
+        </div>
+
+        <div className="card col" style={{ margin: 0, padding: 12, gap: 4, background: 'var(--card-subtle, #F8FAFC)', borderRadius: 12 }}>
+          <div className="muted" style={{ fontSize: 11 }}>💰 {t('بطاقات الأسعار')}</div>
+          <div style={{ fontWeight: 700, fontSize: 13, color: priceTagVisible ? 'var(--color-success)' : 'var(--color-danger)' }}>
+            {priceTagVisible ? `✅ ${t('واضحة ومطابقة')}` : `⚠️ ${t('غير واضحة')}`}
+          </div>
+        </div>
+      </div>
+
+      {/* Out of Stock Items Alert */}
+      {targetMetrics.out_of_stock && targetMetrics.oos_items && targetMetrics.oos_items.length > 0 && (
+        <div className="alert err" style={{ fontSize: 13, gap: 6, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontWeight: 700 }}>🚨 {t('أصناف نفد مخزونها بحاجة لتوريد فوري:')}</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+            {targetMetrics.oos_items.map((item, idx) => (
+              <span key={idx} className="chip" style={{ background: 'rgba(239,68,68,0.15)', color: '#DC2626', borderColor: '#FCA5A5' }}>
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Competitor Brands Detected */}
+      {competitorMetrics.brands_detected && competitorMetrics.brands_detected.length > 0 && (
+        <div className="col" style={{ gap: 8, background: 'var(--card-subtle, #F8FAFC)', padding: 12, borderRadius: 12, border: '1px solid var(--line)' }}>
+          <span style={{ fontWeight: 700, fontSize: 13 }}>⚔️ {t('العلامات المنافسة المرصودة')}:</span>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+            {competitorMetrics.brands_detected.map((brand, idx) => (
+              <span key={idx} className="badge b-amber" style={{ fontSize: 12, padding: '3px 8px' }}>
+                {brand}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Strategic Analysis */}
+      {(detailedReport.brand_analysis || detailedReport.competitor_analysis || detailedReport.display_quality) && (
+        <div className="col" style={{ gap: 10, background: 'var(--card-subtle, #F8FAFC)', padding: 14, borderRadius: 14, border: '1px solid var(--line)' }}>
+          <div className="row between" style={{ alignItems: 'center' }}>
+            <span style={{ fontWeight: 700, fontSize: 14 }}>📋 {t('التحليل الاستراتيجي للعرض')}</span>
+            {detailedReport.action_priority && (
+              <span
+                className={`badge ${detailedReport.action_priority.includes('عالية') ? 'b-red' : detailedReport.action_priority.includes('متوسطة') ? 'b-amber' : 'b-blue'}`}
+                style={{ fontSize: 11 }}
+              >
+                {t('أولوية التحرك')}: {detailedReport.action_priority}
+              </span>
+            )}
+          </div>
+
+          {detailedReport.brand_analysis && (
+            <div className="col" style={{ gap: 2, fontSize: 13 }}>
+              <span className="muted" style={{ fontWeight: 600 }}>🎯 {t('تحليل تواجد علامتنا')}:</span>
+              <span>{detailedReport.brand_analysis}</span>
+            </div>
+          )}
+
+          {detailedReport.competitor_analysis && (
+            <div className="col" style={{ gap: 2, fontSize: 13, borderTop: '1px dashed var(--line)', paddingTop: 6 }}>
+              <span className="muted" style={{ fontWeight: 600 }}>⚔️ {t('تحليل انتشار المنافسين')}:</span>
+              <span>{detailedReport.competitor_analysis}</span>
+            </div>
+          )}
+
+          {detailedReport.display_quality && (
+            <div className="col" style={{ gap: 2, fontSize: 13, borderTop: '1px dashed var(--line)', paddingTop: 6 }}>
+              <span className="muted" style={{ fontWeight: 600 }}>✨ {t('جودة وترتيب العرض')}:</span>
+              <span>{detailedReport.display_quality}</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {issues.length > 0 && <>
         <div className="title">{t('الملاحظات')}</div>
         <ul className="s-finds">{issues.map((x, i) => <Finding key={`i${i}`} text={x} kind="issue" />)}</ul>
