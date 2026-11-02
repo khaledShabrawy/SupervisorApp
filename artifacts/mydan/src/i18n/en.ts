@@ -1,6 +1,7 @@
 // English UI strings, keyed by the Arabic source text used in t('...').
 // Keep `{placeholders}` identical to the Arabic key.
 export const EN: Record<string, string> = {
+  'تأكيد': 'Confirm',
   'رابط الفيديو يجب أن يبدأ بـ https://': 'Video URL must start with https://',
   'supervisor_id مطلوب لخطط الجولة': 'supervisor_id is required for beat plans',
   'customer_id غير موجود في قاعدة البيانات': 'customer_id not found in database',

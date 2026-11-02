@@ -276,9 +276,9 @@ export function AdminCustomers() {
             <td className="row gap-1">
               <button className="btn sm ghost" onClick={() => setEdit(c)}>{t('تعديل')}</button>
               {c.is_active ? (
-                <button className="btn sm ghost danger" title={t('تعطيل')} onClick={() => { if (confirm(t('تعطيل العميل؟'))) toggleActive.mutate({ id: c.id, is_active: false }); }}><Trash2 size={14} /></button>
+                <button className="btn sm ghost danger" title={t('تعطيل')} onClick={async () => { if (await confirm(t('تعطيل العميل؟'))) toggleActive.mutate({ id: c.id, is_active: false }); }}><Trash2 size={14} /></button>
               ) : (
-                <button className="btn sm ghost success" title={t('تفعيل')} onClick={() => { if (confirm(t('إعادة تفعيل العميل؟'))) toggleActive.mutate({ id: c.id, is_active: true }); }}>{t('تفعيل')}</button>
+                <button className="btn sm ghost success" title={t('تفعيل')} onClick={async () => { if (await confirm(t('إعادة تفعيل العميل؟'))) toggleActive.mutate({ id: c.id, is_active: true }); }}>{t('تفعيل')}</button>
               )}
               {canDelete && (
                 <button
@@ -736,9 +736,9 @@ export function AdminProducts() {
             <td className="row gap-1">
               <button className="btn sm ghost" onClick={() => setEdit(p)}>{t('تعديل')}</button>
               {p.is_active ? (
-                <button className="btn sm ghost danger" title={t('تعطيل')} onClick={() => { if (confirm(t('تعطيل المنتج؟'))) toggleActive.mutate({ id: p.id, is_active: false }); }}><Trash2 size={14} /></button>
+                <button className="btn sm ghost danger" title={t('تعطيل')} onClick={async () => { if (await confirm(t('تعطيل المنتج؟'))) toggleActive.mutate({ id: p.id, is_active: false }); }}><Trash2 size={14} /></button>
               ) : (
-                <button className="btn sm ghost success" title={t('تفعيل')} onClick={() => { if (confirm(t('إعادة تفعيل المنتج؟'))) toggleActive.mutate({ id: p.id, is_active: true }); }}>{t('تفعيل')}</button>
+                <button className="btn sm ghost success" title={t('تفعيل')} onClick={async () => { if (await confirm(t('إعادة تفعيل المنتج؟'))) toggleActive.mutate({ id: p.id, is_active: true }); }}>{t('تفعيل')}</button>
               )}
             </td></tr>)}</tbody>
         </table></div>}
@@ -1161,7 +1161,7 @@ export function AdminProspects() {
                 <button
                   className="btn sm ghost danger"
                   disabled={convert.isPending}
-                  onClick={() => { if (confirm(t('رفض العميل المحتمل؟'))) convert.mutate({ id: c.id, action: 'reject' }); }}
+                  onClick={async () => { if (await confirm(t('رفض العميل المحتمل؟'))) convert.mutate({ id: c.id, action: 'reject' }); }}
                 >{t('رفض')}</button>
               </td>
             </tr>
