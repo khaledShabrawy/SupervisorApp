@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 15
     env:
       VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://ywdlrrdkjbtpfgacuuoy.supabase.co' }}
-      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3ZGxycmRramJ0cGZnYWN1dW95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMDAzNTgsImV4cCI6MjEwNjY3NjM1OH0.YY7pE4WNMkDLgvVg73jYFCZdVUv3YZD7kQzYsYSyPq8' }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_ci_placeholder_anon_key' }}
 
     steps:
       - name: Checkout repository
