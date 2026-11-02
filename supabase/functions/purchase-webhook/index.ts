@@ -19,17 +19,27 @@ const reply = (status: number, body: Record<string, unknown>) =>
 
 // ── Plan → license mapping ──────────────────────────────────────────────────
 const PLAN_MAP: Record<string, { licenseType: "standard" | "pro" | "enterprise"; maxSupervisors: number }> = {
-  starter:    { licenseType: "standard",   maxSupervisors: 5   },
-  growth:     { licenseType: "pro",        maxSupervisors: 25  },
-  enterprise: { licenseType: "enterprise", maxSupervisors: 999 },
+  // Live WooCommerce product slugs (store.digityoucan.com)
+  "mydan-monthly": { licenseType: "standard",   maxSupervisors: 5   },
+  "mydan-yearly":  { licenseType: "pro",        maxSupervisors: 25  },
+  // Legacy / named-plan keys (kept for future products)
+  starter:         { licenseType: "standard",   maxSupervisors: 5   },
+  growth:          { licenseType: "pro",        maxSupervisors: 25  },
+  enterprise:      { licenseType: "enterprise", maxSupervisors: 999 },
 };
 
-// Detect plan from WooCommerce product name / slug
-function detectPlan(productName: string): keyof typeof PLAN_MAP {
-  const lower = productName.toLowerCase();
-  if (lower.includes("enterprise")) return "enterprise";
-  if (lower.includes("growth"))     return "growth";
-  return "starter";
+// Detect plan from WooCommerce product slug or name.
+// Slug is preferred (stable); name is the fallback.
+function detectPlan(slug: string, name: string): keyof typeof PLAN_MAP {
+  const candidates = [slug, name].map((s) => s.toLowerCase().trim().replace(/\s+/g, "-"));
+  for (const key of candidates) {
+    if (key in PLAN_MAP) return key as keyof typeof PLAN_MAP;
+  }
+  // Keyword fallback for future product variations
+  const combined = candidates.join(" ");
+  if (combined.includes("enterprise"))          return "enterprise";
+  if (combined.includes("yearly") || combined.includes("annual") || combined.includes("growth")) return "mydan-yearly";
+  return "mydan-monthly";
 }
 
 // Generate a random license key
@@ -98,9 +108,11 @@ Deno.serve(async (req) => {
   }
 
   // ── Detect purchased plan ────────────────────────────────────────────────
-  const lineItems = (order.line_items ?? []) as Array<{ name?: string; product_id?: number }>;
-  const firstProduct = lineItems[0]?.name ?? "starter";
-  const planKey  = detectPlan(firstProduct);
+  const lineItems = (order.line_items ?? []) as Array<{ name?: string; slug?: string; product_id?: number }>;
+  const firstItem   = lineItems[0];
+  const firstSlug   = String(firstItem?.slug  ?? "").trim();
+  const firstName   = String(firstItem?.name  ?? "").trim();
+  const planKey  = detectPlan(firstSlug, firstName);
   const plan     = PLAN_MAP[planKey];
   const licenseKey = genLicenseKey();
   const appUrl   = Deno.env.get("APP_URL") ?? "https://mydan.digityoucan.com";
