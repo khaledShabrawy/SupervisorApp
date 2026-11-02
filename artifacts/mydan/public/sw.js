@@ -51,12 +51,29 @@ self.addEventListener('fetch', event => {
   }
   const isAsset = /\/assets\/[^/]+\.(js|css|woff2?|png|svg)$/.test(url.pathname);
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(async () => {
-      const shell = await caches.match(BASE.href);
-      return shell || new Response('التطبيق غير متاح دون اتصال. افتحه مرة واحدة متصلًا بالإنترنت.', {
-        status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      });
-    }));
+    // Cache-first for the app shell: serve cached index.html instantly so returning
+    // to the app from the background doesn't cause a visible reload. Revalidate in background.
+    event.respondWith((async () => {
+      const cached = await caches.match(BASE.href);
+      if (cached) {
+        // Background revalidation — don't await, just refresh the cache quietly
+        fetch(new Request(BASE.href, { cache: 'no-store' }))
+          .then(async fresh => {
+            if (fresh.ok) {
+              const c = await caches.open(CACHE || (PREFIX + 'default'));
+              c.put(BASE.href, fresh);
+            }
+          })
+          .catch(() => {});
+        return cached;
+      }
+      // No cache yet — go to network, fallback to offline message
+      return fetch(request).catch(() =>
+        new Response('التطبيق غير متاح دون اتصال. افتحه مرة واحدة متصلًا بالإنترنت.', {
+          status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        })
+      );
+    })());
   } else if (isAsset) {
     event.respondWith(caches.match(request).then(cached => cached || fetch(request)));
   }
