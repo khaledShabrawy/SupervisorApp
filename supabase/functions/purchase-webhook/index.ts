@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return reply(405, { error: "Method not allowed" });
 
   const rawBody = await req.text();
-  const wcSecret = Deno.env.get("WC_WEBHOOK_SECRET");
+  const wcSecret = Deno.env.get("WC_WEBHOOK_SECRET") ?? Deno.env.get("WOO_WEBHOOK_SECRET");
   if (!wcSecret) {
     console.error("[purchase-webhook] WC_WEBHOOK_SECRET not configured — rejecting request");
     return reply(401, { error: "Webhook secret not configured" });
@@ -109,10 +109,10 @@ Deno.serve(async (req) => {
 
   // ── Detect purchased plan ────────────────────────────────────────────────
   const lineItems = (order.line_items ?? []) as Array<{ name?: string; slug?: string; product_id?: number }>;
-  const firstItem   = lineItems[0];
-  const firstSlug   = String(firstItem?.slug  ?? "").trim();
-  const firstName   = String(firstItem?.name  ?? "").trim();
-  const planKey  = detectPlan(firstSlug, firstName);
+  const firstItem     = lineItems[0];
+  const firstSlug     = String(firstItem?.slug  ?? "").trim();
+  const firstItemName = String(firstItem?.name  ?? "").trim();
+  const planKey  = detectPlan(firstSlug, firstItemName);
   const plan     = PLAN_MAP[planKey];
   const licenseKey = genLicenseKey();
   const appUrl   = Deno.env.get("APP_URL") ?? "https://mydan.digityoucan.com";
