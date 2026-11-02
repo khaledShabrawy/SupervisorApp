@@ -9,7 +9,7 @@ import { canAdmin } from '@/lib/policy';
 import { useSupervisors, useUpdateSupervisor } from '@/lib/data';
 import { notify } from '@/lib/toast';
 import { useAdminProducts, useSaveMonthlyTarget, useSaveSettings, type CatalogProduct } from '@/lib/screen-data';
-import { useBranches, useDeleteAssetType } from '@/lib/admin-data';
+import { useBranches, useDeleteAssetType, useUpdateAdminTarget, type AdminTargetRow } from '@/lib/admin-data';
 import { PageTitle } from '@/components/Layout';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
 import EmptyState from '@/components/EmptyState';
@@ -230,22 +230,35 @@ export function SettingsForm() {
     </button>
   </form>;
 }
-export function TargetForm() {
+export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onClose?: () => void } = {}) {
   const q = useSupervisors();
   const branches = useBranches();
   const m = useSaveMonthlyTarget();
+  const updateM = useUpdateAdminTarget();
   const now = new Date();
 
-  const [criteria, setCriteria] = useState<'visits' | 'shelf_audit' | 'orders' | 'new_opportunity'>('visits');
-  const [scopeType, setScopeType] = useState<'per_user' | 'general'>('per_user');
-  const [targetScope, setTargetScope] = useState<'all_branches' | 'specific_branch'>('all_branches');
-  const [branchId, setBranchId] = useState('');
-  const [sid, setSid] = useState('');
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
-  const [v, setV] = useState('50');
-  const [a, setA] = useState('25');
-  const [targetAmount, setTargetAmount] = useState('');
+  const [criteria, setCriteria] = useState<'visits' | 'shelf_audit' | 'orders' | 'new_opportunity'>(
+    (editRow?.criteria as 'visits' | 'shelf_audit' | 'orders' | 'new_opportunity') ?? 'visits'
+  );
+  const [scopeType, setScopeType] = useState<'per_user' | 'general'>(
+    (editRow?.scope_type as 'per_user' | 'general') ?? 'per_user'
+  );
+  const [targetScope, setTargetScope] = useState<'all_branches' | 'specific_branch'>(
+    (editRow?.target_scope as 'all_branches' | 'specific_branch') ?? 'all_branches'
+  );
+  const [branchId, setBranchId] = useState(editRow?.branch_id ?? '');
+  const [sid, setSid] = useState(editRow?.supervisor_id ?? '');
+  const [month, setMonth] = useState(
+    editRow?.target_date ? Number(editRow.target_date.slice(5, 7)) : now.getMonth() + 1
+  );
+  const [year, setYear] = useState(
+    editRow?.target_date ? Number(editRow.target_date.slice(0, 4)) : now.getFullYear()
+  );
+  const [v, setV] = useState(editRow ? String(editRow.visits_target ?? 0) : '50');
+  const [a, setA] = useState(editRow ? String(editRow.audit_target ?? 0) : '25');
+  const [targetAmount, setTargetAmount] = useState(
+    editRow?.target_amount ? String(editRow.target_amount) : ''
+  );
 
   const retry = useRefetch(q.refetch);
   const onSid = useInput(setSid);
@@ -260,22 +273,38 @@ export function TargetForm() {
     (targetScope === 'all_branches' || Boolean(branchId)) &&
     (criteria === 'orders' ? (Number(targetAmount) > 0 || Number(v) > 0) : Number(v) >= 0);
 
+  const isPending = editRow ? updateM.isPending : m.isPending;
+
   const submit = useCallback((e: FormEvent) => {
     e.preventDefault();
     if (!valid) return;
-    m.mutate({
-      supervisor_id: scopeType === 'per_user' ? sid : null,
-      month,
-      year,
-      visits_target: Number(v) || 0,
-      audit_target: Number(a) || 0,
-      criteria,
-      scope_type: scopeType,
-      target_scope: targetScope,
-      branch_id: targetScope === 'specific_branch' ? branchId : null,
-      target_amount: Number(targetAmount) || 0,
-    });
-  }, [valid, m, sid, month, year, v, a, criteria, scopeType, targetScope, branchId, targetAmount]);
+    if (editRow) {
+      updateM.mutate({
+        id: editRow.id,
+        visits_target: Number(v) || 0,
+        audit_target: Number(a) || 0,
+        criteria,
+        scope_type: scopeType,
+        target_scope: targetScope,
+        supervisor_id: scopeType === 'per_user' ? sid : null,
+        branch_id: targetScope === 'specific_branch' ? branchId : null,
+        target_amount: Number(targetAmount) || 0,
+      }, { onSuccess: onClose });
+    } else {
+      m.mutate({
+        supervisor_id: scopeType === 'per_user' ? sid : null,
+        month,
+        year,
+        visits_target: Number(v) || 0,
+        audit_target: Number(a) || 0,
+        criteria,
+        scope_type: scopeType,
+        target_scope: targetScope,
+        branch_id: targetScope === 'specific_branch' ? branchId : null,
+        target_amount: Number(targetAmount) || 0,
+      });
+    }
+  }, [valid, m, updateM, editRow, sid, month, year, v, a, criteria, scopeType, targetScope, branchId, targetAmount, onClose]);
 
   if (q.isError) return <ErrorState error={q.error} onRetry={retry} />;
 
@@ -354,8 +383,8 @@ export function TargetForm() {
         </label>
       )}
 
-      <button className="btn" disabled={!valid || m.isPending} data-testid="button-save-target" style={{ marginTop: 6 }}>
-        {m.isPending ? t('جاري الحفظ...') : t('حفظ الهدف')}
+      <button className="btn" disabled={!valid || isPending} data-testid="button-save-target" style={{ marginTop: 6 }}>
+        {isPending ? t('جاري الحفظ...') : editRow ? t('تحديث الهدف') : t('حفظ الهدف')}
       </button>
     </form>
   );

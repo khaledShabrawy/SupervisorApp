@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, type ChangeEvent, type FormEvent } from
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
-import { Bell, Camera, CheckCheck, Download, FileText, MapPin, Package, Plus, ShoppingCart, Store, Target, Trash2, X } from '@/components/Icons';
+import { Bell, Camera, CheckCheck, Download, FileText, MapPin, Package, Pencil, Plus, ShoppingCart, Store, Target, Trash2, X } from '@/components/Icons';
 import { exportToCsv } from '@/lib/csv-export';
 import { useAdminOrders, useUpdateOrderStatus, formatOrderWhatsAppMessage, openWhatsAppShare, type OrderRecord } from '@/lib/screen-orders';
 import { fmtDate, fmtTime, num } from '@/lib/format';
@@ -16,7 +16,7 @@ import {
   useDeactivateRecord, useToggleActiveRecord, useSaveAdminCustomer, useSaveAsset, useDeleteAsset,
   useSaveBranch, useDeleteBranch, useSaveProduct, useSaveSurvey, useUploadLogo,
   useRegions, useSaveRegion, useAdminTargets, useDeleteTarget, useDeleteAdminCustomer,
-  type AdminCustomerRow, type AssetRow, type AuditRow, type Branch, type SurveyQuestion, type SurveyRow,
+  type AdminCustomerRow, type AdminTargetRow, type AssetRow, type AuditRow, type Branch, type SurveyQuestion, type SurveyRow,
 } from '@/lib/admin-data';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
 import EmptyState from '@/components/EmptyState';
@@ -328,25 +328,38 @@ export function AdminTargets() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editTarget, setEditTarget] = useState<AdminTargetRow | null>(null);
   const [search, setSearch] = useState('');
+  const [filterBranchId, setFilterBranchId] = useState('');
+  const [filterSupId, setFilterSupId] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const targetsQ = useAdminTargets(month, year);
   const delMutation = useDeleteTarget();
   const retry = useRefetch(targetsQ.refetch);
+  const branches = useBranches();
+  const allSups = useSupervisors();
+
+  const filteredSups = useMemo(() => {
+    if (!filterBranchId) return allSups.items;
+    return allSups.items.filter((s) => s.branch_id === filterBranchId);
+  }, [allSups.items, filterBranchId]);
 
   const filteredTargets = useMemo(() => {
     if (!targetsQ.data) return [];
-    if (!search.trim()) return targetsQ.data;
+    let list = targetsQ.data;
+    if (filterBranchId) list = list.filter((r) => r.branch_id === filterBranchId);
+    if (filterSupId) list = list.filter((r) => r.supervisor_id === filterSupId);
+    if (!search.trim()) return list;
     const term = search.toLowerCase().trim();
-    return targetsQ.data.filter((row) => {
+    return list.filter((row) => {
       const sup = row.supervisors;
       const supName = sup?.full_name?.toLowerCase() || '';
       const supCode = sup?.supervisor_code?.toLowerCase() || '';
       const branchName = row.branches?.name?.toLowerCase() || '';
       return supName.includes(term) || supCode.includes(term) || branchName.includes(term);
     });
-  }, [targetsQ.data, search]);
+  }, [targetsQ.data, filterBranchId, filterSupId, search]);
 
   const criteriaLabels: Record<string, string> = {
     visits: t('زيارات ميدانية'),
@@ -399,6 +412,37 @@ export function AdminTargets() {
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
           />
+        </div>
+
+        {/* Drill-down: Branch → Supervisor */}
+        <div className="row items-center gap-1">
+          <span className="muted" style={{ fontSize: 13 }}>{t('الفرع')}:</span>
+          <select
+            className="input"
+            style={{ width: 130 }}
+            value={filterBranchId}
+            onChange={(e) => { setFilterBranchId(e.target.value); setFilterSupId(''); }}
+          >
+            <option value="">{t('كل الفروع')}</option>
+            {branches.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </div>
+
+        <div className="row items-center gap-1">
+          <span className="muted" style={{ fontSize: 13 }}>{t('المشرف')}:</span>
+          <select
+            className="input"
+            style={{ width: 150 }}
+            value={filterSupId}
+            onChange={(e) => setFilterSupId(e.target.value)}
+          >
+            <option value="">{t('كل المشرفين')}</option>
+            {filteredSups.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.full_name}{s.supervisor_code ? ` (${s.supervisor_code})` : ''}
+              </option>
+            ))}
+          </select>
         </div>
 
         <input
@@ -499,15 +543,26 @@ export function AdminTargets() {
                       </div>
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        className="btn sm danger-ghost"
-                        style={{ padding: '4px 8px', color: '#ef4444' }}
-                        onClick={() => setDeleteId(row.id)}
-                        title={t('حذف الهدف')}
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      <div className="row items-center gap-1">
+                        <button
+                          type="button"
+                          className="btn sm ghost"
+                          style={{ padding: '4px 8px' }}
+                          onClick={() => setEditTarget(row)}
+                          title={t('تعديل الهدف')}
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn sm danger-ghost"
+                          style={{ padding: '4px 8px', color: '#ef4444' }}
+                          onClick={() => setDeleteId(row.id)}
+                          title={t('حذف الهدف')}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -559,7 +614,22 @@ export function AdminTargets() {
                 <X size={18} />
               </button>
             </div>
-            <TargetForm />
+            <TargetForm onClose={() => setShowAddModal(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Edit Target Modal */}
+      {editTarget && (
+        <div className="adm-modal-bg" onClick={() => setEditTarget(null)}>
+          <div className="adm-modal col" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+            <div className="row between items-center">
+              <h3 style={{ margin: 0 }}>{t('تعديل الهدف الشهري')}</h3>
+              <button type="button" className="icon-btn" onClick={() => setEditTarget(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <TargetForm editRow={editTarget} onClose={() => setEditTarget(null)} />
           </div>
         </div>
       )}

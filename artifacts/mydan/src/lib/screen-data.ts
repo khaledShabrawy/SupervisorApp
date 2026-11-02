@@ -217,8 +217,9 @@ export function useSaveMonthlyTarget() {
         target_amount: Number(input.target_amount) || 0,
       };
 
+      const lastDay = new Date(input.year, input.month, 0).getDate();
       let query = supabase.from('targets').select('id').eq('company_id', sc.companyId)
-        .gte('target_date', `${targetMonthPrefix}-01`).lte('target_date', `${targetMonthPrefix}-31`)
+        .gte('target_date', `${targetMonthPrefix}-01`).lte('target_date', `${targetMonthPrefix}-${String(lastDay).padStart(2, '0')}`)
         .eq('criteria', payload.criteria);
       if (supervisorId) {
         query = query.eq('supervisor_id', supervisorId);

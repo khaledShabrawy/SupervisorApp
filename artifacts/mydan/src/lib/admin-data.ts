@@ -939,6 +939,43 @@ export function useDeleteSupervisor() {
   });
 }
 
+export function useUpdateAdminTarget() {
+  const sc = useScope(); const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (row: {
+      id: string;
+      visits_target: number;
+      audit_target: number;
+      target_amount: number;
+      criteria: string;
+      scope_type: string;
+      target_scope: string;
+      supervisor_id?: string | null;
+      branch_id?: string | null;
+    }) => {
+      requireAdmin(sc);
+      const { error } = await supabase.from('targets').update({
+        visits_target: row.visits_target,
+        audit_target: row.audit_target,
+        target_amount: row.target_amount,
+        criteria: row.criteria,
+        scope_type: row.scope_type,
+        target_scope: row.target_scope,
+        supervisor_id: row.supervisor_id ?? null,
+        branch_id: row.branch_id ?? null,
+      }).eq('id', row.id).eq('company_id', sc.companyId);
+      if (error) fail(t('تعذر تحديث الهدف.'), error);
+    },
+    onSuccess: () => {
+      notify(t('تم تحديث الهدف بنجاح'), 'success');
+      void qc.invalidateQueries({ queryKey: [...sc.base, 'admin-targets'] });
+      void qc.invalidateQueries({ queryKey: [...sc.base, 'targets'] });
+      void qc.invalidateQueries({ queryKey: [...sc.base, 'dashboard'] });
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
 /* ---------- Admin Targets Queries & Mutations ---------- */
 export interface AdminTargetRow {
   id: string;
@@ -979,7 +1016,7 @@ export function useAdminTargets(month: number, year: number) {
         `)
         .eq('company_id', sc.companyId)
         .gte('target_date', `${monthPrefix}-01`)
-        .lte('target_date', `${monthPrefix}-31`)
+        .lte('target_date', `${monthPrefix}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`)
         .order('created_at', { ascending: false })
         .abortSignal(signal);
 
