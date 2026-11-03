@@ -1,32 +1,153 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, MapPin, MapPinned, RefreshCw, Route, Zap } from '@/components/Icons';
+import { ClipboardList, Compass, MapPin, MapPinned, Play, RefreshCw, Route, Zap } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useBeatPlan, useBeatPlanDays, type BeatRow } from '@/lib/data';
 import { customerTypeLabel } from '@/lib/screen-helpers';
-import { optimizeRoute, totalRouteKm } from '@/lib/visit-geo';
+import { distanceKm, mapsDirectionsUrl, optimizeRoute, totalRouteKm } from '@/lib/visit-geo';
+import { distanceMeters } from '@/lib/policy';
 import { PageTitle } from '@/components/Layout';
 import EmptyState from '@/components/EmptyState';
 import StatusBadge from '@/components/StatusBadge';
 import { ErrorState, SkeletonList } from '@/components/States';
 import { DAYS } from '@/lib/format';
-import { Chip, useRefetch } from '@/screens/shared';
+import { Chip, distanceLabel, useRefetch } from '@/screens/shared';
 import { t } from '@/i18n';
 
 const BeatMap = lazy(() => import('@/components/BeatMap'));
 
-const Item = memo(function Item({ b, i, status, onOpen }: { b: BeatRow; i: number; status?: string; onOpen: (id: string) => void }) {
+const Item = memo(function Item({
+  b,
+  i,
+  status,
+  onOpen,
+  gpsLat,
+  gpsLng,
+  radiusM,
+  isOptimized,
+  prevStopDist,
+}: {
+  b: BeatRow;
+  i: number;
+  status?: string;
+  onOpen: (id: string) => void;
+  gpsLat?: number | null;
+  gpsLng?: number | null;
+  radiusM: number;
+  isOptimized?: boolean;
+  prevStopDist?: number | null;
+}) {
+  const c = b.customers;
   const open = useCallback(() => onOpen(b.customer_id), [onOpen, b.customer_id]);
-  return <button className="s-row" onClick={open} data-testid={`card-beat-${b.id}`}>
-    <div className="grow">
-      <div className="title">{i + 1}. {b.customers?.name ?? t('عميل غير متاح')}</div>
-      <div className="muted row" style={{ gap: 4 }}><MapPin size={14} />{b.customers?.address ?? '—'}</div>
+
+  const distM = useMemo(() => {
+    if (gpsLat == null || gpsLng == null || c?.latitude == null || c?.longitude == null) return null;
+    return distanceMeters(gpsLat, gpsLng, c.latitude, c.longitude);
+  }, [gpsLat, gpsLng, c?.latitude, c?.longitude]);
+
+  const inGeofence = distM != null && distM <= radiusM;
+  const distText = distanceLabel(distM);
+
+  return (
+    <div
+      className="card col"
+      style={{
+        padding: '12px 14px',
+        gap: 8,
+        borderInlineStart: isOptimized ? '4px solid var(--color-primary)' : undefined,
+        cursor: 'pointer',
+      }}
+      onClick={open}
+      data-testid={`card-beat-${b.id}`}
+    >
+      <div className="row between" style={{ alignItems: 'flex-start' }}>
+        <div className="grow">
+          <div className="title row" style={{ alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span
+              className={`badge ${isOptimized ? 'b-primary' : 'b-gray'}`}
+              style={{
+                fontFamily: 'monospace',
+                fontSize: 12,
+                fontWeight: 700,
+                minWidth: 26,
+                textAlign: 'center',
+                borderRadius: 12,
+              }}
+            >
+              #{i + 1}
+            </span>
+            <span>{c?.name ?? t('عميل غير متاح')}</span>
+            {c?.customer_code && (
+              <span className="badge b-blue" style={{ fontFamily: 'monospace', fontSize: 11 }}>
+                {c.customer_code}
+              </span>
+            )}
+          </div>
+          <div className="muted row" style={{ gap: 4, marginTop: 4, fontSize: 13 }}>
+            <MapPin size={14} />
+            <span>{c?.address ?? '—'}</span>
+          </div>
+        </div>
+        <div className="col" style={{ alignItems: 'flex-end', gap: 4 }}>
+          {status && <StatusBadge status={status} />}
+          {c && <span className="badge b-blue" style={{ fontSize: 11 }}>{t(customerTypeLabel(c.customer_type))}</span>}
+        </div>
+      </div>
+
+      <div className="row between" style={{ alignItems: 'center', fontSize: 12, flexWrap: 'wrap', gap: 6 }}>
+        <div className="row" style={{ alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {distM != null ? (
+            <span
+              className={`badge ${inGeofence ? 'b-green' : 'b-gray'}`}
+              style={{ fontSize: 11, padding: '2px 8px', fontWeight: 600 }}
+            >
+              {inGeofence ? `✅ ${t('داخل النطاق')}` : `📍 ${distText}`}
+            </span>
+          ) : (
+            <span className="muted" style={{ fontSize: 11 }}>
+              {t('بلا إحداثيات')}
+            </span>
+          )}
+
+          {isOptimized && prevStopDist != null && prevStopDist > 0 && (
+            <span className="muted" style={{ fontSize: 11, color: 'var(--color-primary)' }}>
+              +{prevStopDist} {t('كم من المحطة السابقة')}
+            </span>
+          )}
+        </div>
+
+        <div className="row" style={{ gap: 6 }}>
+          {c?.latitude != null && c?.longitude != null && (
+            <a
+              href={mapsDirectionsUrl(c.latitude, c.longitude)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn sm ghost"
+              style={{ padding: '3px 8px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              onClick={(e) => e.stopPropagation()}
+              title={t('التوجيه إلى العميل على خرائط جوجل')}
+            >
+              <Compass size={14} />
+              <span>{t('ملاحة')}</span>
+            </a>
+          )}
+          <button
+            className="btn sm success"
+            style={{ padding: '3px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              open();
+            }}
+          >
+            <Play size={13} />
+            <span>{status === 'completed' ? t('عرض الزيارة') : t('بدء')}</span>
+          </button>
+        </div>
+      </div>
     </div>
-    {b.customers && <span className="badge b-blue">{t(customerTypeLabel(b.customers.customer_type))}</span>}
-    {status && <StatusBadge status={status} />}
-  </button>;
+  );
 });
 
 export default function BeatPlanScreen() {
@@ -42,6 +163,8 @@ export default function BeatPlanScreen() {
   const [day, setDay] = useState<number | null>(null);
   const [showMap, setShowMap] = useState(false);
   const [optimized, setOptimized] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed'>('all');
+
   useEffect(() => {
     if (availableDays.length === 0) return;
     if (day === null || !availableDays.includes(day)) {
@@ -91,6 +214,36 @@ export default function BeatPlanScreen() {
   const canOptimize = !!q.data?.plan.length && startLat != null && startLng != null;
   const toggleOptimize = useCallback(() => setOptimized((s) => !s), []);
 
+  // Compute inter-stop distances for optimized display
+  const prevDistances = useMemo(() => {
+    return activePlan.map((b, idx) => {
+      if (idx === 0) return null;
+      const prev = activePlan[idx - 1]?.customers;
+      const curr = b.customers;
+      if (prev?.latitude != null && prev?.longitude != null && curr?.latitude != null && curr?.longitude != null) {
+        return distanceKm(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
+      }
+      return null;
+    });
+  }, [activePlan]);
+
+  // Statistics for today's beat plan
+  const stats = useMemo(() => {
+    const total = activePlan.length;
+    const visited = activePlan.filter((b) => day === today && q.data?.visited.get(b.customer_id) === 'completed').length;
+    const remaining = Math.max(0, total - visited);
+    const pct = total > 0 ? Math.round((visited / total) * 100) : 0;
+    return { total, visited, remaining, pct };
+  }, [activePlan, day, today, q.data?.visited]);
+
+  const displayedPlan = useMemo(() => {
+    if (statusFilter === 'all' || day !== today) return activePlan;
+    return activePlan.filter((b) => {
+      const isCompleted = q.data?.visited.get(b.customer_id) === 'completed';
+      return statusFilter === 'completed' ? isCompleted : !isCompleted;
+    });
+  }, [activePlan, statusFilter, day, today, q.data?.visited]);
+
   const titleAction = (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
       <button
@@ -138,6 +291,37 @@ export default function BeatPlanScreen() {
               : q.data.plan.length === 0
                 ? <EmptyState icon={<Route />} title={t('لا توجد زيارات مخططة')} text={t('لا توجد زيارات مسجلة لهذا اليوم.')} />
                 : <>
+                    {/* ── Route Progress Summary Card ── */}
+                    {day === today && stats.total > 0 && (
+                      <div className="card col" style={{ gap: 10, padding: '12px 14px' }}>
+                        <div className="row between" style={{ alignItems: 'center' }}>
+                          <div className="row" style={{ alignItems: 'center', gap: 6 }}>
+                            <Route size={16} />
+                            <strong>{t('إنجاز خط السير اليومي')}</strong>
+                          </div>
+                          <span className="badge b-primary" style={{ fontWeight: 700 }}>
+                            {stats.visited} / {stats.total} ({stats.pct}%)
+                          </span>
+                        </div>
+                        {/* Progress Bar */}
+                        <div style={{ width: '100%', height: 6, background: 'var(--line)', borderRadius: 3, overflow: 'hidden' }}>
+                          <div
+                            style={{
+                              width: `${stats.pct}%`,
+                              height: '100%',
+                              background: stats.pct >= 100 ? 'var(--color-success)' : 'var(--color-primary)',
+                              borderRadius: 3,
+                              transition: 'width 0.4s ease',
+                            }}
+                          />
+                        </div>
+                        <div className="row between muted" style={{ fontSize: 12 }}>
+                          <span>{t('المكتملة')}: {stats.visited}</span>
+                          <span>{t('المتبقية')}: {stats.remaining}</span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* ── Optimizer Banner ── */}
                     <div className="card row" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                       <div className="grow col" style={{ gap: 2 }}>
@@ -170,6 +354,36 @@ export default function BeatPlanScreen() {
                       </button>
                     </div>
 
+                    {/* Status Filter Chips for Today */}
+                    {day === today && stats.total > 0 && !showMap && (
+                      <div className="row" style={{ gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                        <button
+                          type="button"
+                          className={`chip ${statusFilter === 'all' ? 'on' : ''}`}
+                          onClick={() => setStatusFilter('all')}
+                          style={{ fontSize: 12 }}
+                        >
+                          {t('الكل')} ({stats.total})
+                        </button>
+                        <button
+                          type="button"
+                          className={`chip ${statusFilter === 'pending' ? 'on' : ''}`}
+                          onClick={() => setStatusFilter('pending')}
+                          style={{ fontSize: 12 }}
+                        >
+                          {t('المتبقية')} ({stats.remaining})
+                        </button>
+                        <button
+                          type="button"
+                          className={`chip ${statusFilter === 'completed' ? 'on' : ''}`}
+                          onClick={() => setStatusFilter('completed')}
+                          style={{ fontSize: 12 }}
+                        >
+                          {t('المكتملة')} ({stats.visited})
+                        </button>
+                      </div>
+                    )}
+
                     {showMap
                       ? <Suspense fallback={<SkeletonList />}>
                           <BeatMap
@@ -177,8 +391,19 @@ export default function BeatPlanScreen() {
                             visited={day === today ? q.data.visited : new Map()}
                           />
                         </Suspense>
-                      : activePlan.map((b, i) => (
-                          <Item key={b.id} b={b} i={i} status={day === today ? q.data.visited.get(b.customer_id) : undefined} onOpen={open} />
+                      : displayedPlan.map((b, i) => (
+                          <Item
+                            key={b.id}
+                            b={b}
+                            i={i}
+                            status={day === today ? q.data.visited.get(b.customer_id) : undefined}
+                            onOpen={open}
+                            gpsLat={gps.latitude}
+                            gpsLng={gps.longitude}
+                            radiusM={settings.geofence_radius_m}
+                            isOptimized={optimized}
+                            prevStopDist={prevDistances[i]}
+                          />
                         ))
                     }
                   </>

@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Camera, CheckCheck, ClipboardList, Plus, ScanSearch, ShoppingCart } from '@/components/Icons';
+import { AlertTriangle, Camera, CheckCheck, ClipboardList, Compass, Plus, ScanSearch, ShieldCheck, ShoppingCart } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useScope, useSetVisitOutcome, useUpdateVisitStatus } from '@/lib/data';
@@ -181,16 +181,59 @@ const OutcomePicker = memo(function OutcomePicker({ value, disabled, onPick }: {
 
 function GeoStatus({ v, radius }: { v: VisitDetail; radius: number }) {
   const c = v.customers;
-  return <div className="card col">
-    <div className="title">{t('الموقع والنطاق الجغرافي')}</div>
-    {v.on_beat == null ? <div className="muted">{t('لم يُسجَّل فحص النطاق لهذه الزيارة.')}</div>
-      : <div className={`alert ${v.on_beat ? 'ok' : 'warn'}`} role="status">
-          {v.on_beat ? t('✅ داخل نطاق العميل') : t('⚠️ خارج خط السير (OOR)')}
-          {v.geo_distance != null ? ` · ${t('المسافة من المنفذ {d} م (المسموح {r} م)', { d: num(Math.round(v.geo_distance)), r: num(radius) })}` : ` · ${t('المنفذ بلا إحداثيات')}`}
-        </div>}
-    {c?.latitude != null && c.longitude != null && <a className="btn sm ghost" href={mapsDirectionsUrl(c.latitude, c.longitude)}
-      target="_blank" rel="noopener noreferrer">{t('التوجيه 🗺️')}</a>}
-  </div>;
+  return (
+    <div className="card col" style={{ gap: 10 }}>
+      <div className="title row" style={{ alignItems: 'center', gap: 6 }}>
+        <Compass size={18} />
+        <span>{t('الموقع والنطاق الجغرافي')}</span>
+      </div>
+
+      {v.on_beat == null ? (
+        <div className="muted">{t('لم يُسجَّل فحص النطاق لهذه الزيارة.')}</div>
+      ) : v.on_beat ? (
+        <div className="alert ok row" style={{ alignItems: 'center', gap: 8, margin: 0 }} role="status">
+          <ShieldCheck size={20} />
+          <div>
+            <strong>{t('✅ زيارة موثقة داخل النطاق الجغرافي')}</strong>
+            <div style={{ fontSize: 13, marginTop: 2 }}>
+              {t('تم تسجيل الوصول على بعد {d} م من المنفذ (الحد الأقصى {r} م)', {
+                d: num(Math.round(v.geo_distance ?? 0)),
+                r: num(radius),
+              })}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="alert warn row" style={{ alignItems: 'center', gap: 8, margin: 0 }} role="status">
+          <AlertTriangle size={20} />
+          <div>
+            <strong>{t('⚠️ زيارة مسجلة خارج خط السير (OOR)')}</strong>
+            <div style={{ fontSize: 13, marginTop: 2 }}>
+              {v.geo_distance != null
+                ? t('تم تسجيل الوصول على بعد {d} م من المنفذ (المسموح {r} م)', {
+                    d: num(Math.round(v.geo_distance)),
+                    r: num(radius),
+                  })
+                : t('المنفذ بلا إحداثيات مسجلة')}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {c?.latitude != null && c.longitude != null && (
+        <a
+          className="btn sm ghost"
+          href={mapsDirectionsUrl(c.latitude, c.longitude)}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, width: 'fit-content' }}
+        >
+          <Compass size={16} />
+          <span>{t('التوجيه إلى المنفذ 🗺️')}</span>
+        </a>
+      )}
+    </div>
+  );
 }
 
 export default function VisitDetailScreen() {
