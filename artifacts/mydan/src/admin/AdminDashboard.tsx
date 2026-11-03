@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BarChart3, ClipboardList, Package, ShieldAlert, ShieldCheck, Target, Users } from '@/components/Icons';
 import KPICard from '@/components/KPICard';
 import { ErrorState } from '@/components/States';
@@ -144,6 +145,7 @@ function TargetGaugeChart({
 }
 
 export default function AdminDashboard() {
+  const nav = useNavigate();
   const regions = useRegions();
   const branches = useBranches();
   const sups = useSupervisors();
@@ -277,7 +279,7 @@ export default function AdminDashboard() {
         <ErrorState error={q.error} onRetry={retry} />
       ) : (
         <>
-          {/* Main Visual Row: Gauge Chart */}
+          {/* Main Visual Row: Gauge Chart + Operations Hub */}
           <div className="row" style={{ marginTop: 14, gap: 14, flexWrap: 'wrap', alignItems: 'stretch' }}>
             <TargetGaugeChart
               target={d?.visitsTarget ?? 0}
@@ -285,6 +287,44 @@ export default function AdminDashboard() {
               rate={d?.achievementRate ?? 0}
               loading={loading}
             />
+
+            {/* Shelf & Market Operations Quick Hub */}
+            <div className="card col between" style={{ padding: 18, gap: 14, flex: '1 1 320px', minWidth: 280 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <BarChart3 size={18} color="#2563EB" /> {t('تحليلات تدقيق الرفوف وحصة السوق')}
+                </h3>
+                <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
+                  {t('مؤشرات أداء العرض الميداني والمتاجر النموذجية ورصد المنافسين')}
+                </p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                <div className="card col" style={{ padding: 12, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8 }}>
+                  <span className="muted" style={{ fontSize: 11.5 }}>{t('متوسط PSS')}</span>
+                  <strong style={{ fontSize: 20, color: '#7C3AED', marginTop: 2 }}>
+                    {d?.avgPss != null ? `${num(d.avgPss)}%` : '—'}
+                  </strong>
+                </div>
+
+                <div className="card col" style={{ padding: 12, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8 }}>
+                  <span className="muted" style={{ fontSize: 11.5 }}>{t('الالتزام بالسياج')}</span>
+                  <strong style={{ fontSize: 20, color: '#059669', marginTop: 2 }}>
+                    {d?.geofenceRate != null ? `${num(d.geofenceRate)}%` : '—'}
+                  </strong>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="btn sm ghost"
+                onClick={() => nav('/admin/shelf-share')}
+                style={{ width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <BarChart3 size={15} />
+                <span>{t('عرض تحليلات حصة الرف التفصيلية 📊')}</span>
+              </button>
+            </div>
           </div>
 
           {/* KPI Summary Cards */}
