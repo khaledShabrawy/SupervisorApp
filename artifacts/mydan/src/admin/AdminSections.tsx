@@ -1,8 +1,9 @@
+import { useNavigate } from 'react-router-dom';
 import { useCallback, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
-import { Bell, Camera, CheckCheck, Download, FileText, MapPin, Package, Pencil, Plus, ShoppingCart, Store, Target, Trash2, X } from '@/components/Icons';
+import { Bell, Camera, CheckCheck, Download, FileText, MapPin, Package, Pencil, Plus, ShoppingCart, Store, Target, Trash2, X, BarChart3, ShieldAlert, ShieldCheck } from '@/components/Icons';
 import { exportToCsv } from '@/lib/csv-export';
 import { useAdminOrders, useUpdateOrderStatus, formatOrderWhatsAppMessage, openWhatsAppShare, type OrderRecord } from '@/lib/screen-orders';
 import { fmtDate, fmtTime, num } from '@/lib/format';
@@ -17,6 +18,7 @@ import {
   useSaveBranch, useDeleteBranch, useSaveProduct, useSaveSurvey, useUploadLogo,
   useRegions, useSaveRegion, useAdminTargets, useDeleteTarget, useDeleteAdminCustomer,
   type AdminCustomerRow, type AdminTargetRow, type AssetRow, type AuditRow, type Branch, type SurveyQuestion, type SurveyRow,
+  useAdminAlerts, useMarkAdminAlertRead, type AdminAlertRow,
 } from '@/lib/admin-data';
 import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
 import EmptyState from '@/components/EmptyState';
@@ -891,30 +893,279 @@ function useAssetTypeOptions() {
   });
 }
 
-/* ---------- Broadcast notifications ---------- */
+/* ---------- Admin Operations Alerts & Notifications Hub ---------- */
 export function AdminNotifications() {
-  const sups = useSupervisors(); const m = useBroadcast();
-  const [title, setTitle] = useState(''); const [body, setBody] = useState(''); const [all, setAll] = useState(true);
+  const [activeTab, setActiveTab] = useState<'alerts' | 'broadcast'>('alerts');
+  const [filterType, setFilterType] = useState<string>('all');
+  const alertsQ = useAdminAlerts(filterType);
+  const markAlert = useMarkAdminAlertRead();
+  const navigate = useNavigate();
+
+  // Broadcast state
+  const sups = useSupervisors();
+  const m = useBroadcast();
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [all, setAll] = useState(true);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const active = sups.items.filter((s) => s.is_active);
-  const togglePick = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const submit = useCallback((e: FormEvent) => { e.preventDefault();
-    const ids = all ? active.map((s) => s.id) : [...picked];
-    m.mutate({ supervisorIds: ids, title, body }, { onSuccess: () => { setTitle(''); setBody(''); setPicked(new Set()); } });
-  }, [m, all, active, picked, title, body]);
-  return <>
-    <h2>{t('إرسال إشعار')}</h2>
-    <form className="card col" style={{ maxWidth: 640 }} onSubmit={submit}>
-      <label className="f">{t('العنوان *')}<input className="input" required maxLength={120} value={title} onChange={useInput(setTitle)} /></label>
-      <label className="f">{t('النص *')}<textarea className="input" required rows={4} maxLength={1000} value={body} onChange={useInput(setBody)} /></label>
-      <div className="row"><label className="row"><input type="radio" checked={all} onChange={() => setAll(true)} /> {t('كل المشرفين النشطين ({n})', { n: active.length })}</label>
-        <label className="row"><input type="radio" checked={!all} onChange={() => setAll(false)} /> {t('مشرفون محددون')}</label></div>
-      {!all && <div className="row" style={{ flexWrap: 'wrap' }}>{active.map((s) =>
-        <button type="button" key={s.id} className={`chip ${picked.has(s.id) ? 'on' : ''}`} aria-pressed={picked.has(s.id)} onClick={() => togglePick(s.id)}>{s.full_name}</button>)}</div>}
-      <LoadMore q={sups} />
-      <button className="btn" disabled={m.isPending || (!all && picked.size === 0)} data-testid="button-broadcast"><Bell size={18} /> {m.isPending ? t('جاري الإرسال...') : t('إرسال')}</button>
-    </form>
-  </>;
+  const togglePick = (id: string) =>
+    setPicked((p) => {
+      const n = new Set(p);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const submit = useCallback(
+    (e: FormEvent) => {
+      e.preventDefault();
+      const ids = all ? active.map((s) => s.id) : [...picked];
+      m.mutate(
+        { supervisorIds: ids, title, body },
+        {
+          onSuccess: () => {
+            setTitle('');
+            setBody('');
+            setPicked(new Set());
+          },
+        }
+      );
+    },
+    [m, all, active, picked, title, body]
+  );
+
+  const alerts = alertsQ.data ?? [];
+  const oorCount = alerts.filter((a) => a.type === 'oor_visit').length;
+  const oosCount = alerts.filter((a) => a.type === 'oos_critical').length;
+  const targetCount = alerts.filter((a) => a.type === 'target_update' || a.type === 'beat_plan_update').length;
+  const unreadCount = alerts.filter((a) => !a.is_read).length;
+
+  return (
+    <>
+      <div className="row between items-center" style={{ flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+        <div>
+          <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Bell size={22} color="#2563EB" /> {t('مركز التنبيهات وإشعارات العمليات')}
+          </h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
+            {t('متابعة خروج السياج الجغرافي، نواقص الرف، وإرسال التنبيهات الفورية')}
+          </p>
+        </div>
+
+        <div className="row" style={{ gap: 8 }}>
+          <button
+            type="button"
+            className={`btn sm ${activeTab === 'alerts' ? '' : 'ghost'}`}
+            onClick={() => setActiveTab('alerts')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <ShieldAlert size={16} />
+            <span>{t('تنبيهات الميدان')}</span>
+            {unreadCount > 0 && (
+              <span className="badge b-red" style={{ fontSize: 11, padding: '2px 6px' }}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            className={`btn sm ${activeTab === 'broadcast' ? '' : 'ghost'}`}
+            onClick={() => setActiveTab('broadcast')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Plus size={16} />
+            <span>{t('إرسال إشعار جديد')}</span>
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'alerts' && (
+        <>
+          {/* Quick Metrics Bar */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
+            <div className="card col" style={{ padding: 12, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10 }}>
+              <span className="muted" style={{ fontSize: 12 }}>{t('إجمالي التنبيهات')}</span>
+              <strong style={{ fontSize: 22, color: '#0F172A', marginTop: 2 }}>{alerts.length}</strong>
+            </div>
+            <div className="card col" style={{ padding: 12, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10 }}>
+              <span style={{ fontSize: 12, color: '#991B1B', fontWeight: 600 }}>{t('نواقص الرف (OOS) 🚨')}</span>
+              <strong style={{ fontSize: 22, color: '#DC2626', marginTop: 2 }}>{oosCount}</strong>
+            </div>
+            <div className="card col" style={{ padding: 12, background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10 }}>
+              <span style={{ fontSize: 12, color: '#92400E', fontWeight: 600 }}>{t('خارج النطاق الجغرافي ⚠️')}</span>
+              <strong style={{ fontSize: 22, color: '#D97706', marginTop: 2 }}>{oorCount}</strong>
+            </div>
+            <div className="card col" style={{ padding: 12, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10 }}>
+              <span style={{ fontSize: 12, color: '#1E40AF', fontWeight: 600 }}>{t('الخطط والأهداف 🎯')}</span>
+              <strong style={{ fontSize: 22, color: '#2563EB', marginTop: 2 }}>{targetCount}</strong>
+            </div>
+          </div>
+
+          {/* Filter Bar & Mark All */}
+          <div className="row between items-center" style={{ flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+              {[
+                { key: 'all', label: t('الكل') },
+                { key: 'oos_critical', label: t('نواقص المخزون 🚨') },
+                { key: 'oor_visit', label: t('خارج النطاق ⚠️') },
+                { key: 'target_update', label: t('الأهداف والخطط 🎯') },
+                { key: 'admin_message', label: t('رسائل الإدارة 📢') },
+              ].map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  className={`chip ${filterType === f.key ? 'on' : ''}`}
+                  onClick={() => setFilterType(f.key)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                className="btn sm ghost"
+                onClick={() => markAlert.mutate('all')}
+                disabled={markAlert.isPending}
+                style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              >
+                <CheckCheck size={15} /> {t('تحديد الكل كمقروء')}
+              </button>
+            )}
+          </div>
+
+          {/* Alerts Feed */}
+          {alertsQ.isLoading ? (
+            <SkeletonList />
+          ) : alerts.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+              <ShieldCheck size={44} color="#10B981" style={{ marginBottom: 10 }} />
+              <h3 style={{ margin: '0 0 6px', color: '#1E293B' }}>{t('الميدان هادئ ومستقر')}</h3>
+              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                {t('لا توجد تنبيهات عمليات طارئة أو خروج عن النطاق الجغرافي حالياً.')}
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {alerts.map((alert) => {
+                const isOor = alert.type === 'oor_visit';
+                const isOos = alert.type === 'oos_critical';
+                const isTarget = alert.type === 'target_update' || alert.type === 'beat_plan_update';
+                const borderColor = isOos ? '#EF4444' : isOor ? '#F59E0B' : isTarget ? '#3B82F6' : '#94A3B8';
+                const bgColor = isOos ? '#FEF2F2' : isOor ? '#FFFBEB' : '#FFFFFF';
+
+                return (
+                  <div
+                    key={alert.id}
+                    className="card"
+                    style={{
+                      borderRight: `4px solid ${borderColor}`,
+                      background: bgColor,
+                      padding: '14px 16px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      gap: 12,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div style={{ flex: '1 1 300px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontWeight: 700, fontSize: 15, color: '#0F172A' }}>
+                          {alert.title_ar}
+                        </span>
+                        {!alert.is_read && (
+                          <span className="badge b-blue" style={{ fontSize: 10, padding: '1px 6px' }}>
+                            {t('جديد')}
+                          </span>
+                        )}
+                        <span className="muted" style={{ fontSize: 11.5, marginRight: 'auto' }}>
+                          {fmtDate(alert.created_at)} {fmtTime(alert.created_at)}
+                        </span>
+                      </div>
+
+                      <p style={{ margin: '4px 0 8px', fontSize: 13.5, color: '#334155', lineHeight: 1.5 }}>
+                        {alert.body_ar}
+                      </p>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#64748B' }}>
+                        <span>
+                          {t('المشرف')}: <strong style={{ color: '#0F172A' }}>{alert.supervisors?.full_name || t('المشرف الميداني')}</strong>
+                        </span>
+                        {alert.supervisors?.supervisor_code && (
+                          <span className="chip sm">{alert.supervisors.supervisor_code}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {isOor && (
+                        <button
+                          type="button"
+                          className="btn sm"
+                          onClick={() => navigate('/admin/live-map')}
+                          style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <MapPin size={14} /> {t('الخريطة الحية')}
+                        </button>
+                      )}
+                      {isOos && (
+                        <button
+                          type="button"
+                          className="btn sm"
+                          onClick={() => navigate('/admin/shelf-share')}
+                          style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#DC2626' }}
+                        >
+                          <BarChart3 size={14} /> {t('فحص الرف')}
+                        </button>
+                      )}
+                      {isTarget && (
+                        <button
+                          type="button"
+                          className="btn sm ghost"
+                          onClick={() => navigate('/admin/targets')}
+                          style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <Target size={14} /> {t('الأهداف')}
+                        </button>
+                      )}
+                      {!alert.is_read && (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          title={t('تحديد كمقروء')}
+                          onClick={() => markAlert.mutate(alert.id)}
+                          disabled={markAlert.isPending}
+                        >
+                          <CheckCheck size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'broadcast' && (
+        <form className="card col" style={{ maxWidth: 640 }} onSubmit={submit}>
+          <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>{t('إرسال إشعار فوري وتنبيه للمشرفين')}</h3>
+          <label className="f">{t('العنوان *')}<input className="input" required maxLength={120} value={title} onChange={useInput(setTitle)} /></label>
+          <label className="f">{t('النص *')}<textarea className="input" required rows={4} maxLength={1000} value={body} onChange={useInput(setBody)} /></label>
+          <div className="row"><label className="row"><input type="radio" checked={all} onChange={() => setAll(true)} /> {t('كل المشرفين النشطين ({n})', { n: active.length })}</label>
+            <label className="row"><input type="radio" checked={!all} onChange={() => setAll(false)} /> {t('مشرفون محددون')}</label></div>
+          {!all && <div className="row" style={{ flexWrap: 'wrap' }}>{active.map((s) =>
+            <button type="button" key={s.id} className={`chip ${picked.has(s.id) ? 'on' : ''}`} aria-pressed={picked.has(s.id)} onClick={() => togglePick(s.id)}>{s.full_name}</button>)}</div>}
+          <LoadMore q={sups} />
+          <button className="btn" disabled={m.isPending || (!all && picked.size === 0)} data-testid="button-broadcast"><Bell size={18} /> {m.isPending ? t('جاري الإرسال...') : t('إرسال الإشعار والـ Push')}</button>
+        </form>
+      )}
+    </>
+  );
 }
 
 /* ---------- Audit Logs ---------- */

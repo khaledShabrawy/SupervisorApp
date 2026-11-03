@@ -192,6 +192,18 @@ export async function uploadPendingOfflineActions(companyId?: string, supervisor
             : await supabase.from('visits').insert(visitRow);
           if (error) throw error;
         }
+        if (on_beat === false) {
+          const distM = geo_distance != null ? Math.round(geo_distance * 1000) : null;
+          const distText = distM != null ? String(distM) + 'م' : 'غير محددة';
+          void (supabase.from('notifications') as any).insert({
+            company_id: item.companyId,
+            supervisor_id: item.supervisorId,
+            type: 'oor_visit',
+            title_ar: 'تنبيه: زيارة خارج النطاق الجغرافي ⚠️',
+            body_ar: `تم رفع زيارة مسجلة دون اتصال خارج نطاق السياج الجغرافي (المسافة: ${distText}).`,
+            is_read: false,
+          });
+        }
       } else if (item.type === 'update_visit_status') {
         const { id, status, check_out_time, company_id } = item.payload;
         if (!company_id) throw new Error('Tenant isolation violation: company_id missing from update_visit_status payload');

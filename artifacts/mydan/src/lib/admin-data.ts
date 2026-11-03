@@ -965,6 +965,24 @@ export function useUpdateAdminTarget() {
         branch_id: row.branch_id ?? null,
       }).eq('id', row.id).eq('company_id', sc.companyId);
       if (error) fail(t('تعذر تحديث الهدف.'), error);
+
+      if (row.supervisor_id) {
+        void (supabase.from('notifications') as any).insert({
+          company_id: sc.companyId,
+          supervisor_id: row.supervisor_id,
+          type: 'target_update',
+          title_ar: 'تم تحديث أهدافك البيعية 🎯',
+          body_ar: `تم تعديل هدفك الشهري (${row.visits_target || 0} زيارة، ${row.audit_target || 0} تدقيق رف).`,
+          is_read: false,
+        });
+        void supabase.functions.invoke('push-notify', {
+          body: {
+            supervisorIds: [row.supervisor_id],
+            title: 'تم تحديث أهدافك البيعية 🎯',
+            body: `تم تعديل هدفك الشهري (${row.visits_target || 0} زيارة).`,
+          },
+        }).catch(() => {});
+      }
     },
     onSuccess: () => {
       notify(t('تم تحديث الهدف بنجاح'), 'success');
@@ -1149,5 +1167,78 @@ export function useAdminShelfAudits(filters: { branchId?: string; supervisorId?:
       return rows;
     },
     enabled: !!sc.companyId,
+  });
+}
+
+
+/* ---------- Admin Operations Alerts Hub ---------- */
+export interface AdminAlertRow {
+  id: string;
+  company_id: string;
+  supervisor_id: string;
+  type: string;
+  title_ar: string;
+  body_ar: string;
+  is_read: boolean;
+  created_at: string;
+  supervisors?: { id: string; full_name: string; phone?: string | null; supervisor_code?: string | null } | null;
+}
+
+export function useAdminAlerts(filterType?: string) {
+  const sc = useScope();
+  return useQuery({
+    queryKey: ['admin-alerts', sc.companyId, filterType],
+    queryFn: async () => {
+      requireAdmin(sc);
+      let q = (supabase.from('notifications') as any)
+        .select(`
+          id, company_id, supervisor_id, type, title_ar, body_ar, is_read, created_at,
+          supervisors(id, full_name, phone, supervisor_code)
+        `)
+        .eq('company_id', sc.companyId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (filterType && filterType !== 'all') {
+        q = q.eq('type', filterType);
+      }
+
+      const { data, error } = await q;
+      if (error) {
+        let fallback = (supabase.from('notifications') as any)
+          .select('*')
+          .eq('company_id', sc.companyId)
+          .order('created_at', { ascending: false })
+          .limit(100);
+        if (filterType && filterType !== 'all') fallback = fallback.eq('type', filterType);
+        const fbRes = await fallback;
+        if (fbRes.error) throw fbRes.error;
+        return (fbRes.data ?? []) as AdminAlertRow[];
+      }
+      return (data ?? []) as AdminAlertRow[];
+    },
+    enabled: !!sc.companyId,
+    refetchInterval: 10000,
+  });
+}
+
+export function useMarkAdminAlertRead() {
+  const sc = useScope();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string | 'all') => {
+      requireAdmin(sc);
+      if (id === 'all') {
+        const { error } = await supabase.from('notifications').update({ is_read: true }).eq('company_id', sc.companyId);
+        if (error) fail(t('تعذر تحديث حالة التنبيهات.'), error);
+      } else {
+        const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id).eq('company_id', sc.companyId);
+        if (error) fail(t('تعذر تحديث حالة التنبيه.'), error);
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin-alerts'] });
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
   });
 }

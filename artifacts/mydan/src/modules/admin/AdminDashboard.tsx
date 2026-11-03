@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart3, ClipboardList, Package, ShieldAlert, ShieldCheck, Target, Users } from '@/components/Icons';
+import { BarChart3, Bell, ClipboardList, Package, ShieldAlert, ShieldCheck, Target, Users } from '@/components/Icons';
 import KPICard from '@/components/KPICard';
 import { ErrorState } from '@/components/States';
-import { useAdminKpis, useBranches, useRegions } from '@/lib/admin-data';
+import { useAdminKpis, useBranches, useRegions, useAdminAlerts, type AdminAlertRow } from '@/lib/admin-data';
 import { useSupervisors } from '@/lib/data';
-import { num, todayStr } from '@/lib/format';
+import { fmtTime, num, todayStr } from '@/lib/format';
 import { useRefetch } from '@/screens/shared';
 import { t } from '@/i18n';
 
@@ -176,6 +176,9 @@ export default function AdminDashboard() {
     return list;
   }, [sups.items, branchId, regionId, filteredBranches]);
 
+  const alertsQ = useAdminAlerts();
+  const alerts: AdminAlertRow[] = alertsQ.data ?? [];
+
   const q = useAdminKpis({
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
@@ -323,6 +326,55 @@ export default function AdminDashboard() {
               >
                 <BarChart3 size={15} />
                 <span>{t('عرض تحليلات حصة الرف التفصيلية 📊')}</span>
+              </button>
+            </div>
+
+            {/* Live Operations & Alerts Radar */}
+            <div className="card col between" style={{ padding: 18, gap: 14, flex: '1 1 320px', minWidth: 280, borderRight: '4px solid #F59E0B' }}>
+              <div className="row between items-center">
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <ShieldAlert size={18} color="#D97706" /> {t('رادار التنبيهات الميدانية')}
+                  </h3>
+                  <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
+                    {t('رصد فوري لخروج السياج ونواقص الرف')}
+                  </p>
+                </div>
+                {alerts.filter((a) => !a.is_read).length > 0 && (
+                  <span className="badge b-red" style={{ fontSize: 11, padding: '2px 6px' }}>
+                    {alerts.filter((a) => !a.is_read).length} {t('جديد')}
+                  </span>
+                )}
+              </div>
+
+              {alerts.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '16px 0', color: '#10B981', fontSize: 13 }}>
+                  <ShieldCheck size={28} style={{ margin: '0 auto 4px' }} />
+                  <div>{t('الميدان منضبط بالكامل · لا تنبيهات طارئة')}</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {alerts.slice(0, 3).map((a) => (
+                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: a.type === 'oos_critical' ? '#FEF2F2' : '#FFFBEB', borderRadius: 8, fontSize: 12.5 }}>
+                      <span style={{ fontWeight: 600, color: a.type === 'oos_critical' ? '#DC2626' : '#D97706', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70%' }}>
+                        {a.title_ar}
+                      </span>
+                      <span className="muted" style={{ fontSize: 11 }}>
+                        {fmtTime(a.created_at)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="btn sm ghost"
+                onClick={() => nav('/admin/notifications')}
+                style={{ width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <Bell size={15} />
+                <span>{t('فتح مركز التنبيهات والإشعارات 🔔')}</span>
               </button>
             </div>
           </div>

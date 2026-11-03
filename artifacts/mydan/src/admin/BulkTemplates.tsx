@@ -726,6 +726,28 @@ function useBulkImportBeatPlans() {
       }
 
       await batchInsert('beat_plans', validItems, result);
+
+      if (result.success > 0) {
+        const uniqueSupIds = [...new Set(validItems.map((v) => v.data.supervisor_id).filter(Boolean))];
+        if (uniqueSupIds.length > 0) {
+          const rows = uniqueSupIds.map((sId) => ({
+            company_id: sc.companyId,
+            supervisor_id: sId,
+            type: 'beat_plan_update',
+            title_ar: 'تحديث في خط السير الأسبوعي 🗺️',
+            body_ar: 'تم تحديث جدول زياراتك الميدانية وقائمة المتاجر المعتمدة.',
+            is_read: false,
+          }));
+          void (supabase.from('notifications') as any).insert(rows);
+          void supabase.functions.invoke('push-notify', {
+            body: {
+              supervisorIds: uniqueSupIds,
+              title: 'تحديث في خط السير الأسبوعي 🗺️',
+              body: 'تم تحديث جدول زياراتك الميدانية.',
+            },
+          }).catch(() => {});
+        }
+      }
       return result;
     },
     onSuccess: (result) => {

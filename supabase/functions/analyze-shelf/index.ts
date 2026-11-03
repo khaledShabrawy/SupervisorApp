@@ -319,6 +319,18 @@ Deno.serve(async (req) => {
 
     if (updateError) return await fail(500, "could not save result to database");
 
+    if (result.target_brand_metrics?.out_of_stock || (result.target_brand_metrics?.oos_items && result.target_brand_metrics.oos_items.length > 0)) {
+      const oosList = (result.target_brand_metrics.oos_items ?? []).join('، ') || brand;
+      await admin.from('notifications').insert({
+        company_id: audit.company_id,
+        supervisor_id: audit.supervisor_id,
+        type: 'oos_critical',
+        title_ar: 'إنذار: نقص حاد في بضاعة الرف (OOS) 🚨',
+        body_ar: `رصد نقص أصناف (${oosList}) لعلامة ${brand} في تدقيق الرف. يرجى المتابعة العاجلة.`,
+        is_read: false,
+      }).catch(() => {});
+    }
+
     return json(200, {
       success: true,
       audit_id: audit.id,

@@ -480,6 +480,19 @@ export function useCreateVisit() {
 
       }).select('id').single();
 
+      if (geo.on_beat === false) {
+        const distM = geo.geo_distance != null ? Math.round(geo.geo_distance * 1000) : null;
+        const distText = distM != null ? String(distM) + 'م' : 'غير محددة';
+        void (supabase.from('notifications') as any).insert({
+          company_id: sc.companyId,
+          supervisor_id: sc.supervisorId,
+          type: 'oor_visit',
+          title_ar: 'تنبيه: زيارة خارج النطاق الجغرافي ⚠️',
+          body_ar: `تم تسجيل زيارة خارج نطاق السياج الجغرافي المعتمد (المسافة: ${distText}).`,
+          is_read: false,
+        });
+      }
+
       if (error) {
 
         const offlineId = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `offline-${Date.now()}`;

@@ -150,6 +150,18 @@ export function useRequestAuditAnalysis() {
       }).eq('id', audit.id);
 
       if (updateErr) throw updateErr;
+
+      if (smartReport.target_brand_metrics?.out_of_stock || (smartReport.target_brand_metrics?.oos_items && smartReport.target_brand_metrics.oos_items.length > 0)) {
+        const oosList = smartReport.target_brand_metrics.oos_items?.join('، ') || brandName;
+        void (supabase.from('notifications') as any).insert({
+          company_id: sc.companyId,
+          supervisor_id: sc.supervisorId,
+          type: 'oos_critical',
+          title_ar: 'إنذار: نقص حاد في بضاعة الرف (OOS) 🚨',
+          body_ar: `رصد نقص أصناف (${oosList}) لعلامة ${brandName} أثناء تدقيق الرف. يرجى توجيه طلبية إمداد عاجلة.`,
+          is_read: false,
+        });
+      }
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: [...sc.base, 'audits'] });

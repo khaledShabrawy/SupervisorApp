@@ -247,6 +247,24 @@ export function useSaveMonthlyTarget() {
       }
 
       errorMessage('تعذر حفظ الهدف الشهري.', r.error);
+
+      if (supervisorId) {
+        void (supabase.from('notifications') as any).insert({
+          company_id: sc.companyId,
+          supervisor_id: supervisorId,
+          type: 'target_update',
+          title_ar: 'تم تحديد أهداف بيعية جديدة 🎯',
+          body_ar: `تم تعيين هدفك الشهري (${payload.visits_target || 0} زيارة، ${payload.audit_target || 0} تدقيق رف).`,
+          is_read: false,
+        });
+        void supabase.functions.invoke('push-notify', {
+          body: {
+            supervisorIds: [supervisorId],
+            title: 'تم تحديد أهداف بيعية جديدة 🎯',
+            body: `تم تعيين هدفك الشهري (${payload.visits_target || 0} زيارة).`,
+          },
+        }).catch(() => {});
+      }
     },
     onSuccess: () => {
       notify('تم حفظ الأهداف بنجاح', 'success');
