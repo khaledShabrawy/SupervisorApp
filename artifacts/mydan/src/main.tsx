@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { registerPwa } from './lib/pwa';
 import { applyDocumentLanguage, DIR, t } from './i18n';
 import './index.css';
+import './interface.css';
 
 applyDocumentLanguage();
 const root = ReactDOM.createRoot(document.getElementById('root')!);

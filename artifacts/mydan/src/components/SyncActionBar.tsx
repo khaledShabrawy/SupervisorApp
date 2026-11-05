@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Upload, WifiOff } from '@/components/Icons';
+import { RefreshCw, Upload, WifiOff, CheckCheck } from '@/components/Icons';
 import { notify } from '@/lib/toast';
 import { t } from '@/i18n';
+import { num } from '@/lib/format';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   downloadFreshData,
@@ -91,122 +92,22 @@ export function SyncActionBar() {
     return () => window.removeEventListener('online', resume);
   }, []);
 
-  return (
-    <div
-      style={{
-        background: '#FFFFFF',
-        borderBottom: '1px solid var(--line)',
-        padding: '8px 14px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 6,
-      }}
-      data-testid="sync-action-bar"
-    >
-      {/* Offline Alert Strip */}
-      {!isOnline && (
-        <div
-          style={{
-            background: '#FEF3C7',
-            color: '#92400E',
-            borderRadius: 8,
-            padding: '5px 10px',
-            fontSize: 12,
-            fontWeight: 600,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
-        >
-          <WifiOff size={14} />
-          <span>{t('أنت غير متصل بالإنترنت — تسجل العمليات محلياً وسترفع عند الاتصال')}</span>
-        </div>
-      )}
-
-      {/* Action Buttons Row */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        {/* زر تحديث البيانات */}
-        <button
-          type="button"
-          onClick={handleRefresh}
-          disabled={isRefreshing || isUploading}
-          style={{
-            flex: 1,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 7,
-            padding: '7px 12px',
-            borderRadius: 10,
-            border: '1.5px solid var(--color-primary)',
-            background: '#F0F5FF',
-            color: 'var(--color-primary)',
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: isRefreshing ? 'wait' : 'pointer',
-            transition: 'opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease',
-            opacity: isRefreshing ? 0.75 : 1,
-            minHeight: 44,
-          }}
-          title={t('تحديث وتنزيل أحدث خطط الزيارات والبيانات من السيرفر')}
-          data-testid="btn-sync-down"
-        >
-          <RefreshCw
-            size={16}
-            style={isRefreshing ? { animation: 'spin 0.8s linear infinite' } : undefined}
-          />
-          <span>{isRefreshing ? t('جاري التحديث...') : t('تحديث البيانات')}</span>
-        </button>
-
-        {/* زر رفع البيانات */}
-        <button
-          type="button"
-          onClick={handleUpload}
-          disabled={isUploading || isRefreshing}
-          style={{
-            flex: 1,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 7,
-            padding: '7px 12px',
-            borderRadius: 10,
-            border: '1.5px solid var(--color-success)',
-            background: pendingCount > 0 ? 'var(--color-success)' : '#ECFDF5',
-            color: pendingCount > 0 ? '#FFFFFF' : 'var(--color-success)',
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: isUploading ? 'wait' : 'pointer',
-            transition: 'opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease',
-            opacity: isUploading ? 0.75 : 1,
-            minHeight: 44,
-          }}
-          title={t('رفع ومزامنة البيانات والزيارات المسجلة دون اتصال')}
-          data-testid="btn-sync-up"
-        >
-          <Upload
-            size={16}
-            style={isUploading ? { animation: 'spin 0.8s linear infinite' } : undefined}
-          />
-          <span>{isUploading ? t('جاري الرفع...') : t('رفع البيانات')}</span>
-          {pendingCount > 0 && (
-            <span
-              style={{
-                background: '#EF4444',
-                color: '#fff',
-                fontSize: 11,
-                fontWeight: 800,
-                borderRadius: 10,
-                padding: '1px 6px',
-                minWidth: 18,
-                textAlign: 'center',
-              }}
-            >
-              {pendingCount}
-            </span>
-          )}
-        </button>
-      </div>
+  return <div className={`sync-status-bar ${!isOnline ? 'is-offline' : ''}`} data-testid="sync-action-bar">
+    <span className="sync-status-copy" role="status" aria-live="polite">
+      {!isOnline ? <WifiOff size={15} /> : <CheckCheck size={15} />}
+      {!isOnline ? t('غير متصل · العمل محفوظ على الجهاز') : pendingCount > 0 ?
+        t('{n} عملية بانتظار المزامنة', { n: num(pendingCount) }) : t('لا توجد عمليات معلقة')}
+    </span>
+    <div className="sync-status-actions">
+      {pendingCount > 0 && <button type="button" className="sync-upload" onClick={handleUpload}
+        disabled={!isOnline || isRefreshing || isUploading} data-testid="btn-sync-up">
+        <Upload size={15} className={isUploading ? 'spin' : ''} />
+        {isUploading ? t('جاري الرفع...') : t('مزامنة {n}', { n: num(pendingCount) })}
+      </button>}
+      <button type="button" className="sync-refresh" onClick={handleRefresh}
+        disabled={!isOnline || isRefreshing || isUploading} data-testid="btn-sync-down" aria-label={t('تحديث البيانات')} title={t('تحديث البيانات')}>
+        <RefreshCw size={16} className={isRefreshing ? 'spin' : ''} />
+      </button>
     </div>
-  );
+  </div>;
 }

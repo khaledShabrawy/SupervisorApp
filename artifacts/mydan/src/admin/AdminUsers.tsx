@@ -1,3 +1,4 @@
+import { ActionMenu, type ActionMenuItem } from '@/components/ActionMenu';
 import { canManageCredentials } from '../../../../supabase/functions/_shared/authorization.ts';
 import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Key, Plus, RefreshCw, ShieldCheck, X, Pencil, Trash2, UserCheck, UserX } from '@/components/Icons';
@@ -167,6 +168,17 @@ const Row = memo(function Row({
     if (!s.is_active || await confirm(`تعطيل حساب ${s.full_name}؟`)) onPatch(s, { is_active: !s.is_active });
   }, [s, onPatch]);
 
+  const actions: ActionMenuItem[] = [
+    { label: t('تعيين كلمة المرور'), icon: <Key size={16} />, disabled: !credentialsAllowed, onSelect: () => onSetPw(s) },
+    { label: t('إعادة إرسال رابط التفعيل والدعوة'), icon: <RefreshCw size={16} />, disabled: resending || !credentialsAllowed, onSelect: () => onResend(s) },
+    ...(!['admin', 'super_admin'].includes(s.role) ? [{ label: t('الصلاحيات'), icon: <ShieldCheck size={16} />, onSelect: () => onPerms(s) }] : []),
+    ...(!locked && s.device_id ? [{ label: t('إلغاء الربط'), icon: <RefreshCw size={16} />, disabled: resettingDevice, onSelect: () => onResetDevice(s) }] : []),
+    ...(!locked ? [
+      { label: s.is_active ? t('تعطيل الحساب') : t('تفعيل الحساب'), icon: s.is_active ? <UserX size={16} /> : <UserCheck size={16} />, danger: s.is_active, onSelect: () => { void toggle(); } },
+      { label: t('حذف المستخدم نهائياً'), icon: <Trash2 size={16} />, danger: true, disabled: deleting, onSelect: () => setConfirmDelete(true) },
+    ] : []),
+  ];
+
   return <tr data-testid={`row-supervisor-${s.id}`}>
     <td>
       <div className="row items-center gap-1">
@@ -187,18 +199,7 @@ const Row = memo(function Row({
           <span className="badge b-blue" style={{ fontSize: 11 }}>
             📱 {t('مقترن')}
           </span>
-          {!locked && (
-            <button
-              type="button"
-              className="btn sm ghost danger"
-              style={{ fontSize: 11, padding: '2px 6px' }}
-              onClick={() => onResetDevice(s)}
-              disabled={resettingDevice}
-              title={t('إلغاء اقتران هذا الجهاز ليتمكن المشرف من ربط هاتف جديد')}
-            >
-              {t('إلغاء الربط')}
-            </button>
-          )}
+
         </div>
       ) : (
         <span className="muted" style={{ fontSize: 12 }}>{t('غير مقترن')}</span>
@@ -206,78 +207,11 @@ const Row = memo(function Row({
     </td>
     <td><span className={`badge ${s.is_active ? 'b-green' : 'b-red'}`}>{s.is_active ? t('نشط') : t('معطل')}</span></td>
     <td>
-      <div className="row items-center" style={{ gap: 6, flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
-        <button
-          type="button"
-          className="btn sm ghost"
-          style={{ padding: '6px 8px' }}
-          disabled={!credentialsAllowed}
-          onClick={() => onSetPw(s)}
-          title={t('تعيين كلمة المرور')}
-          aria-label={t('تعيين كلمة المرور')}
-        >
-          <Key size={14} />
-        </button>
-        <button
-          type="button"
-          className="btn sm ghost"
-          style={{ padding: '6px 8px' }}
-          onClick={() => onResend(s)}
-          disabled={resending || !credentialsAllowed}
-          title={t('إعادة إرسال رابط التفعيل والدعوة')}
-          aria-label={t('إعادة إرسال رابط التفعيل والدعوة')}
-        >
-          <RefreshCw size={14} />
-        </button>
-        {!locked && (
-          <button
-            type="button"
-            className="btn sm ghost"
-            style={{ padding: '6px 8px' }}
-            onClick={() => onEdit(s)}
-            title={t('تعديل')}
-            aria-label={t('تعديل')}
-          >
-            <Pencil size={14} />
-          </button>
-        )}
-        {!locked && (
-          <button
-            type="button"
-            className={`btn sm ${s.is_active ? 'danger-ghost' : 'success'}`}
-            style={{ padding: '6px 8px' }}
-            onClick={toggle}
-            title={s.is_active ? t('تعطيل الحساب') : t('تفعيل الحساب')}
-            aria-label={s.is_active ? t('تعطيل الحساب') : t('تفعيل الحساب')}
-          >
-            {s.is_active ? <UserX size={14} /> : <UserCheck size={14} />}
-          </button>
-        )}
-        {!locked && (
-          <button
-            type="button"
-            className="btn sm danger-ghost"
-            style={{ padding: '6px 8px', color: '#ef4444', borderColor: '#fca5a5' }}
-            onClick={() => setConfirmDelete(true)}
-            title={t('حذف المستخدم نهائياً')}
-            aria-label={t('حذف المستخدم نهائياً')}
-          >
-            <Trash2 size={14} />
-          </button>
-        )}
-        {!['admin', 'super_admin'].includes(s.role) && (
-          <button
-            type="button"
-            className="btn sm ghost"
-            style={{ padding: '6px 8px' }}
-            onClick={() => onPerms(s)}
-            data-testid={`button-perms-${s.id}`}
-            title={t('الصلاحيات')}
-            aria-label={t('الصلاحيات')}
-          >
-            <ShieldCheck size={14} />
-          </button>
-        )}
+      <div className="user-row-actions">
+        {!locked && <button type="button" className="btn sm ghost user-edit" onClick={() => onEdit(s)} aria-label={t('تعديل بيانات المستخدم')}>
+          <Pencil size={15} /><span>{t('تعديل')}</span>
+        </button>}
+        <ActionMenu label={t('إجراءات {name}', { name: s.full_name })} items={actions} />
       </div>
 
       {confirmDelete && (

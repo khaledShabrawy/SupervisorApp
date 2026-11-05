@@ -1,7 +1,7 @@
 name: CI & Quality Gate
 on:
   push:
-    branches: [main]
+    branches: [main, feat/mydan-interface-refresh]
   pull_request:
     branches: [main]
 permissions:

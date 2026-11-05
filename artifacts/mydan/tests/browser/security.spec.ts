@@ -91,10 +91,10 @@ test('a new visit persists before sending; unconfirmed receipt stays queued and 
  });
  await page.goto('/visits/new?customer=00000000-0000-4000-8000-000000000501');
  await expect(page.getByTestId('button-start-visit')).toBeEnabled();await page.getByTestId('button-start-visit').click();
- await expect(page).toHaveURL(/\/visits$/);await expect(page.getByTestId('btn-sync-up')).toContainText('1');
+ await expect(page).toHaveURL(/\/visits$/);await expect(page.getByTestId('btn-sync-up')).toContainText(/[1١]/);
  expect(state.persistedBeforeSend).toBe(true);expect(state.actionIds.length).toBe(1);
  state.confirmActions=true;await page.getByTestId('btn-sync-up').click();
- await expect(page.getByTestId('btn-sync-up')).not.toContainText('1');
+ await expect(page.getByTestId('btn-sync-up')).toHaveCount(0);
  expect(state.actionIds.length).toBe(2);expect(new Set(state.actionIds).size).toBe(1);
  expect(state.unexpected).toEqual([]);
 });

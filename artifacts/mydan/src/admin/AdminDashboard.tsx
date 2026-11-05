@@ -9,139 +9,18 @@ import { fmtTime, num, todayStr } from '@/lib/format';
 import { useRefetch } from '@/screens/shared';
 import { t } from '@/i18n';
 
-function TargetGaugeChart({
-  target,
-  achieved,
-  rate,
-  loading,
-}: {
-  target: number;
-  achieved: number;
-  rate: number;
-  loading?: boolean;
-}) {
-  const clamped = Math.min(Math.max(rate, 0), 100);
-  // Semicircle arc: radius 100, center (150, 130)
-  // Angle in radians: Math.PI is left (0%), 2*Math.PI is right (100%)
-  const angleRad = Math.PI + (clamped / 100) * Math.PI;
-  const needleLength = 80;
-  const tipX = 150 + needleLength * Math.cos(angleRad);
-  const tipY = 130 + needleLength * Math.sin(angleRad);
-
-  const arcColor = rate >= 80 ? '#10B981' : rate >= 50 ? '#F59E0B' : '#EF4444';
-  const statusLabel = rate >= 80 ? t('🏆 تحقيق ممتاز') : rate >= 50 ? t('📈 تقدم جيد') : t('⚠️ يحتاج تكثيف');
-  const statusClass = rate >= 80 ? 'b-green' : rate >= 50 ? 'b-amber' : 'b-red';
-
-  // Arc length for 180 deg radius 100 is PI * 100 ≈ 314.16
-  const totalArc = 314.16;
-  const filledArc = (clamped / 100) * totalArc;
-
-  const remaining = Math.max(0, target - achieved);
-
-  return (
-    <div className="card col" style={{ padding: 18, gap: 14, flex: '1 1 340px' }}>
-      <div className="row between" style={{ alignItems: 'flex-start' }}>
-        <div>
-          <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Target size={18} /> {t('معدل تحقيق المستهدف (Target vs Achieved)')}
-          </h3>
-          <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
-            {t('مقارنة التارجت المطلوب بالمحقق الفعلي للزيارات')}
-          </p>
-        </div>
-        <span className={`badge ${statusClass}`} style={{ fontSize: 12, padding: '4px 10px' }}>
-          {statusLabel}
-        </span>
-      </div>
-
-      {loading ? (
-        <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span className="muted">{t('جاري الحساب...')}</span>
-        </div>
-      ) : (
-        <>
-          <div style={{ position: 'relative', width: '100%', maxWidth: 300, margin: '0 auto', textAlign: 'center' }}>
-            <svg viewBox="0 0 300 170" style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
-              <defs>
-                <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#EF4444" />
-                  <stop offset="50%" stopColor="#F59E0B" />
-                  <stop offset="80%" stopColor="#10B981" />
-                </linearGradient>
-              </defs>
-
-              {/* Background Track */}
-              <path
-                d="M 50 130 A 100 100 0 0 1 250 130"
-                fill="none"
-                stroke="#E2E8F0"
-                strokeWidth="16"
-                strokeLinecap="round"
-              />
-
-              {/* Active Progress Arc */}
-              <path
-                d="M 50 130 A 100 100 0 0 1 250 130"
-                fill="none"
-                stroke={arcColor}
-                strokeWidth="16"
-                strokeLinecap="round"
-                strokeDasharray={`${filledArc} ${totalArc}`}
-                style={{ transition: 'stroke-dasharray 0.6s ease, stroke 0.4s ease' }}
-              />
-
-              {/* Ticks and percentage labels */}
-              <text x="45" y="152" textAnchor="middle" fontSize="12" fill="#64748B" fontWeight="600">0%</text>
-              <text x="150" y="24" textAnchor="middle" fontSize="12" fill="#64748B" fontWeight="600">50%</text>
-              <text x="255" y="152" textAnchor="middle" fontSize="12" fill="#64748B" fontWeight="600">100%</text>
-
-              {/* Needle */}
-              <line
-                x1="150"
-                y1="130"
-                x2={tipX}
-                y2={tipY}
-                stroke="#1E293B"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                style={{ transition: 'all 0.6s ease' }}
-              />
-              <circle cx="150" cy="130" r="8" fill="#1E293B" />
-              <circle cx="150" cy="130" r="3.5" fill="#FFFFFF" />
-            </svg>
-
-            {/* Readout in center below needle pivot */}
-            <div style={{ marginTop: -15 }}>
-              <div style={{ fontSize: 32, fontWeight: 800, color: arcColor, lineHeight: 1 }}>
-                {rate}%
-              </div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                {t('نسبة الإنجاز')}
-              </div>
-            </div>
-          </div>
-
-          {/* Breakdown Stats */}
-          <div className="row between" style={{ background: 'var(--color-bg)', padding: '10px 14px', borderRadius: 8, marginTop: 4 }}>
-            <div className="col" style={{ alignItems: 'center', flex: 1 }}>
-              <span className="muted" style={{ fontSize: 11 }}>{t('المستهدف')}</span>
-              <strong style={{ fontSize: 16 }}>{num(target)}</strong>
-            </div>
-            <div style={{ width: 1, height: 28, background: '#CBD5E1' }} />
-            <div className="col" style={{ alignItems: 'center', flex: 1 }}>
-              <span className="muted" style={{ fontSize: 11 }}>{t('المحقق')}</span>
-              <strong style={{ fontSize: 16, color: arcColor }}>{num(achieved)}</strong>
-            </div>
-            <div style={{ width: 1, height: 28, background: '#CBD5E1' }} />
-            <div className="col" style={{ alignItems: 'center', flex: 1 }}>
-              <span className="muted" style={{ fontSize: 11 }}>{t('المتبقي')}</span>
-              <strong style={{ fontSize: 16, color: remaining > 0 ? '#64748B' : '#10B981' }}>{num(remaining)}</strong>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
+function TargetProgress({ target, achieved, label }: { target: number; achieved: number; label: string }) {
+  const rate = target > 0 ? Math.round(achieved * 100 / target) : null;
+  return <div className="target-progress">
+    <div className="row between"><span>{label}</span><strong>{rate == null ? '—' : `${num(rate)}%`}</strong></div>
+    {rate != null && <div className="progress-track" role="progressbar" aria-label={label}
+      aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, rate))}
+      aria-valuetext={`${num(achieved)} / ${num(target)}`}>
+      <span style={{ width: `${Math.min(100, Math.max(0, rate))}%` }} />
+    </div>}
+    <div className="target-caption">{rate == null ? t('لم يُحدد مستهدف لهذه الفترة') :
+      t('{achieved} من {target} · المتبقي {remaining}', { achieved: num(achieved), target: num(target), remaining: num(Math.max(0, target - achieved)) })}</div>
+  </div>;
 }
 
 export default function AdminDashboard() {
@@ -191,7 +70,7 @@ export default function AdminDashboard() {
   const d = q.data;
   const loading = q.isPending;
 
-  const setPreset = (type: 'today' | 'week' | 'month' | 'all') => {
+  const setPreset = (type: 'today' | 'week' | 'month') => {
     const now = new Date();
     const today = todayStr();
     if (type === 'today') {
@@ -204,34 +83,31 @@ export default function AdminDashboard() {
     } else if (type === 'month') {
       setDateFrom(today.slice(0, 8) + '01');
       setDateTo(today);
-    } else {
-      setDateFrom('');
-      setDateTo('');
     }
   };
 
   return (
-    <>
-      <div className="row between" style={{ flexWrap: 'wrap', gap: 10 }}>
+    <div className="admin-overview">
+      <div className="row between overview-heading" style={{ flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h2>{t('لوحة المؤشرات والتحليلات')}</h2>
+          <h2>{t('نظرة عامة على الميدان')}</h2>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
-            {t('متابعة أداء الزيارات، الالتزام الجغرافي، وتحقيق التارجت الميداني.')}
+            {t('أداء فريقك والزيارات والمهام في مكان واحد.')}
           </p>
         </div>
       </div>
 
       {/* Cascading Filter Bar */}
-      <div className="card col" style={{ marginTop: 12, padding: '12px 14px', gap: 10 }}>
+      <div className="card col overview-filters">
         <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           {/* Date range pickers */}
           <div className="row" style={{ gap: 6, alignItems: 'center' }}>
             <span className="muted" style={{ fontSize: 12 }}>{t('من:')}</span>
-            <input className="input" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ width: 140 }} />
+            <input className="input" type="date" aria-label={t('بداية الفترة')} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ width: 140 }} />
           </div>
           <div className="row" style={{ gap: 6, alignItems: 'center' }}>
             <span className="muted" style={{ fontSize: 12 }}>{t('إلى:')}</span>
-            <input className="input" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ width: 140 }} />
+            <input className="input" type="date" aria-label={t('نهاية الفترة')} value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ width: 140 }} />
           </div>
 
           {/* Quick presets */}
@@ -239,11 +115,10 @@ export default function AdminDashboard() {
             <button type="button" className="btn sm ghost" onClick={() => setPreset('today')}>{t('اليوم')}</button>
             <button type="button" className="btn sm ghost" onClick={() => setPreset('week')}>{t('أسبوع')}</button>
             <button type="button" className="btn sm ghost" onClick={() => setPreset('month')}>{t('شهر')}</button>
-            <button type="button" className="btn sm ghost" onClick={() => setPreset('all')}>{t('الكل')}</button>
           </div>
 
           {/* Cascading Dropdowns */}
-          <select className="input" style={{ width: 150 }} value={regionId} onChange={(e) => {
+          <select className="input" aria-label={t('الإقليم')} style={{ width: 150 }} value={regionId} onChange={(e) => {
             setRegionId(e.target.value);
             setBranchId('all');
             setSupervisorId('all');
@@ -252,7 +127,7 @@ export default function AdminDashboard() {
             {regions.data?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
 
-          <select className="input" style={{ width: 150 }} value={branchId} onChange={(e) => {
+          <select className="input" aria-label={t('الفرع')} style={{ width: 150 }} value={branchId} onChange={(e) => {
             setBranchId(e.target.value);
             setSupervisorId('all');
           }}>
@@ -260,7 +135,7 @@ export default function AdminDashboard() {
             {filteredBranches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
 
-          <select className="input" style={{ width: 160 }} value={supervisorId} onChange={(e) => setSupervisorId(e.target.value)}>
+          <select className="input" aria-label={t('المستخدم')} style={{ width: 160 }} value={supervisorId} onChange={(e) => setSupervisorId(e.target.value)}>
             <option value="all">{t('كل المستخدمين')}</option>
             {filteredSupervisors.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
           </select>
@@ -282,116 +157,51 @@ export default function AdminDashboard() {
         <ErrorState error={q.error} onRetry={retry} />
       ) : (
         <>
-          {/* Main Visual Row: Gauge Chart + Operations Hub */}
-          <div className="row" style={{ marginTop: 14, gap: 14, flexWrap: 'wrap', alignItems: 'stretch' }}>
-            <TargetGaugeChart
-              target={d?.visitsTarget ?? 0}
-              achieved={d?.visitsAchieved ?? 0}
-              rate={d?.achievementRate ?? 0}
-              loading={loading}
-            />
-
-            {/* Shelf & Market Operations Quick Hub */}
-            <div className="card col between" style={{ padding: 18, gap: 14, flex: '1 1 320px', minWidth: 280 }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <BarChart3 size={18} color="#2563EB" /> {t('تحليلات تدقيق الرفوف وحصة السوق')}
-                </h3>
-                <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
-                  {t('مؤشرات أداء العرض الميداني والمتاجر النموذجية ورصد المنافسين')}
-                </p>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-                <div className="card col" style={{ padding: 12, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8 }}>
-                  <span className="muted" style={{ fontSize: 11.5 }}>{t('متوسط PSS')}</span>
-                  <strong style={{ fontSize: 20, color: '#7C3AED', marginTop: 2 }}>
-                    {d?.avgPss != null ? `${num(d.avgPss)}%` : '—'}
-                  </strong>
-                </div>
-
-                <div className="card col" style={{ padding: 12, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8 }}>
-                  <span className="muted" style={{ fontSize: 11.5 }}>{t('الالتزام بالسياج')}</span>
-                  <strong style={{ fontSize: 20, color: '#059669', marginTop: 2 }}>
-                    {d?.geofenceRate != null ? `${num(d.geofenceRate)}%` : '—'}
-                  </strong>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="btn sm ghost"
-                onClick={() => nav('/admin/shelf-share')}
-                style={{ width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <BarChart3 size={15} />
-                <span>{t('عرض تحليلات حصة الرف التفصيلية 📊')}</span>
-              </button>
-            </div>
-
-            {/* Live Operations & Alerts Radar */}
-            <div className="card col between" style={{ padding: 18, gap: 14, flex: '1 1 320px', minWidth: 280, borderRight: '4px solid #F59E0B' }}>
-              <div className="row between items-center">
-                <div>
-                  <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <ShieldAlert size={18} color="#D97706" /> {t('رادار التنبيهات الميدانية')}
-                  </h3>
-                  <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
-                    {t('رصد فوري لخروج السياج ونواقص الرف')}
-                  </p>
-                </div>
-                {alerts.filter((a) => !a.is_read).length > 0 && (
-                  <span className="badge b-red" style={{ fontSize: 11, padding: '2px 6px' }}>
-                    {alerts.filter((a) => !a.is_read).length} {t('جديد')}
-                  </span>
-                )}
-              </div>
-
-              {alerts.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '16px 0', color: '#10B981', fontSize: 13 }}>
-                  <ShieldCheck size={28} style={{ margin: '0 auto 4px' }} />
-                  <div>{t('الميدان منضبط بالكامل · لا تنبيهات طارئة')}</div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {alerts.slice(0, 3).map((a) => (
-                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: a.type === 'oos_critical' ? '#FEF2F2' : '#FFFBEB', borderRadius: 8, fontSize: 12.5 }}>
-                      <span style={{ fontWeight: 600, color: a.type === 'oos_critical' ? '#DC2626' : '#D97706', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70%' }}>
-                        {a.title_ar}
-                      </span>
-                      <span className="muted" style={{ fontSize: 11 }}>
-                        {fmtTime(a.created_at)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <button
-                type="button"
-                className="btn sm ghost"
-                onClick={() => nav('/admin/notifications')}
-                style={{ width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <Bell size={15} />
-                <span>{t('فتح مركز التنبيهات والإشعارات 🔔')}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* KPI Summary Cards */}
-          <div className="adm-kpis" style={{ marginTop: 14 }}>
+          <section className="adm-kpis overview-kpis" aria-label={t('مؤشرات الفترة')}>
+            <KPICard icon={<ClipboardList />} title={t('الزيارات في الفترة')} value={d && num(d.visitsToday)} loading={loading} />
             <KPICard icon={<Users />} title={t('المستخدمون النشطون')} value={d && num(d.supervisors)} loading={loading} />
-            <KPICard icon={<ClipboardList />} title={t('الزيارات في الفترة')} value={d && num(d.visitsToday)} loading={loading} color="var(--color-success)" />
-            <KPICard icon={<ShieldCheck />} title={t('الالتزام بالنطاق الجغرافي')} value={d ? (d.geofenceRate == null ? '—' : `${d.geofenceRate}%`) : undefined}
-              hint={d && d.totalGeoVisits ? t('{n} داخل النطاق · {oor} خارج النطاق', { n: num(d.onBeatVisits), oor: num(d.oorVisits) }) : undefined} loading={loading} color="#0D9488" />
-            <KPICard icon={<BarChart3 />} title={t('متوسط PSS')} value={d ? (d.avgPss == null ? '—' : `${d.avgPss}%`) : undefined}
-              hint={d ? t('{n} مراجعة مكتملة', { n: num(d.audits30d) }) : undefined} loading={loading} color="#6D3FC0" />
-            <KPICard icon={<Package />} title={t('الأصول النشطة (الشركة)')} value={d && num(d.assets)} loading={loading} color="#C2570C" />
-            <KPICard icon={<ShieldAlert />} title={t('تذاكر صيانة مفتوحة (الشركة)')} value={d && num(d.openTickets)} loading={loading} color="var(--color-danger)" />
+            <KPICard icon={<ShieldCheck />} title={t('الالتزام بالنطاق الجغرافي')}
+              value={d ? (d.geofenceRate == null ? '—' : `${num(d.geofenceRate)}%`) : undefined}
+              hint={d && d.totalGeoVisits ? t('{n} داخل النطاق · {oor} خارج النطاق', { n: num(d.onBeatVisits), oor: num(d.oorVisits) }) : undefined} loading={loading} />
+            <KPICard icon={<BarChart3 />} title={t('متوسط تقييم الرف')}
+              value={d ? (d.avgPss == null ? '—' : `${num(d.avgPss)}%`) : undefined}
+              hint={d ? t('{n} مراجعة مكتملة', { n: num(d.audits30d) }) : undefined} loading={loading} />
+            <KPICard icon={<Package />} title={t('الأصول النشطة (الشركة)')} value={d && num(d.assets)} loading={loading} />
+            <KPICard icon={<ShieldAlert />} title={t('تذاكر صيانة مفتوحة (الشركة)')} value={d && num(d.openTickets)} loading={loading} />
+          </section>
+
+          <div className="overview-insights">
+            <section className="card overview-targets">
+              <div className="section-heading"><span className="surface-icon"><Target size={20} /></span><div>
+                <h3>{t('التقدم نحو المستهدف')}</h3><p>{t('المنجز مقابل الأهداف المسندة للفترة المختارة')}</p>
+              </div></div>
+              {loading ? <div className="skel" style={{ height: 130 }} /> : <>
+                <TargetProgress label={t('الزيارات المكتملة')} target={d!.visitsTarget} achieved={d!.visitsAchieved} />
+                <TargetProgress label={t('مراجعات الرف المكتملة')} target={d!.auditsTarget} achieved={d!.auditsAchieved} />
+              </>}
+              <button className="btn sm ghost" onClick={() => nav('/admin/targets')}>{t('إدارة الأهداف')}</button>
+            </section>
+            <section className="card overview-alerts" aria-label={t('مركز التنبيهات')}>
+              <div className="section-heading"><span className="surface-icon"><Bell size={20} /></span><div>
+                <h3>{t('مركز التنبيهات')}</h3><p>{t('آخر التنبيهات المتاحة لحسابك')}</p>
+              </div></div>
+              {alertsQ.isPending ? <div className="skel" style={{ height: 100 }} /> : alertsQ.isError ?
+                <ErrorState error={alertsQ.error} onRetry={() => void alertsQ.refetch()} /> : alerts.length === 0 ?
+                <div className="overview-empty"><ShieldCheck size={28} /><strong>{t('لا توجد تنبيهات متاحة')}</strong>
+                  <span>{t('ستظهر هنا التنبيهات الواردة من العمليات الميدانية.')}</span></div> :
+                <div className="overview-alert-list">{alerts.slice(0, 3).map(alert => <div key={alert.id} className="overview-alert-item">
+                  <span className={`alert-indicator ${alert.is_read ? 'is-read' : ''}`} />
+                  <strong>{alert.title_ar}</strong><time dateTime={alert.created_at}>{fmtTime(alert.created_at)}</time>
+                </div>)}</div>}
+              <button className="btn sm ghost" onClick={() => nav('/admin/notifications')}>{t('عرض كل التنبيهات')}</button>
+            </section>
+          </div>
+          <div className="overview-footer-links">
+            <button className="btn sm ghost" onClick={() => nav('/admin/shelf-share')}><BarChart3 size={17} />{t('تحليلات حصة الرف')}</button>
+            <button className="btn sm ghost" onClick={() => nav('/admin/reports')}><ClipboardList size={17} />{t('التقارير المخصصة')}</button>
           </div>
         </>
       )}
-    </>
+    </div>
   );
 }

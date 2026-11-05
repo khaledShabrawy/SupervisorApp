@@ -8,7 +8,6 @@ import {
   Plus,
   Route,
   ScanSearch,
-  ShoppingCart,
   Target as TargetIcon,
 } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,14 +53,12 @@ export default function DashboardScreen() {
   const recent = useMemo(() => d?.recent.slice(0, 5) ?? [], [d?.recent]);
 
   return (
-    <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
-      <PageTitle>
-        {settings.app_name}
-        <span className="muted" style={{ fontSize: 14, fontWeight: 400 }}>
-          {' '}
-          · {fmtDate(todayStr())}
-        </span>
-      </PageTitle>
+    <div className="page field-dashboard" aria-label={settings.app_name} data-role={supervisor?.role}>
+      <div className="field-greeting">
+        <p className="field-date">{fmtDate(todayStr())}</p>
+        <h2>{t('أهلًا، {name}', { name: supervisor?.full_name.split(' ')[0] ?? '' })}</h2>
+        <p>{t('كل ما تحتاجه ليومك في الميدان.')}</p>
+      </div>
 
       {q.isError ? (
         <ErrorState error={q.error} onRetry={retry} />
@@ -75,35 +72,28 @@ export default function DashboardScreen() {
               title={t('مراجعات الرف')}
               value={d && num(d.audits)}
               loading={L}
-              color="#6D3FC0"
+              color="var(--color-primary)"
             />
             <KPICard
               icon={<TargetIcon size={18} />}
-              title={t('نسبة الهدف%')}
+              title={t('إنجاز الزيارات')}
               value={d && `${num(Math.round(d.visitsProgress))}%`}
               loading={L}
               color="var(--color-success)"
             />
           </div>
 
-          <div className="s-acts">
-            <Act id="/visits/new" onAct={go} className="s-act s-green" testId="button-new-visit">
-              <Plus /> {t('زيارة جديدة')}
-            </Act>
-            <Act id="/shelf-audit" onAct={go} className="s-act s-blue">
-              <Camera /> {t('مراجعة الرف')}
-            </Act>
-            <Act id="/training" onAct={go} className="s-act" style={{ background: '#7C3AED', color: '#fff' }}>
-              <GraduationCap /> {t('أكاديمية التدريب')}
-            </Act>
-            <Act id="/beat-plan" onAct={go} className="s-act s-purple">
-              <Route /> {t('خطة الزيارات')}
-            </Act>
-            {fieldSurveyAllowed && (
-              <Act id="/field-survey" onAct={go} className="s-act" style={{ background: 'var(--color-success)', color: '#fff' }}>
-                <ScanSearch /> {t('مسح ميداني')}
-              </Act>
-            )}
+          <Act id="/visits/new" onAct={go} className="field-primary-action" testId="button-new-visit">
+            <span className="field-primary-icon"><Plus size={25} /></span>
+            <span><strong>{t('زيارة جديدة')}</strong><small>{t('ابدأ الزيارة وسجل نتائجها')}</small></span>
+            <MapPin size={22} />
+          </Act>
+          <h3 className="field-section-label">{t('أدواتك الميدانية')}</h3>
+          <div className="field-tools">
+            <Act id="/shelf-audit" onAct={go} className="field-tool"><Camera size={23} /><span>{t('مراجعة الرف')}</span></Act>
+            <Act id="/beat-plan" onAct={go} className="field-tool"><Route size={23} /><span>{t('خطة الزيارات')}</span></Act>
+            <Act id="/training" onAct={go} className="field-tool"><GraduationCap size={23} /><span>{t('أكاديمية التدريب')}</span></Act>
+            {fieldSurveyAllowed && <Act id="/field-survey" onAct={go} className="field-tool"><ScanSearch size={23} /><span>{t('مسح ميداني')}</span></Act>}
           </div>
 
           <PageTitle>{t('آخر الزيارات')}</PageTitle>
