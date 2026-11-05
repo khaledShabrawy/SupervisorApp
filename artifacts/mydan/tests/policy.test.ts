@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canAdmin, distanceMeters, isAuthorizedSupervisor, readableForeground, requireExactCount, validateSettings } from '../src/lib/policy.ts';
+import { canAdmin, passwordChangeRequired, distanceMeters, isAuthorizedSupervisor, readableForeground, requireExactCount, validateSettings } from '../src/lib/policy.ts';
 
 const supervisor = { id: 'p1', user_id: 'u1', name: 'مشرف تجريبي', phone: null,
   role: 'supervisor' as const, branch_id: null, company_id: 'c1', is_active: true };
@@ -55,4 +55,12 @@ test('missing or malformed exact counts must never become synthetic zero metrics
   assert.equal(requireExactCount(0), 0);
   assert.equal(requireExactCount(3), 3);
   for (const value of [null, NaN, -1, 1.5]) assert.throws(() => requireExactCount(value));
+});
+test('forced change and optional expiry use trusted profile time; missing time requires a change',()=>{
+ const profile={...supervisor,full_name:'Synthetic',password_changed_at:'2026-01-01T00:00:00Z'};
+ const at=Date.parse('2026-05-01T00:00:00Z');
+ assert.equal(passwordChangeRequired(profile,settings,at),false);
+ assert.equal(passwordChangeRequired({...profile,force_password_change:true},settings,at),true);
+ assert.equal(passwordChangeRequired(profile,{...settings,password_expiry_enabled:true,password_expiry_days:90},at),true);
+ assert.equal(passwordChangeRequired({...profile,password_changed_at:null},{...settings,password_expiry_enabled:true},at),true);
 });

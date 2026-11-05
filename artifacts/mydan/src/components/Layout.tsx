@@ -7,7 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useRealtime } from '@/hooks/useRealtime';
-import { canAdmin } from '@/lib/policy';
+import { canAdmin, passwordChangeRequired } from '@/lib/policy';
 import { notify } from '@/lib/toast';
 import { BottomNav } from './BottomNav';
 import { LanguageToggle } from './LanguageToggle';
@@ -20,7 +20,7 @@ import { t } from '@/i18n';
 
 const IS_ANDROID = import.meta.env.VITE_PLATFORM === 'android';
 
-function DeviceLockedView({ registeredDeviceId, currentDeviceId }: { registeredDeviceId: string; currentDeviceId: string }) {
+function DeviceLockedView(_props: { registeredDeviceId: string; currentDeviceId: string }) {
   const { signOut, supervisor } = useAuth();
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: '#F8FAFC' }}>
@@ -30,10 +30,6 @@ function DeviceLockedView({ registeredDeviceId, currentDeviceId }: { registeredD
         <p className="muted" style={{ lineHeight: 1.6, fontSize: 14 }}>
           {t('حساب المشرف ({name}) مقترن بجهاز عمل مصرح به سابقاً. لأسباب أمنية ومنع التلاعب الميداني، يُحظر تسجيل الدخول من أكثر من جهاز هاتف.', { name: supervisor?.full_name || '' })}
         </p>
-        <div className="alert warn" style={{ fontSize: 12, direction: 'ltr', textAlign: 'start', overflowWrap: 'anywhere' }}>
-          <div><strong>Registered Device:</strong> {registeredDeviceId}</div>
-          <div><strong>Current Device:</strong> {currentDeviceId}</div>
-        </div>
         <p style={{ fontSize: 13, color: '#64748B', margin: 0 }}>
           {t('يرجى التواصل مع إدارة الشركة أو مسؤول النظام لإلغاء ارتباط الجهاز السابق والسماح بالربط من جهازك الحالي.')}
         </p>
@@ -47,12 +43,15 @@ function DeviceLockedView({ registeredDeviceId, currentDeviceId }: { registeredD
 
 export function RequireAuth() {
   const { isAuthenticated, isLoading, supervisor } = useAuth();
+  const s = useAppSettings();
   const binding = useDeviceBinding(supervisor);
   const subscription = useCompanySubscription();
 
   if (isLoading || binding.status === 'checking' || subscription.isLoading) return <LoadingSpinner />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (supervisor?.force_password_change) return <Navigate to="/set-password" replace />;
+  if (passwordChangeRequired(supervisor, s)) return <Navigate to="/set-password" replace />;
+  if (binding.status === 'error') return <div className="page" role="alert"><p>{binding.message}</p>
+    <button className="btn" onClick={binding.retry}>إعادة المحاولة</button></div>;
   if (binding.status === 'locked') {
     return (
       <DeviceLockedView
@@ -61,6 +60,9 @@ export function RequireAuth() {
       />
     );
   }
+  if (subscription.isError) return <div className="page" role="alert">
+    <p>{subscription.error?.message}</p><button className="btn" onClick={() => void subscription.retry()}>إعادة المحاولة</button>
+  </div>;
   if (subscription.isLocked) {
     return (
       <SubscriptionLockedView

@@ -1,3 +1,5 @@
+-- Historical script only. Never replay after the audited security contract.
+DO $$ BEGIN IF to_regprocedure('public.mdn_security_contract_version_v1()') IS NOT NULL THEN RAISE EXCEPTION 'Legacy SQL replay blocked: use versioned migrations.'; END IF; END $$;
 -- ==============================================================================
 -- MYDAN MIGRATION 19: Complete Push Notifications & Field Surveys Schema Sync
 -- Combines Migration 07 (push_subscriptions) & Migration 09 (field_surveys)

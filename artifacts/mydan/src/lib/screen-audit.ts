@@ -5,6 +5,9 @@ import { useScope, PHOTO_BUCKET, type VisitRow } from './data';
 import { AUDIT_COLUMNS } from './columns';
 import { notify } from './toast';
 import { compressImage } from './image-compression';
+import { requestAnalysis } from './analysis-request';
+import { signedMedia } from './private-media';
+import { isMeasuredAudit } from './shelf-metrics';
 import type { ShelfAudit } from '@/types/database';
 
 export const ANALYZE_ENDPOINT = import.meta.env.VITE_SHELF_AUDIT_FUNCTION ||
@@ -16,9 +19,10 @@ async function currentSession(userId: string) {
 }
 /** Photos live in a private bucket; swap the stored path for a 10-minute signed URL. */
 async function withSignedPhoto(audit: ShelfAudit): Promise<ShelfAudit> {
-  if (!audit.photo_url || /^https:\/\//.test(audit.photo_url)) return audit;
-  const { data } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(audit.photo_url, 600);
-  return { ...audit, photo_url: data?.signedUrl ?? null };
+  if (!isMeasuredAudit(audit.ai_detailed_report)) {
+    audit = { ...audit, status: 'failed', audit_score: null, audit_summary_ar: 'هذه نتيجة قديمة غير مقاسة؛ أعد تحليل الصورة.', ai_detailed_report: null };
+  }
+  return { ...audit, photo_url: await signedMedia(PHOTO_BUCKET, audit.photo_url) };
 }
 export function useUploadAudit() {
   const sc = useScope(), qc = useQueryClient();
@@ -70,98 +74,9 @@ export function useRequestAuditAnalysis() {
       }
       const session = await currentSession(sc.supervisor.user_id);
 
-      const brandName = settings.target_brand_name || 'العلامة المستهدفة';
-      const competitorList = (settings.competitor_brands && settings.competitor_brands.length > 0)
-        ? settings.competitor_brands
-        : ['المنافس الأول', 'المنافس الثاني'];
-
-      // 1. Attempt remote Edge Function call (Gemini Flash Vision)
-      let remoteSuccess = false;
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 25_000);
-      try {
-        if (new URL(SUPABASE_URL).origin === new URL(ANALYZE_ENDPOINT).origin) {
-          const response = await fetch(ANALYZE_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-            body: JSON.stringify({ audit_id: audit.id }),
-            signal: controller.signal,
-          });
-          if (response.ok) {
-            remoteSuccess = true;
-            return;
-          }
-        }
-      } catch (error) {
-        console.warn('AI edge function call unreachable, falling back to smart on-device vision:', error);
-      } finally {
-        clearTimeout(timer);
-      }
-
-      if (remoteSuccess) return;
-
-      // 2. Resilient On-Device Smart Vision Evaluator:
-      // Computes realistic retail FMCG shelf metrics so the supervisor APK always completes the audit smoothly!
-      const defaultScore = 86;
-      const estimatedFacings = 11;
-      const calculatedShare = 44.0;
-      const competitorShare = 56.0;
-
-      const smartReport = {
-        score: defaultScore,
-        engine: 'smart-vision-engine',
-        audit_summary_ar: `تم تدقيق الرف بنجاح بنظام الرؤية الذكي. حصة الرف لعلامة ${brandName} بلغت ${calculatedShare}% عبر ${estimatedFacings} واجهة عرض (Facings) وبطاقات أسعار معتمدة.`,
-        target_brand_metrics: {
-          brand_present: true,
-          facings: estimatedFacings,
-          share_of_shelf_percentage: calculatedShare,
-          out_of_stock: false,
-          oos_items: [],
-        },
-        competitor_metrics: {
-          competitor_presence_detected: true,
-          competitor_share_pct: competitorShare,
-          brands_detected: competitorList,
-        },
-        posm_present: true,
-        price_tag_visible: true,
-        issues: [
-          'الحاجة إلى تحسين التوزيع الرأسي للمنتجات لزيادة الجذب البصري.',
-          'زيادة التواجد على مستوى النظر (Eye-Level) لرفع نسبة المبيعات.',
-        ],
-        recommendations: [
-          `زيادة عدد الواجهات (Facings) بنسبة 15% لمواكبة انتشار المنافسين.`,
-          'التأكد من وضوح بطاقات الأسعار وتوزيع المواد الإعلانية (POSM).',
-        ],
-        detailed_report: {
-          brand_analysis: `تواجد متناسق لعلامة ${brandName} في الرف الأوسط مع وضوح الهوية التجارية.`,
-          competitor_analysis: `تغطية متوازنة للمنافسين (${competitorList.join('، ')}) مع وجود مساحات يمكن الاستحواذ عليها.`,
-          display_quality: 'ترتيب الرف ممتاز وبطاقات الأسعار مطابقة للمواصفات التجارية.',
-          action_priority: 'متوسطة',
-        },
-      };
-
-      const { error: updateErr } = await supabase.from('shelf_audit').update({
-        status: 'completed',
-        audit_score: defaultScore,
-        audit_summary_ar: smartReport.audit_summary_ar,
-        ai_detailed_report: smartReport,
-        audited_at: new Date().toISOString(),
-      }).eq('id', audit.id);
-
-      if (updateErr) throw updateErr;
-
-      if (smartReport.target_brand_metrics?.out_of_stock || (smartReport.target_brand_metrics?.oos_items && smartReport.target_brand_metrics.oos_items.length > 0)) {
-        const oosList = smartReport.target_brand_metrics.oos_items?.join('، ') || brandName;
-        void (supabase.from('notifications') as any).insert({
-          company_id: sc.companyId,
-          supervisor_id: sc.supervisorId,
-          type: 'oos_critical',
-          title_ar: 'إنذار: نقص حاد في بضاعة الرف (OOS) 🚨',
-          body_ar: `رصد نقص أصناف (${oosList}) لعلامة ${brandName} أثناء تدقيق الرف. يرجى توجيه طلبية إمداد عاجلة.`,
-          is_read: false,
-        });
-      }
+      if (!settings.ai_audit_enabled) throw new Error('التحليل غير مفعّل لشركتك.');
+      await requestAnalysis({ projectUrl: SUPABASE_URL, endpoint: ANALYZE_ENDPOINT,
+        token: session.access_token, body: { audit_id: audit.id } });
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: [...sc.base, 'audits'] });
@@ -193,7 +108,7 @@ export function useVisitAudits(visitId: string | null) {
         .eq('visit_id', visitId!)
         .order('created_at', { ascending: false })
         .abortSignal(signal);
-      if (error || !data) return [];
+      if (error || !data) throw new Error('تعذر تحميل مراجعات الزيارة.');
       const rows = data as ShelfAudit[];
       return Promise.all(rows.map(withSignedPhoto));
     },

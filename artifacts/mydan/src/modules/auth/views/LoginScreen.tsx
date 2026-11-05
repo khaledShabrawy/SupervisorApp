@@ -9,26 +9,25 @@ import { t } from '@/i18n';
 
 const IS_ANDROID = import.meta.env.VITE_PLATFORM === 'android';
 
-const CHART_HEIGHTS = [40, 62, 48, 80, 55, 88, 70, 95, 65, 100];
 
 const FEATURES = [
   {
     icon: '🎯',
     bg: 'rgba(26,86,219,.28)',
     titleKey: 'رقابة الرف بالذكاء الاصطناعي',
-    subKey: 'دقة 99.4% في تحليل حصة الوجود والنواقص الفورية',
+    subKey: 'تحليل الصور عند تفعيل الخدمة؛ النتائج تحتاج مراجعة',
   },
   {
     icon: '📍',
     bg: 'rgba(16,137,129,.28)',
-    titleKey: 'سياج جغرافي 100% صارم',
-    subKey: 'منع التلاعب بتسجيل الزيارات والحضور تماماً',
+    titleKey: 'التحقق من نطاق الزيارة',
+    subKey: 'قياس المسافة وتسجيل أسباب الزيارات الاستثنائية',
   },
   {
     icon: '⚡',
     bg: 'rgba(99,102,241,.28)',
-    titleKey: 'عمل أوفلاين بلا انقطاع',
-    subKey: 'مزامنة تلقائية ذكية عند استعادة الاتصال',
+    titleKey: 'حفظ العمليات المعلقة على الجهاز',
+    subKey: 'مزامنة العمليات المحفوظة بعد التحقق من الاتصال والحساب',
   },
 ] as const;
 
@@ -82,50 +81,12 @@ export default function LoginScreen() {
           <div>
             <h2 className="lp-headline">
               {t('أتمتة قوة')}<br />
-              <span className="lp-headline-accent">{t('المبيعات الميدانية')}</span><br />
+              <span className="lp-headline-accent">{t('المهام والزيارات')}</span><br />
               {t('بالذكاء الاصطناعي')}
             </h2>
             <p style={{ fontSize: 14, color: '#94A3B8', margin: '12px 0 0', lineHeight: 1.75 }}>
-              {settings.app_tagline || t('رقابة لحظية، رؤية تنافسية، وإنجاز ميداني قابل للقياس.')}
+              {settings.app_tagline || t('متابعة الزيارات والمهام وتحليل أدلة التنفيذ الميداني.')}
             </p>
-          </div>
-
-          {/* Mini Dashboard Mockup */}
-          <div className="lp-mockup">
-            <div className="lp-mockup-topbar">
-              <div className="lp-dot" style={{ background: '#EF4444' }} />
-              <div className="lp-dot" style={{ background: '#F59E0B' }} />
-              <div className="lp-dot" style={{ background: '#22C55E' }} />
-              <div style={{ flex: 1, height: 7, background: 'rgba(255,255,255,.06)', borderRadius: 4, marginInlineStart: 8 }} />
-            </div>
-            <div className="lp-mockup-kpis">
-              {([
-                { num: '94%', lbl: t('حضور الرف'),   color: '#34D399' },
-                { num: '287', lbl: t('زيارة اليوم'), color: '#60A5FA' },
-                { num: '3.2k',lbl: t('طلب'),        color: '#A78BFA' },
-              ] as const).map((k) => (
-                <div key={k.lbl} className="lp-kpi">
-                  <div className="lp-kpi-num" style={{ color: k.color }}>{k.num}</div>
-                  <div className="lp-kpi-lbl">{k.lbl}</div>
-                </div>
-              ))}
-            </div>
-            <div className="lp-chart">
-              {CHART_HEIGHTS.map((h, i) => (
-                <div
-                  key={i}
-                  className="lp-bar"
-                  style={{
-                    height: `${h}%`,
-                    animationDelay: `${i * 0.07}s`,
-                    background: i >= 7
-                      ? 'linear-gradient(180deg, #93C5FD, #1D4ED8)'
-                      : 'linear-gradient(180deg, #3B82F6, #1E40AF)',
-                    opacity: 0.55 + i * 0.04,
-                  }}
-                />
-              ))}
-            </div>
           </div>
 
           {/* Feature cards */}
@@ -141,19 +102,7 @@ export default function LoginScreen() {
             ))}
           </div>
 
-          {/* Stats strip */}
-          <div className="lp-stats">
-            {([
-              { num: '99.4%', lbl: t('دقة الذكاء'),    color: '#60A5FA' },
-              { num: '100%',  lbl: t('سياج جغرافي'),   color: '#34D399' },
-              { num: '<1s',   lbl: t('تحليل الرف'),     color: '#A78BFA' },
-            ] as const).map((s) => (
-              <div key={s.lbl} className="lp-stat">
-                <div className="lp-stat-num" style={{ color: s.color }}>{s.num}</div>
-                <div className="lp-stat-lbl">{s.lbl}</div>
-              </div>
-            ))}
-          </div>
+
         </div>
 
         {/* ═══════════════════════════════════

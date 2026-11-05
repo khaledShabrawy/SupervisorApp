@@ -3,7 +3,8 @@ import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BarChart3, Bell, Building2, Camera, ClipboardList, Download, FileText, GraduationCap, Home, LogOut, MapPin, Package, PieChart, ScanSearch, Settings2, ShieldCheck, ShoppingCart, Store, Target, Users } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
-import { canAdmin } from '@/lib/policy';
+import { useDeviceBinding } from '@/lib/device-binding';
+import { canAdmin, passwordChangeRequired } from '@/lib/policy';
 import { notify } from '@/lib/toast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { LanguageToggle } from '@/components/LanguageToggle';
@@ -17,7 +18,6 @@ export const ADMIN_NAV = [
   { to: '/admin/live-map', label: t('تتبع المشرفين 🗺️'), icon: MapPin },
   { to: '/admin/shelf-share', label: t('حصة الرف'), icon: BarChart3 },
   { to: '/admin/training', label: t('أكاديمية التدريب 🎓'), icon: GraduationCap },
-  { to: '/admin/orders', label: t('الطلبات'), icon: ShoppingCart },
   { to: '/admin/users', label: t('المستخدمين'), icon: Users },
   { to: '/admin/companies', label: t('الشركات'), icon: Building2, superAdminOnly: true },
   { to: '/admin/branches', label: t('الفروع'), icon: MapPin },
@@ -39,6 +39,7 @@ export const ADMIN_NAV = [
 export default function AdminLayout() {
   const { isAuthenticated, isLoading, supervisor, signOut } = useAuth();
   const subscription = useCompanySubscription();
+  const binding = useDeviceBinding(supervisor);
   const s = useAppSettings();
   const { pathname } = useLocation();
   const logout = useCallback(() => void signOut().catch((e: Error) => notify(e.message, 'error')), [signOut]);
@@ -47,10 +48,18 @@ export default function AdminLayout() {
     document.title = `${page} | ${t('إدارة {app}', { app: s.app_name })}`;
   }, [pathname, s.app_name]);
 
-  if (isLoading || subscription.isLoading) return <LoadingSpinner />;
+  if (isLoading || subscription.isLoading || binding.status === 'checking') return <LoadingSpinner />;
   if (!isAuthenticated) return <Navigate to="/login" replace state={{ from: pathname }} />;
-  if (supervisor?.force_password_change) return <Navigate to="/set-password" replace />;
+  if (passwordChangeRequired(supervisor, s)) return <Navigate to="/set-password" replace />;
   if (!canAdmin(supervisor)) return <Navigate to="/" replace />;
+  if (binding.status === 'error' || binding.status === 'locked') return <div className="page" role="alert">
+    <p>{binding.status === 'error' ? binding.message : 'هذا الحساب مرتبط بجهاز آخر.'}</p>
+    <button className="btn" onClick={binding.retry}>إعادة المحاولة</button>
+    <button className="btn" onClick={logout}>تسجيل الخروج</button>
+  </div>;
+  if (subscription.isError) return <div className="page" role="alert">
+    <p>{subscription.error?.message}</p><button className="btn" onClick={() => void subscription.retry()}>إعادة المحاولة</button>
+  </div>;
   if (subscription.isLocked) {
     return (
       <SubscriptionLockedView

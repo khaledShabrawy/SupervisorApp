@@ -1,42 +1,15 @@
-# ميدان — نسخة الويب القابلة للتثبيت
+# Mydan PWA and Android behavior
 
-التطبيق الوحيد هو React + Vite PWA في `artifacts/mydan`، ويُفتح مباشرة على المسار `/` في المتصفح. أزيلت نسخة Expo وكل مصادرها واعتمادياتها؛ لم تُعدّل بيانات Supabase.
+The web PWA caches its public application shell and bundled assets. Business APIs, Auth tokens and private photos are never handled by its cache rules. Authenticated queries are an in-memory TanStack cache; there is no complete persistent offline customer/visit database.
 
-## التشغيل والتحقق
+The separate encrypted IndexedDB outbox stores individual visit/attendance intentions before transmission. The same server receipt is used for online submission and retry. Each action is acknowledged only after a confirmed server result. The app tries pending replay when an online event occurs while it is open, and offers manual upload. Browser background execution, closed-tab delivery and online detection are not guaranteed. Never close the app based solely on an optimistic UI message: review the pending count and confirmed server state.
 
-- سير العمل `artifacts/mydan: web`.
-- `pnpm exec tsc --noEmit`
-- `pnpm build`
-- `node --test artifacts/mydan/tests/*.test.ts artifacts/mydan/tests/*.test.mjs`
-- المتغيران `VITE_SUPABASE_URL` و`VITE_SUPABASE_ANON_KEY` من Secrets؛ لا تُستخدم مفاتيح الخدمة أو أسرار مزوّدي الذكاء الاصطناعي في المتصفح.
+Opening a queued new visit returns to the visits list until the server confirms it; the application does not invent a server visit detail page. Authorization or validation failures remain visible and pending for review. A complete offline read model is future work.
 
-## عقد Supabase المطلوب
+The payload key is non-extractable AES-GCM and stored in IndexedDB. Same-origin JavaScript can still use it; this does not defeat XSS or device compromise. Legacy records belonging to another account or malformed records are retained for controlled recovery.
 
-هذه النسخة تنفذ العقد الذي طلبه المستخدم في `src/types/database.ts`، ولا تفترض أن SQL التاريخي المحلي مطابق لمخطط Supabase الحي.
+New service workers must finish precaching successfully. They wait for existing app windows to close and do not reload forms. The installed worker reads its own revision cache after a restart. Admin/login navigation requires network; installing the PWA does not grant offline authentication or admin functionality.
 
-- `supervisors.user_id` يربط مستخدم المصادقة بحساب المشرف. لا يُستخدم `supervisors.id` كبديل صامت عنه.
-- حساب المشرف يجب أن يكون نشطًا، وله `company_id` ودور معروف.
-- `app_settings` يجب أن يحتوي سجلًا واحدًا لكل شركة وبجميع الحقول والألوان المطلوبة.
-- بقية الجداول النشطة: `customers`, `visits`, `shelf_audits`, `notifications`, `targets`, `beat_plans`, `attendance`. جداول البيع التاريخية ليست جزءًا من التطبيق.
-- يجب تطبيق RLS في Supabase على الشركة والمشرف والدور والحالة النشطة. ترشيح العميل لا يغني عن RLS، ولا يجوز الوثوق في `company_id` أو `supervisor_id` المرسلين من المتصفح.
-- يجب أن يكون الهدف الشهري فريدًا لكل `company_id,supervisor_id,month,year`. إنشاء الهدف يهيئ الإنجاز من الموارد الفعلية للمشرف والشهر، وتعديله لا يصفر الإنجاز. ينبغي للخادم الحفاظ على اتساق العدادات المخزنة؛ شاشة الأهداف تستمد الإنجاز من الزيارات ومراجعات الرف لا من عدادات قديمة.
-- لوحة الإدارة لا تمنح صلاحيات خادم: سياسات Supabase يجب أن تمنع المشرف من تعديل الأدوار أو تعطيل الآخرين، وتمنع تعديل صلاحياته الذاتية.
-- لم تُنفّذ migrations أو SQL أو إضافة مستخدمين أو تغيير بيانات أو سياسات في الخدمة الخارجية. يلزم التأكد من مطابقة العقد والسياسات قبل التشغيل الفعلي.
+Capacitor Android uses the bundled `dist/public` web assets. No remote OTA updater is implemented. Rebuilding the web bundle is separate from building, signing, installing and testing a native APK. Backup is disabled in the Android manifest; Android device behavior has not been verified by the local browser suite.
 
-## الهوية والأداء
-
-الألوان الأساسية المطلوبة افتراضية لشاشة الدخول وبدء التحميل، وليست هوية شركة ثابتة. بعد الدخول تُقرأ الهوية من `AppSettingsContext` بحسب الشركة المعتمدة من حساب المشرف، وتُزال عند الخروج. لا يُحمّل شعار أو اسم شركة أخرى كبديل عند فشل التحميل.
-
-الشاشات محمّلة حسب الطلب، وReact Query يدير التحديث والحفظ وإلغاء الاستعلامات ومسح البيانات عند تغيير الهوية. لا يُحفظ مخبأ بيانات الأعمال على القرص.
-
-## PWA والاتصال
-
-إضافة `vite-plugin-pwa` تولد الـ manifest ونسخة Service worker المنقحة لكل بناء. مسارا البداية والنطاق يتبعان `BASE_PATH`: `/mydan/` للمعاينة الحالية، و`/` عند بناء نشر بجذر مستقل. الأيقونات مربع أزرق وحرف «م» أبيض بحجمي 192 و512 بكسل. يسجل العامل عبر `workbox-window` في الإنتاج فقط، ويخزن غلاف التطبيق وملفات JS/CSS العامة للتشغيل دون اتصال. لا يخزن جلسات أو صور العملاء أو استجابات Supabase أو بيانات العمل.
-
-هذه ليست مزامنة عمليات دون اتصال: الحفظ والمصادقة وجلب السجلات يحتاج اتصالًا، ويجب إظهار الفشل لا ادعاء نجاح الحفظ. صور الرف تستخدم اسم bucket الموجود في عقد التطبيق `shelf-photos`؛ وجوده وخصوصيته يحتاجان تأكيدًا مستقلًا في Supabase. مسار الشاشات الجديد يستخدم وظيفة `analyze-shelf` على المشروع المحدد في عقد المستخدم، ويتحقق من مطابقة أصل مشروع Supabase قبل إرسال JWT. وجود الوظيفة وصلاحياتها لم يُتحقق منهما في الخدمة الحية. لا تُنشأ موارد أو مفاتيح أو وظائف ذكاء اصطناعي من المتصفح.
-
-بحسب الطلب الجديد، ترفع شاشة الرف الصورة، وتستخدم `getPublicUrl` لحفظ الرابط في سجل `shelf_audits`، ثم ترسل `audit_id,photo_url,target_brand,competitor_brands` مع JWT الجلسة الحالية. التطبيق لا يغيّر خصوصية الحاوية الحية؛ إنشاء الرابط لا يجعل الصورة في حاوية خاصة قابلة للقراءة العامة. وظيفة التحليل يجب أن تتحقق من ملكية السجل وهوية الشركة وأن تطابق الرابط والإعدادات مع سجلات الخادم، ولا تثق في المدخلات وحدها. تتلقى الشاشة النتيجة عبر Realtime والاستعلام الدوري، وتستعيد السجل من `?audit=ID` بعد إعادة التحميل دون تكرار الرفع أو طلب التحليل تلقائيًا.
-
-الشاشات النشطة في `src/screens`، وعقد خطاطيفها في `docs/mydan-screen-hooks.md`. بعض ملفات `src/pages` القديمة متروكة للتوافق وليست مصدر الشاشات الجديدة. جميع استعلامات الصفوف تستخدم أعمدة صريحة، والبحث مؤجل 300ms. الإجماليات والأهداف لا تعتمد على الصفحة الأولى؛ تُحسب من جميع الصفوف المطابقة. إعداد اسم الشركة وشعارها قبل تسجيل الدخول اختياري عبر `VITE_PUBLIC_COMPANY_ID` وقراءة عامة مقتصرة على هذين الحقلين، دون اختيار شركة عشوائية.
-
-الهدف المؤكد هو متابعة تنفيذ المشرف لمهام وأهداف يحددها مديره مسبقًا من لوحة إدارة الويب. لا أوامر بيع حتى بالكميات فقط، ولا فواتير أو تحصيل أو مرتجعات أو تعاملات مالية. الأهداف الحالية في التطبيق تخص `visits_target,audit_target` فقط، والإنجاز يُحسب من سجلات الزيارات ومراجعات الرف الفعلية. لا منسق عملات ولا واجهة أسعار. تعريف مهام مدير مخصصة وإسنادها ومتابعتها يحتاج عقدًا معتمدًا؛ لا تُعرض الزيارات وحدها كدليل على اكتمال هذا النظام. أعمدة الأهداف الشهرية ومراجعات الرف تحتاج مطابقة مخطط الخدمة الحية؛ لا تُنفذ أي تغييرات على قاعدة البيانات تلقائيًا، ولا تُحذف سجلات أو أعمدة البيع التاريخية.
+See [the engineering contract](mydan-engineering-contract.md) and [release gates](mydan-remediation.md). Do not apply database scripts or deploy as a side effect of testing.

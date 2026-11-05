@@ -8,7 +8,9 @@ def keystoreProps = new Properties()
 if (keystorePropsFile.exists()) {
     keystoreProps.load(new FileInputStream(keystorePropsFile))
 }
-def releaseSigningReady = keystoreProps.containsKey('storeFile')
+def releaseSigningReady = ['storeFile', 'storePassword', 'keyAlias', 'keyPassword'].every { key ->
+    keystoreProps.getProperty(key)?.trim()
+}
 
 android {
     namespace "com.mydan.app"
@@ -17,6 +19,7 @@ android {
         applicationId "com.mydan.supervisor"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
+        manifestPlaceholders = [mydanApplicationLabel: "@string/app_name"]
         versionCode 1
         versionName "Mydan_01"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -41,6 +44,11 @@ android {
         }
     }
     buildTypes {
+        debug {
+            applicationIdSuffix ".preview"
+            versionNameSuffix "-preview"
+            manifestPlaceholders = [mydanApplicationLabel: "Mydan Preview"]
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

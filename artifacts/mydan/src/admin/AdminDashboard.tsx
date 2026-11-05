@@ -387,8 +387,8 @@ export default function AdminDashboard() {
               hint={d && d.totalGeoVisits ? t('{n} داخل النطاق · {oor} خارج النطاق', { n: num(d.onBeatVisits), oor: num(d.oorVisits) }) : undefined} loading={loading} color="#0D9488" />
             <KPICard icon={<BarChart3 />} title={t('متوسط PSS')} value={d ? (d.avgPss == null ? '—' : `${d.avgPss}%`) : undefined}
               hint={d ? t('{n} مراجعة مكتملة', { n: num(d.audits30d) }) : undefined} loading={loading} color="#6D3FC0" />
-            <KPICard icon={<Package />} title={t('الأصول النشطة')} value={d && num(d.assets)} loading={loading} color="#C2570C" />
-            <KPICard icon={<ShieldAlert />} title={t('تذاكر صيانة مفتوحة')} value={d && num(d.openTickets)} loading={loading} color="var(--color-danger)" />
+            <KPICard icon={<Package />} title={t('الأصول النشطة (الشركة)')} value={d && num(d.assets)} loading={loading} color="#C2570C" />
+            <KPICard icon={<ShieldAlert />} title={t('تذاكر صيانة مفتوحة (الشركة)')} value={d && num(d.openTickets)} loading={loading} color="var(--color-danger)" />
           </div>
         </>
       )}

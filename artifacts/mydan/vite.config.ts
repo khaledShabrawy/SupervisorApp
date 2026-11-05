@@ -72,7 +72,7 @@ return ({
       srcDir: 'public',
       filename: 'sw.js',
       injectRegister: false,
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       manifest: {
         name: 'Mydan', short_name: 'Mydan',
         description: 'نظام إدارة المشرفين الميدانيين',

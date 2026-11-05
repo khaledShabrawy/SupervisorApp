@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { t } from '@/i18n';
 
 /** Landing page for invite / recovery emails: the link signs the user in, then they choose a password. */
 export default function SetPasswordScreen() {
   const s = useAppSettings();
+  const { retryProfile } = useAuth();
   const nav = useNavigate();
   const [ready, setReady] = useState<boolean | null>(null);
   const [pw, setPw] = useState('');
@@ -65,24 +67,13 @@ export default function SetPasswordScreen() {
         return;
       }
 
-      await supabase.auth.updateUser({
-        data: { force_password_change: false, password_changed_at: new Date().toISOString() },
-      });
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from('supervisors')
-          .update({ force_password_change: false, password_changed_at: new Date().toISOString() })
-          .eq('user_id', user.id);
-      }
-
+      // The database Auth trigger clears the forced-change flag only after an actual password change.
+      // User-editable metadata is never an authorization source.
+      await retryProfile();
       setBusy(false);
       nav('/', { replace: true });
     },
-    [pw, pw2, nav]
+    [pw, pw2, nav, retryProfile]
   );
 
   return (

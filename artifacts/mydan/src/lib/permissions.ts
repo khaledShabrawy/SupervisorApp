@@ -2,26 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from './supabase';
 import { useScope } from './data';
 
-/** Screens an admin can switch off per supervisor (supervisor_permissions.screen_key). */
-export const SCREENS = [
-  { key: 'new_visit', label: 'زيارة جديدة', path: '/visits/new', byDefault: true },
-  { key: 'shelf_audit', label: 'مراجعة الرف AI', path: '/shelf-audit', byDefault: true },
-  { key: 'competitor_products', label: 'منتجات المنافسين', path: '/competitors', byDefault: true },
-  { key: 'my_reports', label: 'تقاريري والأهداف', path: '/targets', byDefault: true },
-  { key: 'notifications', label: 'الإشعارات', path: '/notifications', byDefault: true },
-  { key: 'beat_plan', label: 'خطة المسار', path: '/beat-plan', byDefault: true },
-  { key: 'field_survey', label: 'مسح ميداني AI', path: '/field-survey', byDefault: false },
-] as const;
-export type ScreenKey = typeof SCREENS[number]['key'];
-
-/**
- * A screen is blocked only by an explicit is_enabled=false row. Accounts created
- * before permissions existed have no rows and keep full access; invites write
- * the defaults above as explicit rows.
- */
-export function isScreenAllowed(rows: { screen_key: string; is_enabled: boolean }[], key: ScreenKey): boolean {
-  return rows.find((r) => r.screen_key === key)?.is_enabled !== false;
-}
+export { SCREENS, isScreenAllowed } from './screen-policy';
+export type { ScreenKey } from './screen-policy';
+import { isScreenAllowed, type ScreenKey } from './screen-policy';
 
 export function useMyPermissions() {
   const sc = useScope();

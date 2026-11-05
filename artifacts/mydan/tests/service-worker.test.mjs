@@ -9,24 +9,23 @@ function worker(entries = []) {
   const requests = [];
   const removed = [];
   const shell = new Response('<html dir="rtl"></html>');
+  const cache = { addAll: async urls => { requests.push(...urls); added.push(...urls.map(url => typeof url === 'string' ? url : url.url)); }, match: async url => url === 'https://example.test/mydan/' || url === 'https://example.test/mydan/index.html' ? shell : undefined };
   const context = {
     URL, Response, Request,
     self: { __WB_MANIFEST: entries, location: { href: 'https://example.test/mydan/sw.js' }, addEventListener: (name, fn) => handlers[name] = fn,
       skipWaiting: async () => {}, clients: { claim: async () => {} } },
-    caches: { open: async () => ({ addAll: async urls => { requests.push(...urls); added.push(...urls.map(url => typeof url === 'string' ? url : url.url)); } }),
-      keys: async () => ['unrelated-cache', 'mydan-shell:/mydan/:old', 'mydan-shell:/mydan/:new'],
-      delete: async name => removed.push(name), match: async url => url === 'https://example.test/mydan/' ? shell : undefined },
+    caches: { open: async () => cache, keys: async () => ['unrelated-cache','mydan-shell:/mydan/:old'], delete: async name => removed.push(name) },
     fetch: async () => new Response(JSON.stringify({ version: 'new', assets: ['assets/app-test.js', 'assets/app-test.css'] })),
   };
   vm.runInNewContext(source, context);
   return { context, handlers, added, requests, removed, shell };
 }
 test('install pre-caches only public shell and its versioned assets', async () => {
-  const w = worker();
+  const w = worker([{url:'index.html'},{url:'assets/app-test.js'}]);
   let done;
   w.handlers.install({ waitUntil: promise => done = promise }); await done;
-  assert.ok(w.added.includes('https://example.test/mydan/'));
-  assert.ok(w.added.includes('https://example.test/mydan/assets/app-test.js'));
+  assert.ok(w.added.includes('https://example.test/mydan/index.html'));
+  assert.ok(w.added.some(url => /^https:\/\/example\.test\/mydan\/assets\/[^/]+\.js$/.test(url)));
   assert.ok(w.added.every(url => url.startsWith('https://example.test/mydan/') && !url.includes('/api/')));
 });
 test('PWA injected entries do not duplicate Cache.addAll requests', async () => {
@@ -65,4 +64,16 @@ test('activation removes only stale caches belonging to this artifact', async ()
   const w = worker(); let done;
   w.handlers.activate({ waitUntil: promise => done = promise }); await done;
   assert.deepEqual(w.removed, ['mydan-shell:/mydan/:old']);
+});
+test('failed precache leaves prior worker active and never forces an update', async () => {
+ const w=worker([{url:'assets/release.js'}]);let skipped=false,done;
+ w.context.self.skipWaiting=async()=>{skipped=true;};
+ w.context.caches.open=async()=>({addAll:async()=>{throw new Error('offline install');}});
+ w.handlers.install({waitUntil:promise=>done=promise});await assert.rejects(done,/offline install/);assert.equal(skipped,false);
+});
+test('a restarted worker reads its own revision cache without fetching newer HTML',async()=>{
+ const w=worker([{url:'index.html',revision:'original-release'}]);let response;
+ w.context.fetch=async()=>{throw new Error('new release unavailable');};
+ w.handlers.fetch({request:{url:'https://example.test/mydan/visits',method:'GET',mode:'navigate'},respondWith:promise=>response=promise});
+ assert.equal(await response,w.shell);
 });

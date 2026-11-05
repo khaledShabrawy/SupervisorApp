@@ -970,11 +970,11 @@ export function useSaveOrder() {
 
       if (!navigator.onLine) {
 
-        enqueueOfflineAction({
+        await enqueueOfflineAction({
 
           type: 'save_order',
 
-          companyId: sc.companyId,
+          userId: sc.supervisor.user_id, companyId: sc.companyId,
 
           supervisorId: sc.supervisorId,
 

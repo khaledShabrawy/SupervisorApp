@@ -1,3 +1,5 @@
+-- Historical script only. Never replay after the audited security contract.
+DO $$ BEGIN IF to_regprocedure('public.mdn_security_contract_version_v1()') IS NOT NULL THEN RAISE EXCEPTION 'Legacy SQL replay blocked: use versioned migrations.'; END IF; END $$;
 -- Phase 0 follow-up: supervisor isolation for visits / visit_tasks.
 -- Run in Supabase SQL Editor (project ywdlrrdkjbtpfgacuuoy). Take a backup first.
 -- After running: get_advisors(type="security") and re-test the app as a plain supervisor.

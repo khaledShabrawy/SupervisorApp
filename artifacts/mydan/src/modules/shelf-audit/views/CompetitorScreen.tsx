@@ -1,3 +1,4 @@
+import { signedMedia } from '@/lib/private-media';
 import { memo, useCallback, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Camera, Eye, Plus, XCircle } from '@/components/Icons';
@@ -27,17 +28,17 @@ function useCompetitorProducts(visitId: string) {
     queryFn: async ({ signal }) => {
       const { data, error } = await supabase.from('competitor_products').select('id,brand_name,product_name,quantity,notes,photo_url,created_at').eq('company_id', sc.companyId).eq('visit_id', visitId).order('created_at', { ascending: false }).abortSignal(signal);
       if (error) throw new Error(t('تعذر تحميل منتجات المنافسين.'));
-      return (data ?? []) as CompetitorProduct[];
+      return Promise.all(((data ?? []) as CompetitorProduct[]).map(async row=>({...row,photo_url:await signedMedia('shelf-photos',row.photo_url)})));
     },
   });
 }
 
-async function compressAndUpload(file: File, companyId: string): Promise<string> {
+async function compressAndUpload(file: File, companyId: string, supervisorId:string): Promise<string> {
   const compressed = await compressImage(file, { maxDimension: 1200, quality: 0.85 });
-  const path = `${companyId}/competitors/${Date.now()}.jpg`;
+  const path = `${companyId}/${supervisorId}/competitors-${crypto.randomUUID()}.jpg`;
   const { error } = await supabase.storage.from('shelf-photos').upload(path, compressed, { contentType: 'image/jpeg', upsert: false });
   if (error) throw new Error(error.message);
-  return supabase.storage.from('shelf-photos').getPublicUrl(path).data.publicUrl;
+  return path;
 }
 
 function useAddCompetitor() {
@@ -107,6 +108,7 @@ export default function CompetitorScreen() {
   const [qty, setQty] = useState('');
   const [notes, setNotes] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -121,14 +123,15 @@ export default function CompetitorScreen() {
     if (!file || !supervisor?.company_id) return;
     setPhotoUploading(true);
     try {
-      const url = await compressAndUpload(file, supervisor.company_id);
-      setPhotoUrl(url);
-    } catch {
-      // silently skip photo on error
+      const url = await compressAndUpload(file, supervisor.company_id, supervisor.id);
+      const preview=await signedMedia('shelf-photos',url);
+      setPhotoUrl(url);setPhotoPreview(preview);
+    } catch(error) {
+      notify(error instanceof Error ? error.message : 'تعذر رفع صورة المنافس.', 'error');
     } finally {
       setPhotoUploading(false);
     }
-  }, [supervisor?.company_id]);
+  }, [supervisor?.company_id,supervisor?.id]);
 
   const submit = useCallback(() => {
     if (!brand.trim() || !visitId) return;
@@ -164,7 +167,7 @@ export default function CompetitorScreen() {
             <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={onPhoto} />
             {photoUrl
               ? <div style={{ position: 'relative', display: 'inline-block' }}>
-                  <img src={photoUrl} alt={t('صورة المنافس')} style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 8 }} />
+                  <img src={photoPreview ?? undefined} alt={t('صورة المنافس')} style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 8 }} />
                   <button type="button" className="icon-btn" onClick={() => setPhotoUrl(null)} style={{ position: 'absolute', top: 4, insetInlineEnd: 4, background: 'rgba(0,0,0,.5)', color: '#fff', borderRadius: '50%' }}><XCircle size={18} /></button>
                 </div>
               : <button type="button" className="btn ghost" style={{ gap: 8, width: '100%' }} disabled={photoUploading} onClick={() => fileRef.current?.click()}>

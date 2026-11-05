@@ -4,6 +4,8 @@ import { useScope } from './data';
 import { notify } from './toast';
 import type { TrainingCourse, TrainingLesson, SupervisorTrainingProgress } from '@/types/database';
 
+import { trainingMedia } from './private-media';
+
 export const TRAINING_BUCKET = 'training-materials';
 
 export interface CourseWithProgress extends TrainingCourse {
@@ -96,14 +98,16 @@ export function useCourseLessons(courseId: string | null) {
 
       const progMap = new Map((progress ?? []).map((p) => [p.lesson_id, p]));
 
-      const list: LessonWithProgress[] = (lessons ?? []).map((l) => {
+      const list: LessonWithProgress[] = await Promise.all((lessons ?? []).map(async (l) => {
         const p = progMap.get(l.id);
         return {
           ...l,
+          video_url: await trainingMedia(l.video_url),
+          attachment_url: await trainingMedia(l.attachment_url),
           is_completed: p?.is_completed ?? false,
           last_watched_seconds: p?.last_watched_seconds ?? 0,
         };
-      });
+      }));
 
       return list;
     },
@@ -142,16 +146,17 @@ export function useUpdateWatchSeconds() {
   const sc = useScope();
   return useMutation({
     mutationFn: async ({ lessonId, seconds }: { lessonId: string; seconds: number }) => {
-      await supabase.from('supervisor_training_progress').upsert(
+      const { error } = await supabase.from('supervisor_training_progress').upsert(
         {
           company_id: sc.companyId,
           supervisor_id: sc.supervisorId,
           lesson_id: lessonId,
-          last_watched_seconds: Math.round(seconds),
+          last_watched_seconds: Math.max(0, Math.round(seconds)),
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'supervisor_id,lesson_id' }
       );
+      if (error) throw new Error(error.message);
     },
   });
 }
@@ -173,8 +178,8 @@ export function useUploadTrainingFile() {
 
       if (error) throw new Error(`فشل رفع الملف: ${error.message}`);
 
-      const { data: pubData } = supabase.storage.from(TRAINING_BUCKET).getPublicUrl(path);
-      return { path: data.path, publicUrl: pubData.publicUrl, fileName: file.name };
+      // Persist the object path; signed URLs are created only when a learner opens the lesson.
+      return { path: data.path, publicUrl: data.path, fileName: file.name };
     },
     onError: (e: Error) => notify(e.message, 'error'),
   });

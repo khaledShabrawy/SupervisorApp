@@ -1,76 +1,53 @@
-// Web Push subscription management
 import { supabase } from './supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCallback, useEffect, useState } from 'react';
-
-export const VAPID_PUBLIC = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) ||
-  'BPXw8FvbaqXnGgBAKe3YWGqopPU2F80WBzWxq3en1qALgRWpjNwn7CBFuJyphseJv8A4t5_3ttkKUxbiTSJu1XE';
-
-function urlB64ToUint8(base64: string): Uint8Array<ArrayBuffer> {
-  const b64 = base64.replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(b64);
-  const arr = Uint8Array.from(raw, (c) => c.charCodeAt(0));
-  return new Uint8Array(arr.buffer as ArrayBuffer);
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { removeDevicePush } from './push-lifecycle';
+export const VAPID_PUBLIC = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined)?.trim() ?? '';
+const supported = () => 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+function publicKey(): Uint8Array<ArrayBuffer> {
+  const raw = atob(VAPID_PUBLIC.replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, c => c.charCodeAt(0));
 }
-
-async function getOrCreateSub(): Promise<PushSubscription | null> {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
-  const reg = await navigator.serviceWorker.ready;
-  const existing = await reg.pushManager.getSubscription();
-  if (existing) return existing;
-  return reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlB64ToUint8(VAPID_PUBLIC),
-  });
-}
-
 export function usePushSubscription() {
   const { supervisor } = useAuth();
+  const owner = supervisor ? `${supervisor.company_id}:${supervisor.id}` : '';
+  const currentOwner = useRef(owner); currentOwner.current = owner;
   const [state, setState] = useState<'idle' | 'loading' | 'subscribed' | 'denied'>('idle');
-
-  // check current state on mount
+  const [error, setError] = useState<string | null>(null);
+  const persist = useCallback(async (sub: PushSubscription) => {
+    if (!supervisor || currentOwner.current !== owner) throw new Error('تغير الحساب أثناء تفعيل الإشعارات.');
+    const json = sub.toJSON();
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) throw new Error('اشتراك الإشعارات غير مكتمل.');
+    const response = await supabase.from('push_subscriptions').upsert({ supervisor_id:supervisor.id,
+      company_id:supervisor.company_id, endpoint:json.endpoint, p256dh:json.keys.p256dh, auth:json.keys.auth },
+      { onConflict:'supervisor_id,endpoint' });
+    if (response.error) throw new Error('تعذر حفظ اشتراك الإشعارات. أعد المحاولة.');
+    if (currentOwner.current === owner) setState('subscribed');
+  }, [owner, supervisor]);
   useEffect(() => {
-    if (!('Notification' in window)) { setState('denied'); return; }
-    if (Notification.permission === 'denied') { setState('denied'); return; }
-    if (Notification.permission === 'granted') { setState('subscribed'); }
-  }, []);
-
+    let alive = true; setState('idle'); setError(null);
+    if (!supported() || Notification.permission === 'denied' || !VAPID_PUBLIC) { setState('denied'); return; }
+    if (!owner || Notification.permission !== 'granted') return;
+    void navigator.serviceWorker.getRegistration(import.meta.env.BASE_URL).then(async reg => {
+      const sub = await reg?.pushManager.getSubscription();
+      if (alive && sub) await persist(sub);
+    }).catch(e => { if (alive) setError(e.message); });
+    return () => { alive = false; };
+  }, [owner, persist]);
   const subscribe = useCallback(async () => {
-    if (!supervisor?.id || !VAPID_PUBLIC) return;
-    if (Notification.permission === 'denied') { setState('denied'); return; }
-    setState('loading');
+    if (!supported() || !supervisor || !VAPID_PUBLIC) return;
+    setState('loading'); setError(null);
     try {
-      const perm = await Notification.requestPermission();
-      if (perm !== 'granted') { setState('denied'); return; }
-      const sub = await getOrCreateSub();
-      if (!sub) { setState('idle'); return; }
-      const json = sub.toJSON() as {
-        endpoint: string;
-        keys: { p256dh: string; auth: string };
-      };
-      await supabase.from('push_subscriptions').upsert({
-        supervisor_id: supervisor.id,
-        company_id: supervisor.company_id,
-        endpoint: json.endpoint,
-        p256dh: json.keys.p256dh,
-        auth: json.keys.auth,
-      }, { onConflict: 'supervisor_id,endpoint' });
-      setState('subscribed');
-    } catch {
-      setState('idle');
-    }
-  }, [supervisor]);
-
+      if (await Notification.requestPermission() !== 'granted') { setState('denied'); return; }
+      const reg = await navigator.serviceWorker.getRegistration(import.meta.env.BASE_URL);
+      if (!reg) throw new Error('افتح التطبيق بعد تفعيل خدمة الإشعارات ثم أعد المحاولة.');
+      const sub = await reg.pushManager.getSubscription() ?? await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:publicKey()});
+      await persist(sub);
+    } catch (e) { if (currentOwner.current === owner) { setState('idle'); setError(e instanceof Error ? e.message : 'تعذر تفعيل الإشعارات.'); } }
+  }, [owner, supervisor, persist]);
   const unsubscribe = useCallback(async () => {
-    const reg = await navigator.serviceWorker?.ready;
-    const sub = await reg?.pushManager.getSubscription();
-    if (sub) {
-      await supabase.from('push_subscriptions')
-        .delete().eq('endpoint', sub.endpoint);
-      await sub.unsubscribe();
-    }
-    setState('idle');
-  }, []);
-
-  return { state, subscribe, unsubscribe };
+    try { await removeDevicePush(supervisor ? { supervisorId: supervisor.id, companyId: supervisor.company_id } : undefined); setState('idle'); setError(null); }
+    catch(e) { setError(e instanceof Error ? e.message : 'تعذر إيقاف الإشعارات.'); }
+  }, [supervisor]);
+  return { state, error, subscribe, unsubscribe };
 }

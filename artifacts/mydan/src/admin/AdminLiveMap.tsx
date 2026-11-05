@@ -150,14 +150,7 @@ function injectMapStyles() {
     document.head.appendChild(style);
   }
 
-  // Inject Leaflet CSS
-  if (!document.getElementById('lf-css')) {
-    const lnk = document.createElement('link');
-    lnk.id = 'lf-css';
-    lnk.rel = 'stylesheet';
-    lnk.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    document.head.appendChild(lnk);
-  }
+
 }
 
 /** Sanitize dynamic data before embedding into Leaflet DOM/HTML popups */
@@ -495,7 +488,7 @@ export default function AdminLiveMap() {
         <div>
           <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <MapPin size={24} color="var(--color-primary)" />
-            {t('تتبع المشرفين اللحظي والمسار الميداني')}
+            {t('آخر مواقع الزيارات المسجلة والمسارات')}
           </h2>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
             {t('خريطة شوارع مصر الحية — متابعة مواقع المشرفين وخطوط السير بدون أي تكلفة أو API Key')}
@@ -539,7 +532,7 @@ export default function AdminLiveMap() {
             }}
             disabled={isFetching}
             style={{ minHeight: 38, gap: 6 }}
-            title={t('تحديث فوري')}
+            title={t('تحديث المواقع المسجلة')}
           >
             <RefreshCw className={isFetching ? 's-spin' : ''} size={16} />
             <span style={{ fontSize: 13 }}>{t('تحديث')}</span>
@@ -554,7 +547,7 @@ export default function AdminLiveMap() {
           <div style={{ fontSize: 20, fontWeight: 800, color: '#166534' }}>{num(summary.activeInVisit)}</div>
         </div>
         <div className="card col" style={{ padding: '10px 14px', borderRight: '4px solid #2563EB', background: '#EFF6FF' }}>
-          <div className="muted" style={{ fontSize: 12 }}>🔵 {t('متحركون اليوم')}</div>
+          <div className="muted" style={{ fontSize: 12 }}>🔵 {t('أنهوا زيارات اليوم')}</div>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#1E40AF' }}>{num(summary.movingAfterVisit)}</div>
         </div>
         <div className="card col" style={{ padding: '10px 14px', borderRight: '4px solid #94A3B8' }}>
@@ -796,7 +789,7 @@ export default function AdminLiveMap() {
                   onClick={() => setStatusFilter('completed')}
                   style={{ fontSize: 11, padding: '2px 8px' }}
                 >
-                  🔵 {t('متحرك')}
+                  🔵 {t('آخر زيارة مسجلة')}
                 </button>
                 <button
                   className={`chip sm ${statusFilter === 'idle' ? 'on' : ''}`}
@@ -850,7 +843,7 @@ export default function AdminLiveMap() {
                             className={`badge ${isLive ? 'b-green' : hasLocation ? 'b-blue' : 'b-gray'}`}
                             style={{ fontSize: 11, whiteSpace: 'nowrap' }}
                           >
-                            {isLive ? `🟢 ${t('في زيارة')}` : hasLocation ? `🔵 ${t('متحرك')}` : `⚪ ${t('غير نشط')}`}
+                            {isLive ? `🟢 ${t('في زيارة')}` : hasLocation ? `🔵 ${t('آخر زيارة مسجلة')}` : `⚪ ${t('غير نشط')}`}
                           </span>
                         </div>
 

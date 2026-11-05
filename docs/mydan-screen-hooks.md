@@ -1,3 +1,5 @@
+> المرجع الحالي: [عقد ميدان الهندسي](mydan-engineering-contract.md) و[سجل الإصلاحات](mydan-remediation.md). التفاصيل التاريخية أدناه لا تثبت مخطط قاعدة البيانات الحية أو اعتماد النشر.
+
 # PWA screen implementation contract
 
 Maintain the existing screens in `artifacts/mydan/src/screens/` and shared `Shell`/`BottomNav`; do not rebuild them. The confirmed product is supervisor task execution against goals set beforehand by their manager through Admin Control Web. Sales orders (including quantity-only orders), invoices, collections, returns and all financial workflows are out of scope. Existing historical SQL does not authorize adding them back.

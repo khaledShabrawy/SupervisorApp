@@ -1,3 +1,5 @@
+-- Historical script only. Never replay after the audited security contract.
+DO $$ BEGIN IF to_regprocedure('public.mdn_security_contract_version_v1()') IS NOT NULL THEN RAISE EXCEPTION 'Legacy SQL replay blocked: use versioned migrations.'; END IF; END $$;
 -- ==============================================================================
 -- MYDAN CONSOLIDATED MIGRATION 18: Complete Schema Sync for Supabase
 -- Applies all pending schema updates (Phases 1, 3, 4, 5) idempotently.

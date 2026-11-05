@@ -32,7 +32,7 @@ function normalizeCriteria(raw?: string | null): string {
   if (!raw) return 'visits';
   const v = raw.trim().toLowerCase();
   if (['visits', 'زيارات', 'زيارة'].includes(v)) return 'visits';
-  if (['orders', 'طلبيات', 'طلبات', 'طلبات', 'اوردرات', 'مبيعات'].includes(v)) return 'orders';
+  if (['orders', 'طلبيات', 'طلبات', 'اوردرات', 'مبيعات'].includes(v)) throw new Error('أهداف البيع خارج نطاق ميدان.');
   if (['shelf_audit', 'تدقيق رف', 'رفوف', 'مراجعة الرف'].includes(v)) return 'shelf_audit';
   if (['new_opportunity', 'عملاء جدد', 'فرص جديدة'].includes(v)) return 'new_opportunity';
   return 'visits';
@@ -70,14 +70,14 @@ CUST-001,بقالة الأمل,بقالة,أحمد محمد,01012345678,شارع
 CUST-002,سوبرماركت النور,سوبر ماركت,محمود علي,01098765432,ميدان التحرير; الدقي; الجيزة,30.0444,31.2357,الجيزة,,true`;
 
 /** CSV template for products import */
-const PRODUCT_CSV_TEMPLATE = `name,category,sku_code,item_code,master_brand,sub_brand,price,unit,is_active
-شوكولاتة كورونا سبريد,حلويات,SKU-COR-01,ITM-101,كورونا,سبريد,45,قطعة,true
-بسكويت كورونا لوكس,بسكويت,SKU-COR-02,ITM-102,كورونا,لوكس,15,علبة,true`;
+const PRODUCT_CSV_TEMPLATE = `name,category,sku_code,item_code,master_brand,sub_brand,unit,is_active
+شوكولاتة كورونا سبريد,حلويات,SKU-COR-01,ITM-101,كورونا,سبريد,قطعة,true
+بسكويت كورونا لوكس,بسكويت,SKU-COR-02,ITM-102,كورونا,لوكس,علبة,true`;
 
 /** CSV template for monthly targets import */
-const TARGET_CSV_TEMPLATE = `supervisor_id,month,year,visits_target,audit_target,criteria,target_amount
-,10,2026,50,25,visits,0
-,10,2026,60,30,orders,25000`;
+const TARGET_CSV_TEMPLATE = `supervisor_id,month,year,visits_target,audit_target,criteria
+,10,2026,50,25,visits
+,10,2026,60,30,shelf_audit`;
 
 /** CSV template for supervisor beat plans */
 const BEAT_PLAN_CSV_TEMPLATE = `supervisor_id,day_of_week,plan_date,customer_id
@@ -439,6 +439,7 @@ function useBulkImportProducts() {
       const masterIdx = findColumnIndex(headers, ['master_brand', 'master brand', 'العلامة الرئيسية', 'البراند', 'الماركة', 'brand']);
       const subIdx = findColumnIndex(headers, ['sub_brand', 'sub brand', 'العلامة الفرعية']);
       const priceIdx = findColumnIndex(headers, ['price', 'سعر', 'السعر', 'سعر البيع', 'سعر القطعة']);
+      if (priceIdx !== -1) throw new Error('أعمدة الأسعار خارج نطاق ميدان. استخدم القالب الحالي.');
       const unitIdx = findColumnIndex(headers, ['unit', 'وحدة', 'الوحدة']);
       const activeIdx = findColumnIndex(headers, ['is_active', 'active', 'نشط', 'الحالة']);
 
@@ -489,7 +490,6 @@ function useBulkImportProducts() {
           master_brand: (masterIdx !== -1 ? row[masterIdx]?.trim() : '') || null,
           sub_brand: (subIdx !== -1 ? row[subIdx]?.trim() : '') || null,
           unit: (unitIdx !== -1 ? row[unitIdx]?.trim() : '') || 'قطعة',
-          price: isNaN(price) ? 0 : price,
           is_active: activeIdx !== -1 ? row[activeIdx]?.trim().toLowerCase() !== 'false' : true,
         };
 
@@ -570,6 +570,7 @@ function useBulkImportTargets() {
       const criteriaIdx = findColumnIndex(headers, ['criteria', 'المعيار', 'النوع']);
       const amountIdx = findColumnIndex(headers, ['target_amount', 'amount', 'المبلغ', 'القيمة']);
 
+      if (amountIdx !== -1) throw new Error('الأهداف المالية خارج نطاق ميدان. استخدم القالب الحالي.');
       if (monthIdx === -1 || yearIdx === -1) {
         throw new Error(t('الحقول المطلوبة: month, year'));
       }
@@ -601,7 +602,6 @@ function useBulkImportTargets() {
           supervisor_id: supervisorId,
           visits_target: visitsTarget,
           audit_target: auditTarget,
-          target_amount: targetAmount,
           criteria,
           scope_type: supervisorId ? 'per_user' : 'general',
           target_date: `${year}-${String(month).padStart(2, '0')}-01`,
@@ -738,7 +738,7 @@ function useBulkImportBeatPlans() {
             body_ar: 'تم تحديث جدول زياراتك الميدانية وقائمة المتاجر المعتمدة.',
             is_read: false,
           }));
-          void (supabase.from('notifications') as any).insert(rows);
+
           void supabase.functions.invoke('push-notify', {
             body: {
               supervisorIds: uniqueSupIds,
@@ -913,7 +913,7 @@ export function BulkTemplates() {
             <li><code>master_brand</code>: {t('العلامة الرئيسية (Master Brand)')}</li>
             <li><code>sub_brand</code>: {t('العلامة الفرعية (Sub Brand)')}</li>
             <li><code>category</code>: {t('الفئة')}</li>
-            <li><code>price</code>, <code>unit</code>: {t('اختياري')}</li>
+            <li><code>unit</code>: {t('اختياري')}</li>
             <li><code>is_active</code>: {t('true / false')}</li>
           </ul>
         </div>
@@ -955,15 +955,14 @@ export function BulkTemplates() {
       {/* 3. Targets Import */}
       <div className="card col">
         <div className="title">{t('استيراد الأهداف الشهرية (Targets)')}</div>
-        <div className="muted">{t('قم بتنزيل قالب الأهداف، حدد تارجت الزيارات والمبيعات لكل مشرف أو للفريق، ثم ارفعه.')}</div>
+        <div className="muted">{t('قم بتنزيل قالب الأهداف، حدد أهداف الزيارات ومراجعات الرف لكل مشرف أو للفريق، ثم ارفعه.')}</div>
         <div className="alert warn" style={{ fontSize: 13 }}>
           <strong>{t('تنسيق الحقول:')}</strong>
           <ul style={{ marginTop: 4, paddingInlineStart: 20 }}>
             <li><code>month</code>, <code>year</code>: {t('الشهر والسنة (مطلوبان، مثال: 10, 2026)')}</li>
             <li><code>visits_target</code>: {t('عدد الزيارات المستهدفة')}</li>
             <li><code>audit_target</code>: {t('عدد مراجعات الرف')}</li>
-            <li><code>criteria</code>: {t('visits, orders, shelf_audit, new_opportunity')}</li>
-            <li><code>target_amount</code>: {t('القيمة المالية المستهدفة (للطلبات)')}</li>
+            <li><code>criteria</code>: {t('visits, shelf_audit')}</li>
             <li><code>supervisor_id</code>: {t('معرّف المشرف (اختياري، اتركه فارغاً للهدف العام)')}</li>
           </ul>
         </div>

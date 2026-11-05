@@ -1,3 +1,5 @@
+-- Historical script only. Never replay after the audited security contract.
+DO $$ BEGIN IF to_regprocedure('public.mdn_security_contract_version_v1()') IS NOT NULL THEN RAISE EXCEPTION 'Legacy SQL replay blocked: use versioned migrations.'; END IF; END $$;
 -- ============================================================
 -- 12_phase1_regions_security_auth.sql
 -- Phase 1: Regions, Security Settings, Auth & Password Policies

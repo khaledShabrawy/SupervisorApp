@@ -1,3 +1,5 @@
+import { withClientCors } from '../_shared/client-cors.ts';
+import { corsHeaders as sdkCorsHeaders } from 'npm:@supabase/supabase-js@2.117.2/cors';
 // discover-customers v2 — Google Gemini Flash API (Primary & Free) with Claude Vision Fallback.
 //
 // Secrets (Dashboard → Edge Functions → Secrets):
@@ -10,12 +12,9 @@
 // Body: { survey_id }
 // Photo lives in the 'survey-photos' private bucket under path
 //   {company_id}/{supervisor_id}/{uuid}.ext
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
-import { encodeBase64 } from "jsr:@std/encoding@1/base64";
-import Anthropic from "npm:@anthropic-ai/sdk";
-import { zodOutputFormat } from "npm:@anthropic-ai/sdk/helpers/zod";
-import { z } from "npm:zod@3";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
+import { encodeBase64, verifiedTokenSession } from "../_shared/encoding.ts";
+import { z } from "npm:zod@3.25.76";
 
 const SURVEY_BUCKET = "survey-photos";
 const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
@@ -24,10 +23,7 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
 type MediaType = typeof MEDIA_TYPES[number];
 
-const cors = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const cors = sdkCorsHeaders;
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
@@ -83,6 +79,7 @@ async function callGemini(apiKey: string, base64Data: string, mediaType: string)
 
   const resp = await fetch(url, {
     method: "POST",
+        signal: AbortSignal.timeout(40_000),
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{
@@ -114,27 +111,22 @@ async function callGemini(apiKey: string, base64Data: string, mediaType: string)
 
 /** Fallback to Anthropic Claude Vision */
 async function callAnthropic(apiKey: string, base64Data: string, mediaType: MediaType): Promise<SurveyResult> {
-  const client = new Anthropic({ apiKey });
-  const response = await client.messages.parse({
-    model: CLAUDE_MODEL,
-    max_tokens: 4000,
-    system: SYSTEM,
-    messages: [{
-      role: "user",
-      content: [
-        { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
-        { type: "text", text: "حلل الصورة واكتشف جميع المحلات التجارية المرئية." },
-      ],
-    }],
-    output_config: { format: zodOutputFormat(SurveySchema) },
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST', signal:AbortSignal.timeout(60_000),
+    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
+    body:JSON.stringify({model:CLAUDE_MODEL,max_tokens:4000,system:SYSTEM,messages:[{role:'user',content:[
+      {type:'image',source:{type:'base64',media_type:mediaType,data:base64Data}},{type:'text',text:"Return only JSON with stores_found, stores (each with name, type, estimated_size (small/medium/large), position_note), summary_ar. Do not invent invisible stores."}
+    ]}]}),
   });
+  if(!response.ok) throw new Error('Analysis provider rejected the request');
+  const output=await response.json();
+  const text=output.content?.find((part:{type:string;text?:string})=>part.type==='text')?.text;
+  if(output.stop_reason==='refusal' || !text) throw new Error('Provider returned no measurement');
+  return SurveySchema.parse(JSON.parse(text.trim().replace(/^```(?:json)?\s*/i,'').replace(/```$/i,'')));
 
-  if (response.stop_reason === "refusal") throw new Error("model declined to analyze this photo");
-  if (!response.parsed_output) throw new Error("model returned unparseable output");
-  return response.parsed_output;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withClientCors(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json(405, { error: "method not allowed" });
 
@@ -175,17 +167,20 @@ Deno.serve(async (req) => {
     (!isAdmin && survey.supervisor_id !== caller.id)
   ) return json(404, { error: "survey not found" });
   if (!survey.photo_url) return json(400, { error: "survey has no photo" });
-  if (!survey.photo_url.startsWith(`${caller.company_id}/`)) {
+  if (!survey.photo_url.startsWith(`${caller.company_id}/${survey.supervisor_id}/`)) {
     return json(403, { error: "photo path does not belong to your company" });
   }
-  if (survey.status === "processing") return json(409, { error: "analysis already running" });
-  if (survey.status === "completed") return json(409, { error: "survey already completed" });
-
-  const fail = async (status: number, error: string) => {
-    await admin.from("field_surveys").update({ status: "failed" }).eq("id", survey.id);
-    return json(status, { error });
+  const sid=verifiedTokenSession(token!);
+  if(!sid) return json(403,{error:'Session identity required'});
+  const claim=await admin.rpc('mdn_claim_analysis_job_v1',{p_user_id:auth.user.id,
+    p_session_id:sid,p_resource_type:'field_surveys',p_resource_id:survey.id});
+  if(claim.error || !claim.data) return json(claim.error?.code==='23505'?409:claim.error?.code==='54000'?429:403,{error:'Analysis could not be authorized or reserved'});
+  const jobId=claim.data;
+  const fail=async(status:number,error:string)=>{
+    const result=await admin.rpc('mdn_finish_analysis_job_v1',{p_job_id:jobId,p_success:false});
+    if(result.error) console.error('Could not finalize discovery failure',jobId);
+    return json(status,{error});
   };
-  await admin.from("field_surveys").update({ status: "processing" }).eq("id", survey.id);
 
   try {
     // 3) Download photo from private bucket
@@ -198,13 +193,14 @@ Deno.serve(async (req) => {
     // 4) Execute AI Discovery: Primary is Gemini Flash, Fallback is Anthropic
     let result: SurveyResult;
     let modelUsed: string;
+    let engine: 'google-gemini' | 'anthropic' = 'anthropic';
 
     if (geminiKey) {
       try {
         result = await callGemini(geminiKey, base64Data, mediaType);
-        modelUsed = GEMINI_MODEL;
+        modelUsed = GEMINI_MODEL; engine = 'google-gemini';
       } catch (geminiErr) {
-        console.warn("Gemini Flash survey failed, trying fallback:", geminiErr);
+        console.warn("Primary discovery provider failed");
         if (anthropicKey) {
           result = await callAnthropic(anthropicKey, base64Data, mediaType);
           modelUsed = CLAUDE_MODEL;
@@ -217,11 +213,8 @@ Deno.serve(async (req) => {
       modelUsed = CLAUDE_MODEL;
     }
 
-    await admin.from("field_surveys").update({
-      stores_found: result.stores_found,
-      ai_raw_result: { ...result, model: modelUsed, engine: geminiKey ? "google-gemini" : "anthropic" },
-      status: "completed",
-    }).eq("id", survey.id);
+    const saved=await admin.rpc('mdn_finish_analysis_job_v1',{p_job_id:jobId,p_success:true,p_result:{...result,model:modelUsed,engine}});
+    if(saved.error || saved.data!==true) return await fail(500,'Could not confirm persisted discovery');
 
     return json(200, {
       success: true,
@@ -232,7 +225,7 @@ Deno.serve(async (req) => {
       model: modelUsed,
     });
   } catch (err: any) {
-    console.error("discover-customers error:", err);
-    return await fail(500, err?.message || "internal error");
+    console.error("Discovery failed",jobId);
+    return await fail(500, "Could not complete discovery");
   }
-});
+},Deno.env.get('ALLOWED_ORIGIN') ?? 'https://mydan.digityoucan.com',sdkCorsHeaders));

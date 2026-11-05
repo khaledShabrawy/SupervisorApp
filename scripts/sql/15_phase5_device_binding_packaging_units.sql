@@ -1,3 +1,5 @@
+-- Historical script only. Never replay after the audited security contract.
+DO $$ BEGIN IF to_regprocedure('public.mdn_security_contract_version_v1()') IS NOT NULL THEN RAISE EXCEPTION 'Legacy SQL replay blocked: use versioned migrations.'; END IF; END $$;
 -- ==============================================================================
 -- MYDAN MIGRATION 15: Phase 5 - Device Binding & FMCG Packaging Units
 -- 1. Anti-fraud: device_id in supervisors for single device binding

@@ -8,6 +8,7 @@ const approved = new Set(['react', 'react-dom', 'react-router-dom', '@supabase/s
   // Beat-plan map (Leaflet renders visit-route maps without a tile-server dependency).
   'leaflet', '@types/leaflet',
   // Android APK shell (WebView wrapper around the same web build — see docs/mydan-roadmap-to-apk.md).
+  '@electric-sql/pglite', 'fake-indexeddb', '@playwright/test',
   '@capacitor/core', '@capacitor/android', '@capacitor/cli']);
 
 const root = new URL('../../../', import.meta.url);

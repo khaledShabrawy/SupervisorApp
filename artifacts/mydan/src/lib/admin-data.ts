@@ -20,7 +20,9 @@ import type { Supervisor } from '@/types/database';
 import { supabase } from './supabase';
 import { useScope, usePaged, PHOTO_BUCKET } from './data';
 import { useAuth } from '@/contexts/AuthContext';
-import { readExactCount } from './read-count';
+import { signedMedia } from './private-media';
+import { shelfMetrics, isMeasuredAudit } from './shelf-metrics';
+import { readAllRows, readExactCount } from './read-count';
 import { notify } from './toast';
 import { todayStr } from './format';
 import { SCREENS, type ScreenKey } from './permissions';
@@ -45,137 +47,20 @@ export interface AdminKpiFilters {
 
 export function useAdminKpis(filters?: AdminKpiFilters) {
   const sc = useScope();
-  const dateFrom = filters?.dateFrom || todayStr().slice(0, 8) + '01';
-  const dateTo = filters?.dateTo || todayStr();
-  const regionId = filters?.regionId || 'all';
-  const branchId = filters?.branchId || 'all';
-  const supervisorId = filters?.supervisorId || 'all';
-
+  const dateFrom = filters?.dateFrom || todayStr().slice(0, 8) + '01', dateTo = filters?.dateTo || todayStr();
   return useQuery({
-    queryKey: [...sc.base, 'admin-kpis', dateFrom, dateTo, regionId, branchId, supervisorId],
-    enabled: sc.isAdmin,
-    retry: 1,
+    queryKey: [...sc.base, 'admin-kpis', dateFrom, dateTo, filters], enabled: sc.isAdmin, retry: 1,
     queryFn: async ({ signal }) => {
-      // 1. Resolve supervisor IDs matching branch/region filters
-      let supervisorIds: string[] | null = null;
-      if (supervisorId !== 'all') {
-        supervisorIds = [supervisorId];
-      } else if (branchId !== 'all') {
-        const { data: sups } = await supabase.from('supervisors')
-          .select('id').eq('company_id', sc.companyId).eq('branch_id', branchId).abortSignal(signal);
-        supervisorIds = (sups ?? []).map((s) => s.id);
-      } else if (regionId !== 'all') {
-        const { data: branches, error: bErr } = await supabase.from('branches')
-          .select('id').eq('company_id', sc.companyId).eq('region_id', regionId).abortSignal(signal);
-        if (!bErr && branches) {
-          const bIds = branches.map((b) => b.id);
-          if (bIds.length > 0) {
-            const { data: sups } = await supabase.from('supervisors')
-              .select('id').eq('company_id', sc.companyId).in('branch_id', bIds).abortSignal(signal);
-            supervisorIds = (sups ?? []).map((s) => s.id);
-          } else {
-            supervisorIds = [];
-          }
-        } else {
-          supervisorIds = null;
-        }
-      }
-
-      const hasEmptySupFilter = supervisorIds !== null && supervisorIds.length === 0;
-
-      // 2. Fetch Active Supervisors count
-      let supsCount = 0;
-      if (!hasEmptySupFilter) {
-        let supQ = supabase.from('supervisors').select('id', { count: 'exact', head: true })
-          .eq('company_id', sc.companyId).eq('is_active', true);
-        if (supervisorIds) supQ = supQ.in('id', supervisorIds);
-        const countRes = await supQ.abortSignal(signal);
-        supsCount = countRes.count ?? 0;
-      }
-
-      // 3. Fetch Visits in Date Range
-      let visitsCount = 0;
-      let onBeatCount = 0;
-      let oorCount = 0;
-      let totalGeoCount = 0;
-      if (!hasEmptySupFilter) {
-        let vQ = supabase.from('visits').select('id,on_beat,geo_distance')
-          .eq('company_id', sc.companyId)
-          .gte('visit_date', dateFrom)
-          .lte('visit_date', dateTo);
-        if (supervisorIds) vQ = vQ.in('supervisor_id', supervisorIds);
-        const { data: visitsData } = await vQ.limit(2000).abortSignal(signal);
-        const vList = visitsData ?? [];
-        visitsCount = vList.length;
-        const geoList = vList.filter((r) => r.on_beat != null);
-        totalGeoCount = geoList.length;
-        onBeatCount = geoList.filter((r) => r.on_beat === true).length;
-        oorCount = totalGeoCount - onBeatCount;
-      }
-      const geofenceRate = totalGeoCount ? Math.round((onBeatCount / totalGeoCount) * 100) : null;
-
-      // 4. Fetch Targets for Target vs Achieved
-      let visitsTarget = 0;
-      const visitsAchieved = visitsCount;
-      let auditsTarget = 0;
-      let auditsAchieved = 0;
-
-      if (!hasEmptySupFilter) {
-        let tQ = supabase.from('targets').select('visits_target,audit_target,actual_visits,actual_audits')
-          .eq('company_id', sc.companyId);
-        if (supervisorIds) tQ = tQ.in('supervisor_id', supervisorIds);
-        const { data: targetsData } = await tQ.limit(500).abortSignal(signal);
-        for (const t of targetsData ?? []) {
-          visitsTarget += Number(t.visits_target) || 0;
-          auditsTarget += Number(t.audit_target) || 0;
-        }
-      }
-
-      const achievementRate = visitsTarget > 0
-        ? Math.round((visitsAchieved / visitsTarget) * 100)
-        : (visitsAchieved > 0 ? 100 : 0);
-
-      // 5. Shelf audit PSS average in period
-      let avgPss: number | null = null;
-      let auditsCount = 0;
-      if (!hasEmptySupFilter) {
-        let auditQ = supabase.from('shelf_audit').select('audit_score')
-          .eq('company_id', sc.companyId)
-          .eq('status', 'completed')
-          .gte('created_at', `${dateFrom}T00:00:00`)
-          .lte('created_at', `${dateTo}T23:59:59`)
-          .not('audit_score', 'is', null);
-        if (supervisorIds) auditQ = auditQ.in('supervisor_id', supervisorIds);
-        const { data: scoresData } = await auditQ.limit(1000).abortSignal(signal);
-        const sList = (scoresData ?? []).map((r) => Number(r.audit_score)).filter(Number.isFinite);
-        auditsCount = sList.length;
-        auditsAchieved = auditsCount;
-        avgPss = sList.length ? Math.round(sList.reduce((a, b) => a + b, 0) / sList.length) : null;
-      }
-
-      // 6. Assets & open tickets
-      const [assetsRes, ticketsRes] = await Promise.all([
-        supabase.from('assets').select('id', { count: 'exact', head: true }).eq('company_id', sc.companyId).eq('is_active', true).abortSignal(signal),
-        supabase.from('asset_tickets').select('id', { count: 'exact', head: true }).eq('company_id', sc.companyId).in('status', ['open', 'dispatched', 'in_progress']).abortSignal(signal),
-      ]);
-
-      return {
-        supervisors: supsCount,
-        visitsToday: visitsCount,
-        assets: assetsRes.count ?? 0,
-        openTickets: ticketsRes.count ?? 0,
-        avgPss,
-        audits30d: auditsCount,
-        geofenceRate,
-        onBeatVisits: onBeatCount,
-        oorVisits: oorCount,
-        totalGeoVisits: totalGeoCount,
-        visitsTarget,
-        visitsAchieved,
-        achievementRate,
-        auditsTarget,
-        auditsAchieved,
-      };
+      const { data, error } = await supabase.rpc('mdn_admin_kpis_v1', {
+        p_date_from: dateFrom, p_date_to: dateTo,
+        p_region_id: filters?.regionId && filters.regionId !== 'all' ? filters.regionId : null,
+        p_branch_id: filters?.branchId && filters.branchId !== 'all' ? filters.branchId : null,
+        p_supervisor_id: filters?.supervisorId && filters.supervisorId !== 'all' ? filters.supervisorId : null,
+      }).abortSignal(signal);
+      if (error || !data) throw new Error('تعذر تحميل مؤشرات الفترة من الخادم.');
+      return data as { supervisors: number; visitsToday: number; assets: number; openTickets: number; avgPss: number | null;
+        audits30d: number; geofenceRate: number | null; onBeatVisits: number; oorVisits: number; totalGeoVisits: number;
+        visitsTarget: number; visitsAchieved: number; achievementRate: number; auditsTarget: number; auditsAchieved: number };
     },
   });
 }
@@ -446,8 +331,6 @@ export function useSaveProduct() {
         master_brand: p.master_brand?.trim() || null,
         sub_brand: p.sub_brand?.trim() || null,
         units_per_carton: p.units_per_carton != null ? Math.max(1, Number(p.units_per_carton)) : 1,
-        carton_price: p.carton_price != null ? Number(p.carton_price) : null,
-        price: p.price != null ? Number(p.price) : null,
         unit: p.unit?.trim() || 'قطعة',
         is_active: p.is_active,
       };
@@ -867,40 +750,13 @@ export function useEditSupervisorProfile() {
 
       if (!full_name.trim()) throw new Error(t('الاسم مطلوب.'));
 
-      // Step 1: Always update profile fields directly — decoupled from Auth to avoid email validation
-      const profilePatch: Record<string, any> = { full_name: full_name.trim(), phone: phone.trim() || null };
-      if (supervisor_code !== undefined) {
-        profilePatch.supervisor_code = supervisor_code.trim() || null;
-      }
-      const { error: profileErr } = await (supabase.from('supervisors') as any)
-        .update(profilePatch).eq('id', id).eq('company_id', sc.companyId);
-      if (profileErr && !profileErr.message?.includes('supervisor_code')) {
-        fail(t('تعذر تعديل بيانات المشرف.'), profileErr);
-      }
+      const { data, error } = await supabase.rpc('mdn_admin_update_supervisor_v1', {
+        p_supervisor_id: id,
+        p_patch: { full_name: full_name.trim(), phone: phone.trim() || null, role,
+          branch_id: effectiveBranchId, ...(supervisor_code !== undefined ? { supervisor_code: supervisor_code.trim() || null } : {}) },
+      });
+      if (error || !data) fail(t('تعذر تعديل بيانات المشرف.'), error);
 
-      // Step 2: Update privileged fields (role, branch_id) via RPC with direct fallback
-      let rpcError: any = null;
-      try {
-        const { error } = await supabase.rpc('admin_update_supervisor', {
-          p_supervisor_id: id,
-          p_role: role,
-          p_branch_id: effectiveBranchId || null,
-          p_full_name: full_name.trim(),
-          p_phone: phone.trim() || null,
-          p_clear_branch: !effectiveBranchId,
-        });
-        if (error) rpcError = error;
-      } catch (e) {
-        rpcError = e;
-      }
-
-      if (rpcError) {
-        // Do NOT fall back to direct DB write — the RPC enforces role-ceiling and branch-scope.
-        // A direct write would allow role escalation bypassing those guards (Security fix H3).
-        // Note: name/phone/supervisor_code were already saved in Step 1 above.
-        fail(t('تعذر تعديل بيانات المشرف.') + ' ' + ((rpcError as any)?.message || ''), rpcError as Error);
-      }
-      // Note: supervisor_code is handled in Step 1 profilePatch above.
     },
     onSuccess: () => { notify(t('تم تحديث بيانات المشرف'), 'success'); void invalidate(qc, sc, 'admin-supervisors'); },
     onError: (e: Error) => notify(e.message, 'error'),
@@ -915,21 +771,9 @@ export function useDeleteSupervisor() {
       if (target.id === sc.supervisorId) throw new Error(t('لا يمكنك حذف حسابك الشخصي.'));
       if (target.role === 'super_admin') throw new Error(t('لا يمكن حذف المدير الأعلى للنظام.'));
       
-      // Server-side deletion via delete_supervisor_cascade RPC with direct delete fallback
-      let delError: any = null;
-      try {
-        const { error: rpcErr } = await supabase.rpc('delete_supervisor_cascade', { p_supervisor_id: target.id });
-        if (rpcErr) delError = rpcErr;
-      } catch (e) {
-        delError = e;
-      }
+      const { data, error } = await supabase.rpc('delete_supervisor_cascade', { p_supervisor_id: target.id });
+      if (error || data !== true) fail('تعذر حذف المستخدم. تُحفظ السجلات التاريخية؛ يمكن تعطيل الحساب بدلاً من حذفها.', error);
 
-      if (delError) {
-        const { error: dirErr } = await supabase.from('supervisors').delete().eq('id', target.id).eq('company_id', sc.companyId);
-        if (dirErr) {
-          fail(t('تعذر حذف المستخدم. قد يكون مرتبطاً ببيانات أخرى أو تفتقر للصلاحية المطلوبة.') + ' ' + (dirErr.message || delError.message || ''), dirErr);
-        }
-      }
     },
     onSuccess: () => {
       notify(t('تم حذف المستخدم بنجاح'), 'success');
@@ -946,7 +790,7 @@ export function useUpdateAdminTarget() {
       id: string;
       visits_target: number;
       audit_target: number;
-      target_amount: number;
+      target_amount?: number;
       criteria: string;
       scope_type: string;
       target_scope: string;
@@ -957,7 +801,6 @@ export function useUpdateAdminTarget() {
       const { error } = await supabase.from('targets').update({
         visits_target: row.visits_target,
         audit_target: row.audit_target,
-        target_amount: row.target_amount,
         criteria: row.criteria,
         scope_type: row.scope_type,
         target_scope: row.target_scope,
@@ -967,14 +810,6 @@ export function useUpdateAdminTarget() {
       if (error) fail(t('تعذر تحديث الهدف.'), error);
 
       if (row.supervisor_id) {
-        void (supabase.from('notifications') as any).insert({
-          company_id: sc.companyId,
-          supervisor_id: row.supervisor_id,
-          type: 'target_update',
-          title_ar: 'تم تحديث أهدافك البيعية 🎯',
-          body_ar: `تم تعديل هدفك الشهري (${row.visits_target || 0} زيارة، ${row.audit_target || 0} تدقيق رف).`,
-          is_read: false,
-        });
         void supabase.functions.invoke('push-notify', {
           body: {
             supervisorIds: [row.supervisor_id],
@@ -1027,12 +862,13 @@ export function useAdminTargets(month: number, year: number) {
         .from('targets')
         .select(`
           id, company_id, supervisor_id, target_date, criteria,
-          visits_target, audit_target, target_amount, actual_visits, actual_audits,
+          visits_target, audit_target, actual_visits, actual_audits,
           scope_type, target_scope, branch_id, created_at,
           supervisors(id, full_name, phone, supervisor_code),
           branches(id, name)
         `)
         .eq('company_id', sc.companyId)
+        .or('criteria.is.null,criteria.neq.orders')
         .gte('target_date', `${monthPrefix}-01`)
         .lte('target_date', `${monthPrefix}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`)
         .order('created_at', { ascending: false })
@@ -1081,9 +917,9 @@ export interface AdminShelfAuditRow {
   supervisor_code?: string;
   customer_name?: string;
   branch_name?: string;
-  our_facings?: number;
-  competitor_facings?: number;
-  shelf_share_pct?: number;
+  our_facings?: number | null;
+  competitor_facings?: number | null;
+  shelf_share_pct?: number | null;
   [key: string]: any;
 }
 
@@ -1091,63 +927,33 @@ export function useAdminShelfAudits(filters: { branchId?: string; supervisorId?:
   const sc = useScope();
   return useQuery({
     queryKey: ['admin-shelf-audits', sc.companyId, filters],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       requireAdmin(sc);
-      let q = (supabase.from('shelf_audit') as any)
-        .select(`
-          id, visit_id, supervisor_id, company_id, photo_url, audit_summary_ar,
-          audit_score, ai_detailed_report, status, audited_at, created_at,
-          supervisors(id, full_name, supervisor_code, branch_id, branches(id, name)),
-          visits(id, customer_id, customers(id, name, customer_code))
-        `)
-        .eq('company_id', sc.companyId)
-        .order('audited_at', { ascending: false })
-        .limit(200);
-
-      if (filters.supervisorId) q = q.eq('supervisor_id', filters.supervisorId);
-      if (filters.dateFrom) q = q.gte('audited_at', filters.dateFrom);
-      if (filters.dateTo) q = q.lte('audited_at', filters.dateTo + 'T23:59:59');
-
-      let { data, error } = await q;
-
-      // Resilient fallback if foreign table relationships differ
-      if (error) {
-        let fallbackQ = (supabase.from('shelf_audit') as any)
-          .select('*')
-          .eq('company_id', sc.companyId)
-          .order('audited_at', { ascending: false })
-          .limit(200);
-        if (filters.supervisorId) fallbackQ = fallbackQ.eq('supervisor_id', filters.supervisorId);
-        if (filters.dateFrom) fallbackQ = fallbackQ.gte('audited_at', filters.dateFrom);
-        if (filters.dateTo) fallbackQ = fallbackQ.lte('audited_at', filters.dateTo + 'T23:59:59');
-        const res = await fallbackQ;
-        if (res.error) throw res.error;
-        data = res.data;
-      }
-
-      const rows: AdminShelfAuditRow[] = await Promise.all((data ?? []).map(async (row: any) => {
+      const data = await readAllRows<any>(() => {
+        let q = supabase.from('shelf_audit').select(`
+          id,visit_id,supervisor_id,company_id,photo_url,audit_summary_ar,audit_score,ai_detailed_report,status,audited_at,created_at,
+          supervisors(id,full_name,supervisor_code,branch_id,branches(id,name)),visits(id,customer_id,customers(id,name,customer_code))
+        `).eq('company_id',sc.companyId).eq('status','completed');
+        if (filters.supervisorId) q=q.eq('supervisor_id',filters.supervisorId);
+        if (filters.dateFrom) q=q.gte('audited_at',filters.dateFrom);
+        if (filters.dateTo) q=q.lte('audited_at',filters.dateTo+'T23:59:59.999Z');
+        return q;
+      }, signal, 'تعذر تحميل جميع مراجعات الرف.');
+      const rows: AdminShelfAuditRow[] = await Promise.all((data ?? []).filter((row:any)=>isMeasuredAudit(row.ai_detailed_report)).sort((a:any,b:any)=>String(b.audited_at).localeCompare(String(a.audited_at))).map(async (row: any) => {
         const sup = row.supervisors;
         const visit = row.visits;
         const cust = visit?.customers;
 
         // Extract facings from ai_detailed_report if available
         const report = row.ai_detailed_report;
-        const our = report?.target_brand_metrics?.facings ?? report?.our_facings ?? 0;
-        const comp = report?.competitors_metrics?.reduce?.((sum: number, c: any) => sum + (c.facings || 0), 0) ?? report?.competitor_facings ?? 0;
-        const total = our + comp;
-        const share = total > 0 ? Math.round((our / total) * 100) : (row.audit_score ?? null);
+        const { ourFacings, competitorFacings, share } = shelfMetrics(report);
+        const our = ourFacings, comp = competitorFacings;
 
-        // Generate signed URL if photo exists
-        let signedUrl = row.photo_url;
-        if (row.photo_url && !row.photo_url.startsWith('http')) {
-          try {
-            const { data: s } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(row.photo_url, 600);
-            if (s?.signedUrl) signedUrl = s.signedUrl;
-          } catch {}
-        }
+        const signedUrl = await signedMedia(PHOTO_BUCKET,row.photo_url);
 
         return {
           ...row,
+          audit_score: isMeasuredAudit(report) ? row.audit_score : null,
           signed_photo_url: signedUrl,
           supervisor_name: sup?.full_name || '—',
           supervisor_code: sup?.supervisor_code || '',

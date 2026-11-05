@@ -1,47 +1,44 @@
 name: CI & Quality Gate
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-
+permissions:
+  contents: read
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   build-and-test:
-    name: Typecheck, Test & Build
+    name: Local security, browser, typecheck and build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://ywdlrrdkjbtpfgacuuoy.supabase.co' }}
-      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_ci_placeholder_anon_key' }}
-
+      # Synthetic values only. Tests intercept every external browser request.
+      VITE_SUPABASE_URL: https://mydan-test.invalid
+      VITE_SUPABASE_ANON_KEY: sb_test_placeholder
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 10.26.1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
-
-      - name: TypeScript Typecheck
-        run: pnpm run typecheck
-
-      - name: Run Unit & Integrity Tests
-        run: pnpm test
-
-      - name: Verify Production Build
-        run: pnpm run build
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm test
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.5.6
+      - name: Check Edge Functions without running them
+        run: deno check --frozen --config supabase/functions/deno.json supabase/functions/invite-supervisor/index.ts supabase/functions/analyze-shelf/index.ts supabase/functions/discover-customers/index.ts supabase/functions/push-notify/index.ts supabase/functions/purchase-webhook/index.ts
+      - run: pnpm --filter @workspace/mydan exec playwright install --with-deps chromium
+      - run: pnpm --filter @workspace/mydan exec playwright test
+      - run: pnpm run build
+      - name: Verify built service worker behavior
+        run: MYDAN_TEST_BUILT_SW=1 node --test artifacts/mydan/tests/service-worker.test.mjs
+      - name: Compile Android web bundle (no native sync or deployment)
+        run: pnpm --filter @workspace/mydan run build:android

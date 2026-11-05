@@ -1,3 +1,4 @@
+import { canManageCredentials } from '../../../../supabase/functions/_shared/authorization.ts';
 import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Key, Plus, RefreshCw, ShieldCheck, X, Pencil, Trash2, UserCheck, UserX } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -159,7 +160,9 @@ const Row = memo(function Row({
   onDelete: (s: Supervisor) => void; deleting: boolean;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const locked = self || s.role === 'super_admin';
+  const {supervisor:actor} = useAuth();
+  const credentialsAllowed = canManageCredentials(actor,s);
+  const locked = self || s.role === 'super_admin' || (actor?.role === 'admin' && s.role === 'admin');
   const toggle = useCallback(async () => {
     if (!s.is_active || await confirm(`تعطيل حساب ${s.full_name}؟`)) onPatch(s, { is_active: !s.is_active });
   }, [s, onPatch]);
@@ -181,7 +184,7 @@ const Row = memo(function Row({
     <td>
       {s.device_id ? (
         <div className="row gap-1 items-center" style={{ flexWrap: 'wrap' }}>
-          <span className="badge b-blue" title={s.device_id} style={{ fontSize: 11 }}>
+          <span className="badge b-blue" style={{ fontSize: 11 }}>
             📱 {t('مقترن')}
           </span>
           {!locked && (
@@ -208,6 +211,7 @@ const Row = memo(function Row({
           type="button"
           className="btn sm ghost"
           style={{ padding: '6px 8px' }}
+          disabled={!credentialsAllowed}
           onClick={() => onSetPw(s)}
           title={t('تعيين كلمة المرور')}
           aria-label={t('تعيين كلمة المرور')}
@@ -219,7 +223,7 @@ const Row = memo(function Row({
           className="btn sm ghost"
           style={{ padding: '6px 8px' }}
           onClick={() => onResend(s)}
-          disabled={resending}
+          disabled={resending || !credentialsAllowed}
           title={t('إعادة إرسال رابط التفعيل والدعوة')}
           aria-label={t('إعادة إرسال رابط التفعيل والدعوة')}
         >

@@ -14,7 +14,8 @@ import { useAppSettings } from '@/contexts/AppSettingsContext';
 
 import { canAdmin } from '@/lib/policy';
 
-import { readExactCount } from './read-count';
+import { signedMedia } from './private-media';
+import { readAllRows, readExactCount } from './read-count';
 
 import { notify } from '@/lib/toast';
 
@@ -24,7 +25,7 @@ import type { Attendance, BeatPlan, Customer, Notification, ShelfAudit, Supervis
 
 import type { VisitOutcome } from './visit-geo';
 
-import { enqueueOfflineAction } from './offline-sync';
+import { submitFieldAction } from './offline-sync';
 
 import { t } from '@/i18n';
 
@@ -122,17 +123,8 @@ async function exact(sc: Scope, table: string, signal: AbortSignal,
 
   build: (q: any) => any = (q) => q, field = 'supervisor_id') {
 
-  try {
-
-    return await readExactCount(head => build(sc.scope(supabase.from(table).select('id', { count: 'exact', head }), field)),
-
-      signal, 'تعذر حساب الإحصائيات. تحقق من الاتصال والصلاحيات.');
-
-  } catch {
-
-    return 0;
-
-  }
+  return readExactCount(head => build(sc.scope(supabase.from(table).select('id', { count: 'exact', head }), field)),
+    signal, 'تعذر حساب الإحصائيات. تحقق من الاتصال والصلاحيات.');
 
 }
 
@@ -189,102 +181,20 @@ export function useDashboard() {
 }
 
 export function useAttendanceAction() {
-
-  const sc = useScope(); const qc = useQueryClient();
-
+  const sc = useScope(), qc = useQueryClient();
   return useMutation({
-
-    mutationFn: async (a: { kind: 'in' | 'out'; row: Attendance | null; lat?: number | null; lng?: number | null }) => {
-
-      const timestamp = nowIso(); const today = todayStr();
-
-      if (!navigator.onLine) {
-
-        enqueueOfflineAction({
-
-          type: 'attendance_action', companyId: sc.companyId, supervisorId: sc.supervisorId,
-
-          payload: a.kind === 'in'
-
-            ? { kind: 'in', attendance_date: today, check_in_time: timestamp, check_in_lat: a.lat ?? null, check_in_lng: a.lng ?? null }
-
-            : { kind: 'out', attendance_date: today, check_out_time: timestamp },
-
-        });
-
-        return;
-
-      }
-
-      if (a.kind === 'in') {
-
-        const { error } = await supabase.from('attendance').insert({
-
-          supervisor_id: sc.supervisorId, company_id: sc.companyId,
-
-          attendance_date: today, check_in_time: timestamp,
-
-        });
-
-        if (error) {
-
-          enqueueOfflineAction({
-
-            type: 'attendance_action', companyId: sc.companyId, supervisorId: sc.supervisorId,
-
-            payload: { kind: 'in', attendance_date: today, check_in_time: timestamp, check_in_lat: a.lat ?? null, check_in_lng: a.lng ?? null },
-
-          });
-
-        }
-
-      } else {
-
-        const { error } = await supabase.from('attendance').update({ check_out_time: timestamp })
-
-          .eq('id', a.row!.id).eq('company_id', sc.companyId).eq('supervisor_id', sc.supervisorId).select('id').single();
-
-        if (error) {
-
-          enqueueOfflineAction({
-
-            type: 'attendance_action', companyId: sc.companyId, supervisorId: sc.supervisorId,
-
-            payload: { kind: 'out', attendance_date: today, check_out_time: timestamp },
-
-          });
-
-        }
-
-      }
-
-    },
-
-    onSuccess: (_d, v) => {
-
-      const online = navigator.onLine;
-
-      const msg = v.kind === 'in'
-
-        ? (online ? t('تم تسجيل الحضور') : t('📶 تم حفظ الحضور دون اتصال. سيُرفع عند توفر الشبكة'))
-
-        : (online ? t('تم تسجيل الانصراف') : t('📶 تم حفظ الانصراف دون اتصال. سيُرفع عند توفر الشبكة'));
-
-      notify(msg, 'success');
-
+    mutationFn: async (a: { kind: 'in' | 'out'; row: Attendance | null; lat?: number | null; lng?: number | null }) =>
+      submitFieldAction({ type: 'attendance_action', companyId: sc.companyId, supervisorId: sc.supervisorId, userId: sc.supervisor.user_id,
+        payload: { id: a.row?.id ?? crypto.randomUUID(), kind: a.kind, attendance_date: todayStr(),
+          ...(a.kind === 'in' ? { check_in_time: nowIso(), check_in_lat: a.lat ?? null, check_in_lng: a.lng ?? null }
+            : { check_out_time: nowIso() }) } }),
+    onSuccess: result => {
+      notify(result.queued ? 'تم حفظ الحركة على الجهاز؛ لم يؤكد الخادم استلامها بعد.' : 'تم تسجيل الحركة على الخادم.', 'success');
       void inv(qc, sc, 'dashboard', 'attendance-today');
-
     },
-
-    onError: (e: Error) => notify(e.message, 'error'),
-
+    onError: (error: Error) => notify(error.message, 'error'),
   });
-
 }
-
-
-
-/* ---------- Visits ---------- */
 
 export function useVisits(status: string) {
 
@@ -331,277 +241,50 @@ export function useVisitOptions() {
 }
 
 export function useUpdateVisitStatus() {
-
-  const sc = useScope(); const qc = useQueryClient();
-
+  const sc = useScope(), qc = useQueryClient();
   return useMutation({
-
-    mutationFn: async ({ id, status }: { id: string; status: 'completed' | 'skipped' }) => {
-
-      const checkOut = status === 'completed' ? nowIso() : null;
-
-      if (!navigator.onLine) {
-
-        enqueueOfflineAction({
-
-          type: 'update_visit_status',
-
-          companyId: sc.companyId,
-
-          supervisorId: sc.supervisorId,
-
-          payload: { id, status, check_out_time: checkOut },
-
-        });
-
-        return;
-
-      }
-
-      const patch: Partial<Visit> = { status };
-
-      if (checkOut) patch.check_out_time = checkOut;
-
-      const { data, error } = await sc.scope(supabase.from('visits').update(patch).eq('id', id)).select('id');
-
-      if (error) {
-
-        // Fallback to offline queue on unexpected network drop
-
-        enqueueOfflineAction({
-
-          type: 'update_visit_status',
-
-          companyId: sc.companyId,
-
-          supervisorId: sc.supervisorId,
-
-          payload: { id, status, check_out_time: checkOut },
-
-        });
-
-        return;
-
-      }
-
-      if (!data?.length) throw new Error('لم يتم تحديث الزيارة. قد لا تملك الصلاحية.');
-
+    mutationFn: async ({ id, status }: { id: string; status: 'completed' | 'skipped' }) =>
+      submitFieldAction({ type: 'update_visit_status', companyId: sc.companyId, supervisorId: sc.supervisorId, userId: sc.supervisor.user_id,
+        payload: { id, status, ...(status === 'completed' ? { check_out_time: nowIso() } : {}) } }),
+    onSuccess: result => {
+      notify(result.queued ? 'حُفظت حالة الزيارة محلياً وتنتظر المزامنة.' : 'تم تحديث حالة الزيارة.', 'success');
+      void inv(qc, sc, 'visits', 'visit-options', 'visit-detail', 'customers', 'dashboard', 'targets');
     },
-
-    onSuccess: () => {
-
-      const msg = navigator.onLine ? t('تم تحديث حالة الزيارة') : t('📶 تم حفظ حالة الزيارة دون اتصال. اضغط "رفع البيانات" عند توفر الشبكة');
-
-      notify(msg, 'success');
-
-      void inv(qc, sc, 'visits', 'visit-options', 'customers', 'dashboard', 'targets');
-
-    },
-
-    onError: (e: Error) => notify(e.message, 'error'),
-
+    onError: (error: Error) => notify(error.message, 'error'),
   });
-
 }
 
 export function useCreateVisit() {
-
-  const sc = useScope(); const qc = useQueryClient();
-
+  const sc = useScope(), qc = useQueryClient();
   return useMutation({
-
-    mutationFn: async (v: { customer_id: string; latitude: number; longitude: number; notes: string; existingId?: string;
-
-      geo_distance: number | null; on_beat: boolean }) => {
-
-      // geo_distance/on_beat feed the OOR (out-of-route) KPIs in the reporting views.
-
-      const geo = { geo_distance: v.geo_distance, on_beat: v.on_beat };
-
-      if (!navigator.onLine) {
-
-        const offlineId = v.existingId || (typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `offline-${Date.now()}`);
-
-        enqueueOfflineAction({
-
-          type: 'create_visit',
-
-          companyId: sc.companyId,
-
-          supervisorId: sc.supervisorId,
-
-          payload: { ...v, ...geo, id: offlineId, check_in_time: nowIso(), visit_date: todayStr() },
-
-        });
-
-        return { id: offlineId };
-
-      }
-
-      if (v.existingId) {
-
-        const { data, error } = await sc.scope(supabase.from('visits').update({
-
-          status: 'in_progress', check_in_time: nowIso(), latitude: v.latitude,
-
-          longitude: v.longitude, notes: v.notes.trim() || null, ...geo,
-
-        }).eq('id', v.existingId).eq('customer_id', v.customer_id).eq('status', 'pending'))
-
-          .select('id').single();
-
-        if (error || !data) {
-
-          enqueueOfflineAction({
-
-            type: 'create_visit',
-
-            companyId: sc.companyId,
-
-            supervisorId: sc.supervisorId,
-
-            payload: { ...v, ...geo, check_in_time: nowIso(), visit_date: todayStr() },
-
-          });
-
-          return { id: v.existingId };
-
-        }
-
-        return data as { id: string };
-
-      }
-
-      const { data, error } = await supabase.from('visits').insert({
-
-        supervisor_id: sc.supervisorId, company_id: sc.companyId, customer_id: v.customer_id, visit_date: todayStr(),
-
-        status: 'in_progress', check_in_time: nowIso(), latitude: v.latitude, longitude: v.longitude, notes: v.notes.trim() || null, ...geo,
-
-      }).select('id').single();
-
-      if (geo.on_beat === false) {
-        const distM = geo.geo_distance != null ? Math.round(geo.geo_distance * 1000) : null;
-        const distText = distM != null ? String(distM) + 'م' : 'غير محددة';
-        void (supabase.from('notifications') as any).insert({
-          company_id: sc.companyId,
-          supervisor_id: sc.supervisorId,
-          type: 'oor_visit',
-          title_ar: 'تنبيه: زيارة خارج النطاق الجغرافي ⚠️',
-          body_ar: `تم تسجيل زيارة خارج نطاق السياج الجغرافي المعتمد (المسافة: ${distText}).`,
-          is_read: false,
-        });
-      }
-
-      if (error) {
-
-        const offlineId = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `offline-${Date.now()}`;
-
-        enqueueOfflineAction({
-
-          type: 'create_visit',
-
-          companyId: sc.companyId,
-
-          supervisorId: sc.supervisorId,
-
-          payload: { ...v, ...geo, id: offlineId, check_in_time: nowIso(), visit_date: todayStr() },
-
-        });
-
-        return { id: offlineId };
-
-      }
-
-      return data as { id: string };
-
+    mutationFn: async (visit: { customer_id: string; latitude: number; longitude: number; notes: string; existingId?: string;
+      geo_distance: number | null; on_beat: boolean; gps_accuracy_m: number; gps_recorded_at: string }) => {
+      const id = visit.existingId ?? crypto.randomUUID();
+      const result = await submitFieldAction({ type: 'create_visit', companyId: sc.companyId, supervisorId: sc.supervisorId,
+        userId: sc.supervisor.user_id, payload: { ...visit, id, check_in_time: nowIso(), visit_date: todayStr() } });
+      return { id, queued: result.queued };
     },
-
-    onSuccess: () => {
-
-      const msg = navigator.onLine ? t('تم بدء الزيارة وتسجيل الدخول') : t('📶 تم بدء الزيارة دون اتصال. اضغط "رفع البيانات" عند توفر الشبكة');
-
-      notify(msg, 'success');
-
+    onSuccess: result => {
+      notify(result.queued ? 'حُفظت الزيارة على الجهاز وتنتظر تأكيد المزامنة.' : 'تم بدء الزيارة وتسجيل الوصول.', 'success');
       void inv(qc, sc, 'visits', 'visit-options', 'customers', 'dashboard', 'beat');
-
     },
-
-    onError: (e: Error) => notify(e.message, 'error'),
-
+    onError: (error: Error) => notify(error.message, 'error'),
   });
-
 }
-
-
 
 export function useSetVisitOutcome() {
-
-  const sc = useScope(); const qc = useQueryClient();
-
+  const sc = useScope(), qc = useQueryClient();
   return useMutation({
-
-    mutationFn: async ({ id, outcome }: { id: string; outcome: VisitOutcome }) => {
-
-      if (!navigator.onLine) {
-
-        enqueueOfflineAction({
-
-          type: 'set_visit_outcome',
-
-          companyId: sc.companyId,
-
-          supervisorId: sc.supervisorId,
-
-          payload: { id, outcome },
-
-        });
-
-        return;
-
-      }
-
-      const { data, error } = await sc.scope(supabase.from('visits').update({ visit_outcome: outcome }).eq('id', id)).select('id');
-
-      if (error) {
-
-        enqueueOfflineAction({
-
-          type: 'set_visit_outcome',
-
-          companyId: sc.companyId,
-
-          supervisorId: sc.supervisorId,
-
-          payload: { id, outcome },
-
-        });
-
-        return;
-
-      }
-
-      if (!data?.length) throw new Error('لم يتم حفظ النتيجة. قد لا تملك الصلاحية.');
-
-    },
-
-    onSuccess: () => {
-
-      const msg = navigator.onLine ? t('تم حفظ نتيجة الزيارة') : t('📶 تم حفظ نتيجة الزيارة دون اتصال. اضغط "رفع البيانات" عند توفر الشبكة');
-
-      notify(msg, 'success');
-
+    mutationFn: async ({ id, outcome }: { id: string; outcome: VisitOutcome }) =>
+      submitFieldAction({ type: 'set_visit_outcome', companyId: sc.companyId, supervisorId: sc.supervisorId, userId: sc.supervisor.user_id,
+        payload: { id, outcome } }),
+    onSuccess: result => {
+      notify(result.queued ? 'حُفظت نتيجة الزيارة محلياً وتنتظر المزامنة.' : 'تم حفظ نتيجة الزيارة.', 'success');
       void inv(qc, sc, 'visit-detail', 'visits', 'dashboard');
-
     },
-
-    onError: (e: Error) => notify(e.message, 'error'),
-
+    onError: (error: Error) => notify(error.message, 'error'),
   });
-
 }
-
-/** Active customers that have coordinates — ranked client-side by distance from the supervisor. */
 
 export function useLocatedCustomers() {
 
@@ -667,31 +350,15 @@ export function useNearestCustomers(lat: number | null, lng: number | null, limi
         // Fall through to client fallback
       }
 
-      // Resilient Fallback: Query active customers and calculate distance locally
-      try {
-        const { data, error } = await sc.scope(
-          supabase.from('customers').select('*').eq('is_active', true)
-        ).limit(100).abortSignal(signal);
+      // A fallback still scans all authorized customers; a capped sample cannot prove nearest distance.
+      const data = await readAllRows<Customer>(()=>supabase.from('customers').select(CUSTOMER_COLUMNS).eq('company_id',sc.companyId).eq('is_active',true),signal,'تعذر تحميل العملاء القريبين.');
+      const rad=Math.PI/180;
+      const withDistance=data.filter(c=>c.latitude!=null && c.longitude!=null).map(c=>{
+        const a=Math.sin((c.latitude!-lat!)*rad/2)**2+Math.cos(lat!*rad)*Math.cos(c.latitude!*rad)*Math.sin((c.longitude!-lng!)*rad/2)**2;
+        return {...c,distance_km:6371*2*Math.asin(Math.min(1,Math.sqrt(a)))};
+      }).sort((a,b)=>a.distance_km-b.distance_km);
+      return limit==='all'?withDistance:withDistance.slice(0,limit);
 
-        if (error || !data) return [];
-
-        const rad = Math.PI / 180;
-        const withDistance = data.map((cust: any) => {
-          let distance_km = 9999;
-          if (cust.latitude != null && cust.longitude != null && lat != null && lng != null) {
-            const dLat = (cust.latitude - lat) * rad;
-            const dLng = (cust.longitude - lng) * rad;
-            const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat * rad) * Math.cos(cust.latitude * rad) * Math.sin(dLng / 2) ** 2;
-            const cVal = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            distance_km = 6371 * cVal;
-          }
-          return { ...cust, distance_km };
-        }).sort((a: any, b: any) => a.distance_km - b.distance_km);
-
-        return (limit === 'all' ? withDistance : withDistance.slice(0, limit)) as (Customer & { distance_km: number })[];
-      } catch {
-        return [];
-      }
     },
 
   });
@@ -829,25 +496,7 @@ export function useShelfAudits() {
 
     const rows = data as ShelfAudit[];
 
-    const paths = rows.map(a => a.photo_url).filter((p): p is string => !!p && !/^https:\/\//.test(p));
-
-    const signedMap: Record<string, string> = {};
-
-    if (paths.length) {
-
-      const { data: signed } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, 600);
-
-      (signed ?? []).forEach(({ path, signedUrl }) => { if (path && signedUrl) signedMap[path] = signedUrl; });
-
-    }
-
-    return rows.map(audit => {
-
-      if (!audit.photo_url || /^https:\/\//.test(audit.photo_url)) return audit;
-
-      return { ...audit, photo_url: signedMap[audit.photo_url] ?? audit.photo_url };
-
-    });
+    return Promise.all(rows.map(async audit => ({ ...audit, photo_url: await signedMedia(PHOTO_BUCKET,audit.photo_url) })));
 
   });
 
@@ -1007,20 +656,24 @@ export function useBeatPlanDays() {
 
 
 
+function beatDate(day: number) {
+  const date = new Date(); date.setDate(date.getDate() + day - date.getDay());
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
 export function useBeatPlan(day: number) {
 
   const sc = useScope();
 
   return useQuery({
 
-    queryKey: [...sc.base, 'beat', day], retry: 1,
+    queryKey: [...sc.base, 'beat', day, beatDate(day)], retry: 1,
 
     queryFn: async ({ signal }) => {
 
       // Fetch the single beat plan row for this day_of_week (UNIQUE per supervisor+plan_date)
       const { data: planRows, error } = await sc.scope(
         supabase.from('beat_plans').select(`id,supervisor_id,day_of_week,customer_id,company_id,customer_ids_ordered,customers(${CUSTOMER_COLUMNS})`)
-      ).eq('day_of_week', day).limit(10).abortSignal(signal);
+      ).eq('day_of_week', day).eq('plan_date', beatDate(day)).limit(1000).abortSignal(signal);
 
       if (error) fail('تعذر تحميل خطة الزيارات.', error);
 
@@ -1042,7 +695,7 @@ export function useBeatPlan(day: number) {
         }
       }
 
-      const visits = await sc.scope(supabase.from('visits').select('customer_id,status')).eq('visit_date', todayStr()).limit(1000).abortSignal(signal);
+      const visits = await sc.scope(supabase.from('visits').select('customer_id,status')).eq('visit_date', beatDate(day)).limit(1000).abortSignal(signal);
 
       if (visits.error) fail('تعذر تحميل زيارات اليوم.', visits.error);
 
@@ -1198,15 +851,7 @@ export function useUpdateSupervisor() {
 
       // Channel privileged updates through admin_update_supervisor RPC
 
-      const { error: rpcErr } = await supabase.rpc('admin_update_supervisor', {
-
-        p_supervisor_id: target.id,
-
-        p_role: patch.role ?? null,
-
-        p_is_active: patch.is_active ?? null,
-
-      });
+      const { data: updated, error: rpcErr } = await supabase.rpc('mdn_admin_update_supervisor_v1', { p_supervisor_id: target.id, p_patch: patch });
 
 
 

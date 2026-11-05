@@ -1,191 +1,52 @@
-// Supabase Edge Function — Web Push Notifications (VAPID)
-// Env secrets required (Settings → Edge Functions → Secrets):
-//   VAPID_PRIVATE_KEY   — base64url-encoded 32-byte P-256 scalar
-//   SUPABASE_URL        — auto-injected
-//   SUPABASE_SERVICE_ROLE_KEY — auto-injected
-
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const VAPID_SUBJECT  = 'mailto:admin@mydan.app';
-const VAPID_PUBLIC   = Deno.env.get("VAPID_PUBLIC_KEY") ?? 'BPXw8FvbaqXnGgBAKe3YWGqopPU2F80WBzWxq3en1qALgRWpjNwn7CBFuJyphseJv8A4t5_3ttkKUxbiTSJu1XE';
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
-
-// ── Utility: base64url helpers ─────────────────────────────────────────────
-function b64urlToUint8(s: string): Uint8Array {
-  const b64 = s.replace(/-/g, '+').replace(/_/g, '/').padEnd(s.length + (4 - s.length % 4) % 4, '=');
-  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-}
-function uint8ToB64url(buf: Uint8Array): string {
-  return btoa(String.fromCharCode(...buf)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-// ── VAPID JWT ──────────────────────────────────────────────────────────────
-async function buildVapidJwt(audience: string, privateKeyB64: string): Promise<string> {
-  const header  = uint8ToB64url(new TextEncoder().encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
-  const payload = uint8ToB64url(new TextEncoder().encode(JSON.stringify({
-    aud: audience, exp: Math.floor(Date.now() / 1000) + 43200, sub: VAPID_SUBJECT,
-  })));
-  const sigInput = `${header}.${payload}`;
-  const privKey = await crypto.subtle.importKey(
-    'raw', b64urlToUint8(privateKeyB64),
-    { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign'],
-  );
-  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' },
-    privKey, new TextEncoder().encode(sigInput));
-  return `${sigInput}.${uint8ToB64url(new Uint8Array(sig))}`;
-}
-
-// ── Encrypt payload for Web Push (ECDH + AES-128-GCM) ─────────────────────
-async function encryptPayload(
-  body: string, p256dhB64: string, authB64: string,
-): Promise<{ ciphertext: Uint8Array; salt: Uint8Array; localPub: Uint8Array }> {
-  const serverKeyPair = await crypto.subtle.generateKey(
-    { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits'],
-  );
-  const localPubRaw = new Uint8Array(
-    await crypto.subtle.exportKey('raw', serverKeyPair.publicKey),
-  );
-  const remotePub = await crypto.subtle.importKey(
-    'raw', b64urlToUint8(p256dhB64), { name: 'ECDH', namedCurve: 'P-256' }, false, [],
-  );
-  const sharedSecret = await crypto.subtle.deriveBits(
-    { name: 'ECDH', public: remotePub }, serverKeyPair.privateKey, 256,
-  );
-  const authSecret = b64urlToUint8(authB64);
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-
-  // HKDF expand
-  const hkdf = async (ikm: ArrayBuffer, salt2: Uint8Array, info: Uint8Array, len: number) => {
-    const k = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
-    return new Uint8Array(await crypto.subtle.deriveBits(
-      { name: 'HKDF', hash: 'SHA-256', salt: salt2, info }, k, len * 8,
-    ));
-  };
-  const prk = await hkdf(sharedSecret, authSecret,
-    new TextEncoder().encode('Content-Encoding: auth\0'), 32);
-  const context = new Uint8Array([
-    ...new TextEncoder().encode('P-256\0'),
-    0, 65, ...b64urlToUint8(p256dhB64),
-    0, 65, ...localPubRaw,
-  ]);
-  const cek = await hkdf(prk, salt,
-    new Uint8Array([...new TextEncoder().encode('Content-Encoding: aesgcm\0'), ...context]), 16);
-  const nonce = await hkdf(prk, salt,
-    new Uint8Array([...new TextEncoder().encode('Content-Encoding: nonce\0'), ...context]), 12);
-
-  const key = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
-  const plaintext = new TextEncoder().encode(body);
-  const padded = new Uint8Array(2 + plaintext.length);
-  padded.set(plaintext, 2);
-  const ciphertext = new Uint8Array(
-    await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, padded),
-  );
-  return { ciphertext, salt, localPub: localPubRaw };
-}
-
-// ── Send one push ──────────────────────────────────────────────────────────
-async function sendOne(
-  endpoint: string, p256dh: string, auth: string,
-  title: string, body: string, privateKey: string,
-): Promise<{ ok: boolean; status: number }> {
-  const origin = new URL(endpoint).origin;
-  const jwt = await buildVapidJwt(origin, privateKey);
-  const { ciphertext, salt, localPub } = await encryptPayload(
-    JSON.stringify({ title, body }), p256dh, auth,
-  );
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization:     `vapid t=${jwt},k=${VAPID_PUBLIC}`,
-      'Content-Type':    'application/octet-stream',
-      'Content-Encoding':'aesgcm',
-      Encryption:        `salt=${uint8ToB64url(salt)}`,
-      'Crypto-Key':      `dh=${uint8ToB64url(localPub)};p256ecdsa=${VAPID_PUBLIC}`,
-      TTL:               '86400',
-    },
-    body: ciphertext,
-  });
-  return { ok: res.ok, status: res.status };
-}
-
-// ── Handler ────────────────────────────────────────────────────────────────
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: { 'Access-Control-Allow-Origin': ALLOWED_ORIGIN, 'Access-Control-Allow-Headers': 'authorization,content-type,apikey' },
-    });
+import { withClientCors } from '../_shared/client-cors.ts';
+import { corsHeaders as sdkCorsHeaders } from 'npm:@supabase/supabase-js@2.117.2/cors';
+import { verifiedTokenSession } from '../_shared/encoding.ts';
+import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
+import webpush from 'npm:web-push@3.6.7';
+import { permittedPushEndpoint } from '../_shared/authorization.ts';
+const cors = sdkCorsHeaders;
+const json=(status:number,body:unknown)=>new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json'}});
+Deno.serve(withClientCors(async req => {
+  if(req.method==='OPTIONS') return new Response('ok',{headers:cors});
+  if(req.method!=='POST') return json(405,{error:'method not allowed'});
+  const admin=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const token=req.headers.get('Authorization')?.replace(/^Bearer\s+/i,'');
+  const identity=token?await admin.auth.getUser(token):null;
+  if(!identity?.data.user) return json(401,{error:'unauthorized'});
+  const profile=await admin.from('supervisors').select('id,company_id,role,is_active,force_password_change').eq('user_id',identity.data.user.id).maybeSingle();
+  const caller=profile.data;
+  if(profile.error || !caller?.is_active || caller.force_password_change || !['admin','super_admin'].includes(caller.role)) return json(403,{error:'forbidden'});
+  const sid=verifiedTokenSession(token!);
+  if(!sid) return json(403,{error:'Session identity required'});
+  const ready=await admin.rpc('mdn_identity_ready_v1',{p_user_id:identity.data.user.id,p_session_id:sid});
+  if(ready.error || ready.data!==true) return json(403,{error:'session unavailable'});
+  const company=await admin.from('companies').select('is_active,expires_at').eq('id',caller.company_id).single();
+  if(company.error || !company.data.is_active || (company.data.expires_at && Date.parse(company.data.expires_at)<=Date.now())) return json(403,{error:'company unavailable'});
+  let body;try{body=await req.json();}catch{return json(400,{error:'invalid JSON'});}
+  const ids=Array.isArray(body.supervisorIds)?body.supervisorIds:[body.supervisor_id];
+  if(!ids.length || ids.length>500 || !ids.every((id:unknown)=>typeof id==='string' && /^[0-9a-f-]{36}$/i.test(id)) || typeof body.title!=='string' || !body.title.trim() || body.title.length>120 || typeof body.body!=='string' || body.body.length>1000) return json(400,{error:'invalid notification'});
+  const target=await admin.from('supervisors').select('id').in('id',ids).eq('company_id',caller.company_id).eq('is_active',true);
+  if(target.error || !target.data?.length) return json(404,{error:'target unavailable'});
+  const publicKey=Deno.env.get('VAPID_PUBLIC_KEY'),privateKey=Deno.env.get('VAPID_PRIVATE_KEY');
+  if(!publicKey || !privateKey) return json(503,{error:'push not configured'});
+  // Endpoint allowlist blocks the service-role function from sending requests to arbitrary hosts.
+  const subscriptions=await admin.from('push_subscriptions').select('id,endpoint,p256dh,auth').in('supervisor_id',target.data.map((s:{id:string})=>s.id)).eq('company_id',caller.company_id);
+  if(subscriptions.error) return json(500,{error:'could not read subscriptions'});
+  let delivered=0,failed=0;
+  for(const sub of subscriptions.data ?? []) {
+    if(!permittedPushEndpoint(sub.endpoint)){failed++;continue;}
+    try {
+      await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},JSON.stringify({title:'ميدان',body:'لديك إشعار جديد. افتح التطبيق لعرضه.',url:'./notifications'}),{
+        vapidDetails:{subject:Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@mydan.app',publicKey,privateKey},timeout:10_000,TTL:3600,contentEncoding:'aes128gcm',
+      });delivered++;
+    }catch(error){
+      failed++;
+      const status=(error as {statusCode?:number}).statusCode;
+      if(status===404 || status===410) {
+        const cleanup=await admin.from('push_subscriptions').delete().eq('id',sub.id).eq('company_id',caller.company_id);
+        if(cleanup.error) console.error('Could not remove expired push subscription');
+      }
+    }
   }
-
-  const privateKey = Deno.env.get('VAPID_PRIVATE_KEY');
-  if (!privateKey) {
-    console.error('VAPID_PRIVATE_KEY is not configured');
-    return new Response(JSON.stringify({ error: 'Push service not configured' }), { status: 500 });
-  }
-
-
-  // ── Step 1: Verify caller JWT via Supabase Auth ───────────────────────────
-  // SUPABASE_ANON_KEY is auto-injected alongside SUPABASE_URL.
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return new Response('unauthorized', { status: 401 });
-
-  const sbVerify = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } },
-  );
-  const { data: { user }, error: authErr } = await sbVerify.auth.getUser();
-  if (authErr || !user) return new Response('unauthorized', { status: 401 });
-
-  // ── Step 2: Verify caller is an active admin in their company ─────────────
-  const sb = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
-  const { data: caller } = await sb
-    .from('supervisors')
-    .select('role, company_id, is_active')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (!caller?.is_active || !['admin', 'super_admin'].includes(caller.role as string)) {
-    return new Response('forbidden', { status: 403 });
-  }
-
-  // ── Step 3: Parse and validate request body (after auth) ──────────────────
-  let supervisorIds: string[], title: string, body: string;
-  try {
-    ({ supervisorIds, title, body } = await req.json() as {
-      supervisorIds: string[]; title: string; body: string;
-    });
-  } catch {
-    return new Response('bad request', { status: 400 });
-  }
-  if (!Array.isArray(supervisorIds) || !supervisorIds.length || !title || !body) {
-    return new Response('bad request', { status: 400 });
-  }
-
-  // ── Step 4: Query subscriptions scoped strictly to caller's company ────────
-  // The .eq('company_id', ...) prevents a cross-company notification even if
-  // supervisorIds contains UUIDs from a different tenant.
-  const { data: subs } = await sb
-    .from('push_subscriptions')
-    .select('endpoint,p256dh,auth')
-    .in('supervisor_id', supervisorIds)
-    .eq('company_id', caller.company_id);
-
-  if (!subs?.length) {
-    return new Response(JSON.stringify({ sent: 0 }), {
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
-    });
-  }
-
-  const results = await Promise.allSettled(
-    subs.map((s: { endpoint: string; p256dh: string; auth: string }) =>
-      sendOne(s.endpoint, s.p256dh, s.auth, title, body, privateKey)),
-  );
-  const sent = results.filter((r) => r.status === 'fulfilled' && (r.value as { ok: boolean }).ok).length;
-
-  return new Response(JSON.stringify({ sent, total: subs.length }), {
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
-  });
-});
+  return json(failed?207:200,{success:failed===0,delivered,failed});
+},Deno.env.get('ALLOWED_ORIGIN') ?? 'https://mydan.digityoucan.com',sdkCorsHeaders));

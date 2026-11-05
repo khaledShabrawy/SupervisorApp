@@ -1,39 +1,24 @@
 import { Capacitor } from '@capacitor/core';
 import { notify } from './toast';
-
 export function registerPwa(): void {
-  // Web Control portal is an online SaaS dashboard; never pin workers on admin routes
-  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        for (const reg of regs) reg.unregister().catch(() => {});
-      }).catch(() => {});
-    }
-    return;
-  }
-
-  // The APK ships its files locally; a service worker there would only pin stale builds.
   if (!import.meta.env.PROD || !('serviceWorker' in navigator) || Capacitor.isNativePlatform()) return;
-  window.addEventListener('load', () => {
-    void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, {
-      scope: import.meta.env.BASE_URL,
-    }).then((registration) => {
-      // Force checking for updates immediately on load
-      registration.update().catch(() => {});
-      registration.onupdatefound = () => {
-        const installingWorker = registration.installing;
-        if (installingWorker) {
-          installingWorker.onstatechange = () => {
-            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // Automatically reload to get fresh assets
-              window.location.reload();
-            }
-          };
-        }
-      };
-    }).catch(() => {
-      notify('تعذر تفعيل تشغيل التطبيق دون اتصال.', 'error');
-      window.dispatchEvent(new CustomEvent('mydan:pwa-error'));
-    });
-  }, { once: true });
+  const register = () => {
+    void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope:import.meta.env.BASE_URL })
+      .then(registration => {
+        void registration.update().catch(() => {});
+        const inform = () => notify('تحديث جديد جاهز. احفظ عملك ثم أغلق نوافذ ميدان وأعد فتح التطبيق لتطبيقه.', 'info');
+        if (registration.waiting) inform();
+        registration.addEventListener('updatefound', () => {
+          const worker = registration.installing;
+          worker?.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) inform();
+          });
+        });
+      }).catch(() => {
+        notify('تعذر تفعيل تخزين واجهة التطبيق. العمليات المحفوظة على الجهاز لا تُحذف.', 'error');
+        window.dispatchEvent(new CustomEvent('mydan:pwa-error'));
+      });
+  };
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register, {once:true});
 }

@@ -124,27 +124,27 @@ export default function NewVisitScreen() {
     ? { latitude: gps.latitude, longitude: gps.longitude } : null, [gps.latitude, gps.longitude]);
 
   const checkIn = useCallback((c: Customer, note: string) => {
-    if (!supervisor || !here) return;
+    if (!supervisor || !here || gps.isMock || !gps.accuracy || !gps.recordedAt) return;
     const g = geofence(here, c, s.geofence_radius_m);
     if (g.on_beat) {
       m.mutate({ customer_id: c.id, latitude: here.latitude, longitude: here.longitude, notes: note,
-        geo_distance: g.distance_m, on_beat: true, ...(existingId ? { existingId } : {}) },
-      { onSuccess: (visit) => nav(`/visits/${visit.id}`, { replace: true }) });
+        gps_accuracy_m: gps.accuracy!, gps_recorded_at: gps.recordedAt!, geo_distance: g.distance_m, on_beat: true, ...(existingId ? { existingId } : {}) },
+      { onSuccess: (visit) => nav(visit.queued ? '/visits' : `/visits/${visit.id}`, { replace: true }) });
     } else {
       setOorPending({ c, g, note });
     }
-  }, [supervisor, here, s.geofence_radius_m, m, existingId, nav]);
+  }, [supervisor, here, gps.isMock, gps.accuracy, gps.recordedAt, s.geofence_radius_m, m, existingId, nav]);
 
   const confirmOor = useCallback(() => {
-    if (!oorPending || !here) return;
+    if (!oorPending || !here || gps.isMock || !gps.accuracy || !gps.recordedAt) return;
     const { c, g, note } = oorPending;
     setOorPending(null);
     const notePrefix = oorReason ? `[OOR: ${oorReason}]` : '[OOR]';
     const combinedNote = note ? `${notePrefix} ${note}` : notePrefix;
     m.mutate({ customer_id: c.id, latitude: here.latitude, longitude: here.longitude, notes: combinedNote,
-      geo_distance: g.distance_m, on_beat: false, ...(existingId ? { existingId } : {}) },
-    { onSuccess: (visit) => nav(`/visits/${visit.id}`, { replace: true }) });
-  }, [oorPending, here, oorReason, m, existingId, nav]);
+      gps_accuracy_m: gps.accuracy!, gps_recorded_at: gps.recordedAt!, geo_distance: g.distance_m, on_beat: false, ...(existingId ? { existingId } : {}) },
+    { onSuccess: (visit) => nav(visit.queued ? '/visits' : `/visits/${visit.id}`, { replace: true }) });
+  }, [oorPending, here, gps.isMock, gps.accuracy, gps.recordedAt, oorReason, m, existingId, nav]);
 
   const cancelOor = useCallback(() => setOorPending(null), []);
   const logNearest = useCallback((c: Ranked) => checkIn(c, ''), [checkIn]);

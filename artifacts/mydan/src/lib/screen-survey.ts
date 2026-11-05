@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase, SUPABASE_URL } from './supabase';
 import { useScope } from './data';
 import { notify } from './toast';
+import { requestAnalysis } from './analysis-request';
 import { compressImage } from './image-compression';
 
 const SURVEY_BUCKET = 'survey-photos';
@@ -70,9 +71,14 @@ export function useUploadSurveyPhoto() {
       }).select('*').single();
 
       if (insertError || !data) {
-        await supabase.storage.from(SURVEY_BUCKET).remove([path]);
-        throw new Error('تعذر إنشاء سجل المسح الميداني.');
+        // A lost response may already have committed; do not delete evidence on an uncertain result.
+        if (insertError && ['23502','23503','42501','23514','PGRST204'].includes(insertError.code)) {
+          const cleanup=await supabase.storage.from(SURVEY_BUCKET).remove([path]);
+          if(cleanup.error) throw new Error('تعذر حفظ المسح وإزالة الصورة غير المرتبطة.');
+        }
+        throw new Error('لم يتأكد حفظ سجل المسح. احتُفظ بالصورة إذا كانت النتيجة غير مؤكدة.');
       }
+
       return data as FieldSurvey;
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: [...sc.base, 'field-surveys'] }),
@@ -88,23 +94,7 @@ export function useRequestSurveyAnalysis() {
         throw new Error('عنوان خدمة التحليل غير متطابق مع مشروع Supabase.');
       }
       const session = await currentSession(sc.supervisor.user_id);
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 90_000);
-      try {
-        const res = await fetch(DISCOVER_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ survey_id: survey.id }),
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error('تعذر إرسال الصورة لخدمة الاكتشاف. تحقق من نشر وظيفة discover-customers.');
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError')
-          throw new Error('انتهت مهلة الطلب. قد يستمر التحليل؛ انتظر ثم أعد المحاولة.');
-        if (error instanceof TypeError)
-          throw new Error('تعذر الاتصال بخدمة الاكتشاف. تحقق من الاتصال بالإنترنت.');
-        throw error;
-      } finally { clearTimeout(timer); }
+      await requestAnalysis({projectUrl:SUPABASE_URL,endpoint:DISCOVER_ENDPOINT,token:session.access_token,body:{survey_id:survey.id}});
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: [...sc.base, 'field-surveys'] }),
     onError: (e: Error) => notify(e.message, 'error'),
@@ -141,8 +131,9 @@ export function useSaveProspects() {
         supervisor_id: sc.supervisorId,
         name: s.name.trim() || 'عميل غير محدد الاسم',
         type: s.type,
-        latitude: survey.latitude,
-        longitude: survey.longitude,
+        // Camera position is not evidence of each individual store's location.
+        latitude: null,
+        longitude: null,
         created_by: sc.supervisorId,
         is_active: true,
         status: 'prospect',

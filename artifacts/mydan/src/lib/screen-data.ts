@@ -64,8 +64,14 @@ type TargetValues = Pick<Target, 'visits_target' | 'audit_target'>;
 const targetSum = (rows: TargetValues[], field: keyof TargetValues) =>
   rows.reduce((sum, row) => sum + Number(row[field]), 0);
 function targetsFor(sc: Scope, month: number, year: number, signal: AbortSignal) {
-  return readAllRows<TargetValues & { id: string }>(() => sc.scope(supabase.from('targets').select('id,visits_target,audit_target'))
-    .eq('month', month).eq('year', year), signal, 'تعذر تحميل الأهداف. تحقق من الاتصال والصلاحيات.');
+  return readAllRows<TargetValues & { id: string }>(() => {
+    let query = supabase.from('targets').select('id,visits_target,audit_target').eq('company_id',sc.companyId)
+      .gte('target_date', `${year}-${String(month).padStart(2, '0')}-01`).lt('target_date', monthRange(year, month).end)
+      .or('criteria.is.null,criteria.neq.orders');
+    // A shared team target is not an individual quota. Personal progress uses assigned targets.
+    if (!sc.isAdmin) query = query.eq('supervisor_id',sc.supervisorId);
+    return query;
+  }, signal, 'تعذر تحميل الأهداف. تحقق من الاتصال والصلاحيات.');
 }
 
 export function useScreenDashboard() {
@@ -74,19 +80,16 @@ export function useScreenDashboard() {
   return useQuery({
     queryKey: [...sc.base, 'dashboard', 'task-execution', day.start], retry: 1, gcTime: 300_000,
     queryFn: async ({ signal }) => {
-      const [visitsRes, auditsRes, actualVisitsRes, targetsRes, recentRes] = await Promise.allSettled([
+      const [visits, audits, actualVisits, targets, recentRes] = await Promise.all([
         countRows(sc, 'visits', signal, q => q.gte('visit_date', day.start).lt('visit_date', day.end)),
-        countRows(sc, 'shelf_audit', signal, q => q.gte('created_at', day.startIso).lt('created_at', day.endIso)),
+        countRows(sc, 'shelf_audit', signal, q => q.eq('status','completed').or('ai_detailed_report->>engine.is.null,ai_detailed_report->>engine.neq.smart-vision-engine').gte('audited_at', day.startIso).lt('audited_at', day.endIso)),
         countRows(sc, 'visits', signal, q => q.eq('status', 'completed').gte('visit_date', mr.start).lt('visit_date', mr.end)),
         targetsFor(sc, month, year, signal),
         sc.scope(supabase.from('visits').select(VISIT_JOIN)).order('visit_date', { ascending: false })
           .order('check_in_time', { ascending: false, nullsFirst: false }).order('id').limit(5).abortSignal(signal),
       ]);
-      const visits = visitsRes.status === 'fulfilled' ? visitsRes.value : 0;
-      const audits = auditsRes.status === 'fulfilled' ? auditsRes.value : 0;
-      const actualVisits = actualVisitsRes.status === 'fulfilled' ? actualVisitsRes.value : 0;
-      const targets = targetsRes.status === 'fulfilled' ? targetsRes.value : [];
-      const recent = recentRes.status === 'fulfilled' && !recentRes.value.error ? (recentRes.value.data as VisitRow[]) : [];
+      if (recentRes.error) throw new Error('تعذر تحميل آخر الزيارات.');
+      const recent = (recentRes.data ?? []) as VisitRow[];
 
       return {
         visits,
@@ -112,7 +115,7 @@ export function useCustomerCards(search: string, type: string) {
   const sc = useScope(), term = search.trim().replace(/[%,()]/g, ' ');
   return usePaged<CustomerCardRow>(sc, 'customers', ['cards', term, type], async (from, to, signal) => {
     let q: any = supabase.from('customers').select(`${CUSTOMER_COLUMNS},visits(check_in_time)`).eq('company_id', sc.companyId);
-    if (!sc.isAdmin) q = q.eq('is_active', true).or(`supervisor_id.eq.${sc.supervisorId},supervisor_id.is.null`);
+    if (!sc.isAdmin) q = q.eq('is_active', true);
     if (term) q = q.or(`name.ilike.%${term}%,customer_code.ilike.%${term}%,address.ilike.%${term}%`);
     if (type === 'أخرى') {
       const known = Object.entries(CUSTOMER_TYPES).filter(([key]) => key !== 'أخرى').flatMap(([, values]) => values);
@@ -138,7 +141,7 @@ export function useCustomerById(id: string | null) {
   const sc = useScope();
   return useQuery({ queryKey: [...sc.base, 'customers', 'selected', id], enabled: !!id, retry: 1,
     queryFn: async ({ signal }) => {
-      const r = await sc.scope(supabase.from('customers').select(CUSTOMER_COLUMNS)).eq('id', id!)
+      const r = await supabase.from('customers').select(CUSTOMER_COLUMNS).eq('company_id', sc.companyId).eq('id', id!)
         .abortSignal(signal).maybeSingle();
       if (r.error) errorMessage('تعذر تحميل العميل المحدد.', r.error);
       return r.data as Customer | null;
@@ -153,7 +156,7 @@ export function useMonthlyTargets() {
       const [targets, actual_visits, actual_audits] = await Promise.all([
         targetsFor(sc, m, y, signal),
         countRows(sc, 'visits', signal, q => q.eq('status', 'completed').gte('visit_date', range.start).lt('visit_date', range.end)),
-        countRows(sc, 'shelf_audit', signal, q => q.eq('status', 'completed').gte('audited_at', range.startIso).lt('audited_at', range.endIso)),
+        countRows(sc, 'shelf_audit', signal, q => q.eq('status', 'completed').or('ai_detailed_report->>engine.is.null,ai_detailed_report->>engine.neq.smart-vision-engine').gte('audited_at', range.startIso).lt('audited_at', range.endIso)),
       ]);
       return { month: m, year: y, visits_target: targetSum(targets, 'visits_target'),
         audit_target: targetSum(targets, 'audit_target'), actual_visits, actual_audits };
@@ -163,7 +166,7 @@ export function useMonthlyTargets() {
 export function useAdminProducts(availability: 'all' | 'active' | 'inactive' = 'all') {
   const sc = useScope();
   return usePaged<CatalogProduct>(sc, 'products', [availability], async (from, to, signal) => {
-    let q = supabase.from('products').select('id,name,category,sku:sku_code,item_code,master_brand,sub_brand,unit,price,units_per_carton,carton_price,is_active').eq('company_id', sc.companyId);
+    let q = supabase.from('products').select('id,name,category,sku:sku_code,item_code,master_brand,sub_brand,unit,units_per_carton,is_active').eq('company_id', sc.companyId);
     if (availability === 'active') q = q.eq('is_active', true);
     if (availability === 'inactive') q = q.or('is_active.eq.false,is_active.is.null');
     const r = await q.order('name').order('id').range(from, to).abortSignal(signal);
@@ -199,6 +202,10 @@ export function useSaveMonthlyTarget() {
       if (!Number.isInteger(input.month) || input.month < 1 || input.month > 12
         || !Number.isInteger(input.year) || input.year < 2000 || input.year > 2100) throw new Error('الشهر أو السنة غير صالحة.');
 
+      if (![input.visits_target,input.audit_target].every(v => Number.isSafeInteger(v) && v >= 0 && v <= 2147483647)) throw new Error('قيم الأهداف غير صالحة.');
+      if (input.criteria && !['visits','shelf_audit','audits'].includes(input.criteria)) throw new Error('نوع الهدف غير مسموح.');
+      if (input.scope_type === 'per_user' && !input.supervisor_id) throw new Error('حدد المشرف للهدف الفردي.');
+      if (input.target_scope === 'specific_branch' && !input.branch_id) throw new Error('حدد فرع الهدف.');
       const targetDate = `${input.year}-${String(input.month).padStart(2, '0')}-01`;
       const targetMonthPrefix = targetDate.slice(0, 7);
       const supervisorId = input.scope_type === 'per_user' && input.supervisor_id ? input.supervisor_id : null;
@@ -214,7 +221,6 @@ export function useSaveMonthlyTarget() {
         scope_type: input.scope_type || 'per_user',
         target_scope: input.target_scope || 'all_branches',
         branch_id: branchId,
-        target_amount: Number(input.target_amount) || 0,
       };
 
       const lastDay = new Date(input.year, input.month, 0).getDate();
@@ -230,7 +236,9 @@ export function useSaveMonthlyTarget() {
         query = query.eq('branch_id', branchId);
       }
 
+      if (!branchId) query = query.is('branch_id', null);
       const existing = await query.maybeSingle();
+      errorMessage('تعذر التحقق من الهدف الحالي؛ لم يتم الحفظ.', existing.error);
 
       // Attempt write without generated month/year columns first
       let r = existing.data
@@ -249,18 +257,10 @@ export function useSaveMonthlyTarget() {
       errorMessage('تعذر حفظ الهدف الشهري.', r.error);
 
       if (supervisorId) {
-        void (supabase.from('notifications') as any).insert({
-          company_id: sc.companyId,
-          supervisor_id: supervisorId,
-          type: 'target_update',
-          title_ar: 'تم تحديد أهداف بيعية جديدة 🎯',
-          body_ar: `تم تعيين هدفك الشهري (${payload.visits_target || 0} زيارة، ${payload.audit_target || 0} تدقيق رف).`,
-          is_read: false,
-        });
         void supabase.functions.invoke('push-notify', {
           body: {
             supervisorIds: [supervisorId],
-            title: 'تم تحديد أهداف بيعية جديدة 🎯',
+            title: 'تم تحديد أهداف الزيارات والمهام 🎯',
             body: `تم تعيين هدفك الشهري (${payload.visits_target || 0} زيارة).`,
           },
         }).catch(() => {});

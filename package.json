@@ -9,7 +9,13 @@
     "build": "vite build && node -e \"const fs=require('fs'); fs.cpSync('artifacts/mydan/dist/public', 'dist', {recursive: true});\"",
     "preview": "vite preview",
     "test": "node --experimental-strip-types --test artifacts/mydan/tests/*.test.ts artifacts/mydan/tests/*.test.mjs",
-    "typecheck": "tsc --noEmit --project artifacts/mydan"
+    "typecheck": "tsc --noEmit --project artifacts/mydan",
+    "test:browser": "pnpm --filter @workspace/mydan exec playwright test",
+    "android:doctor": "pnpm --filter @workspace/mydan run android:doctor",
+    "android:prepare": "pnpm --filter @workspace/mydan run android:prepare",
+    "apk:debug": "pnpm --filter @workspace/mydan run apk:debug",
+    "apk:release": "pnpm --filter @workspace/mydan run apk:release",
+    "aab:release": "pnpm --filter @workspace/mydan run aab:release"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

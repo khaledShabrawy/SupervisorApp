@@ -1,3 +1,4 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { useState, useCallback, useMemo, ChangeEvent } from 'react';
 import {
   GraduationCap, Plus, Video, FileText, Upload, CheckCircle2,
@@ -12,6 +13,7 @@ import { notify } from '@/lib/toast';
 import { t } from '@/i18n';
 
 export default function AdminTraining() {
+  const {supervisor} = useAuth();
   const [activeTab, setActiveTab] = useState<'content' | 'analytics'>('content');
 
   // Content Hooks
@@ -108,7 +110,7 @@ export default function AdminTraining() {
       notify(t('يرجى كتابة عنوان الدرس ورفع الفيديو أولاً'), 'error');
       return;
     }
-    if (!/^https?:\/\//i.test(lessonForm.video_url.trim())) {
+    if (!/^https:\/\//i.test(lessonForm.video_url.trim()) && !lessonForm.video_url.startsWith(`${supervisor?.company_id}/`)) {
       notify(t('رابط الفيديو يجب أن يبدأ بـ https://'), 'error');
       return;
     }

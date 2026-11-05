@@ -31,11 +31,9 @@ export function useCompanySubscription() {
         .eq('id', companyId!)
         .maybeSingle();
 
-      if (error) {
-        console.warn('Failed to load company subscription:', error);
-        return null;
-      }
-      return data as CompanySubscription | null;
+      if (error || !data) throw new Error('تعذر التحقق من اشتراك الشركة. أعد المحاولة.');
+      if (data.expires_at && !Number.isFinite(Date.parse(data.expires_at))) throw new Error('تاريخ الاشتراك غير صالح.');
+      return data as CompanySubscription;
     },
   });
 
@@ -43,6 +41,7 @@ export function useCompanySubscription() {
     return {
       isLoading: false,
       isLocked: false,
+      isError: false, error: null, retry: query.refetch,
       isExpired: false,
       isInactive: false,
       daysRemaining: null,
@@ -55,10 +54,11 @@ export function useCompanySubscription() {
   const daysRemaining = company?.expires_at ? daysUntil(company.expires_at) : null;
   const isInactive = company ? !company.is_active : false;
   const isExpired = daysRemaining !== null && daysRemaining <= 0;
-  const isLocked = isInactive || isExpired;
+  const isLocked = !company || isInactive || isExpired;
 
   return {
     isLoading: query.isLoading,
+    isError: query.isError, error: query.error, retry: query.refetch,
     isLocked,
     isExpired,
     isInactive,

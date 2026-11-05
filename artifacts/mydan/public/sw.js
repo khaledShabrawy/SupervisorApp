@@ -3,36 +3,21 @@ const BASE = new URL('./', self.location.href);
 // VitePWA injects public build revisions here, making every release detectable.
 const BUILD_ASSETS = self.__WB_MANIFEST || [];
 const PREFIX = `mydan-shell:${BASE.pathname}:`;
-let CACHE;
-
+// Bound to this worker's injected revision list, including after its process restarts.
+const VERSION = [...JSON.stringify(BUILD_ASSETS)].reduce((hash, ch) => Math.imul(hash ^ ch.charCodeAt(0), 16777619), 2166136261) >>> 0;
+const CACHE = PREFIX + VERSION.toString(16);
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
-    try {
-      const response = await fetch(new URL('asset-manifest.json', BASE), { cache: 'no-store' });
-      if (!response.ok) throw new Error('Missing app-shell build manifest');
-      const manifest = await response.json();
-      CACHE = PREFIX + manifest.version;
-      const cache = await caches.open(CACHE);
-      await cache.addAll([...new Set(['./', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
-        ...manifest.assets, ...BUILD_ASSETS.map(entry => entry.url)].map(path => new URL(path, BASE).href))]
-        .map(url => new Request(url, { cache: 'reload' })));
-    } catch {
-      // In production, redirects or network blips must never prevent the worker from installing and activating
-    }
-    await self.skipWaiting();
+    const cache = await caches.open(CACHE);
+    const paths = BUILD_ASSETS.length ? BUILD_ASSETS.map(entry => entry.url) : ['./', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
+    // An incomplete install rejects and leaves the previous release active.
+    await cache.addAll([...new Set(paths.map(path => new URL(path, BASE).href))].map(url => new Request(url, {cache:'reload'})));
+    // No skipWaiting: an active visit/form is never interrupted by an update.
   })());
 });
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    try {
-      if (!CACHE) {
-        const response = await fetch(new URL('asset-manifest.json', BASE), { cache: 'no-store' });
-        const manifest = await response.json();
-        CACHE = PREFIX + manifest.version;
-      }
-      await Promise.all((await caches.keys()).filter(key => key.startsWith(PREFIX) && key !== CACHE)
-        .map(key => caches.delete(key)));
-    } catch {}
+    await Promise.all((await caches.keys()).filter(key => key.startsWith(PREFIX) && key !== CACHE).map(key => caches.delete(key)));
     await self.clients.claim();
   })());
 });
@@ -52,21 +37,11 @@ self.addEventListener('fetch', event => {
   const isAsset = /\/assets\/[^/]+\.(js|css|woff2?|png|svg)$/.test(url.pathname);
   if (request.mode === 'navigate') {
     // Cache-first for the app shell: serve cached index.html instantly so returning
-    // to the app from the background doesn't cause a visible reload. Revalidate in background.
+    // to the app from the background keeps the same installed release.
     event.respondWith((async () => {
-      const cached = await caches.match(BASE.href);
-      if (cached) {
-        // Background revalidation — don't await, just refresh the cache quietly
-        fetch(new Request(BASE.href, { cache: 'no-store' }))
-          .then(async fresh => {
-            if (fresh.ok) {
-              const c = await caches.open(CACHE || (PREFIX + 'default'));
-              c.put(BASE.href, fresh);
-            }
-          })
-          .catch(() => {});
-        return cached;
-      }
+      const cache = await caches.open(CACHE);
+      const cached = await cache.match(new URL('index.html', BASE).href) || await cache.match(BASE.href);
+      if (cached) return cached;
       // No cache yet — go to network, fallback to offline message
       return fetch(request).catch(() =>
         new Response('التطبيق غير متاح دون اتصال. افتحه مرة واحدة متصلًا بالإنترنت.', {
@@ -75,7 +50,7 @@ self.addEventListener('fetch', event => {
       );
     })());
   } else if (isAsset) {
-    event.respondWith(caches.match(request).then(cached => cached || fetch(request)));
+    event.respondWith(caches.open(CACHE).then(cache => cache.match(request)).then(cached => cached || fetch(request)));
   }
 });
 
@@ -104,7 +79,8 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || './';
+  let targetUrl = BASE.href;
+  try { const target = new URL(event.notification.data?.url || './', BASE); if (target.origin === BASE.origin && target.pathname.startsWith(BASE.pathname)) targetUrl = target.href; } catch {}
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
       for (const client of clientList) {

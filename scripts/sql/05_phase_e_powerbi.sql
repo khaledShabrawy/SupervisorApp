@@ -1,3 +1,5 @@
+-- Historical script only. Never replay after the audited security contract.
+DO $$ BEGIN IF to_regprocedure('public.mdn_security_contract_version_v1()') IS NOT NULL THEN RAISE EXCEPTION 'Legacy SQL replay blocked: use versioned migrations.'; END IF; END $$;
 -- Phase E (Power BI). Run after 01–04.
 -- Existing views (verified 2026-10-06, all security_invoker=true):
 --   vw_daily_kpi_supervisor, vw_perfect_store_index, vw_branch_performance,
@@ -38,21 +40,6 @@ GRANT SELECT ON public.vw_asset_fleet_health TO authenticated;
 
 COMMIT;
 
--- 2) Read-only login for Power BI (least privilege instead of the postgres user).
---    Replace the password, run separately, then connect Power BI with:
---      Server   aws-0-eu-west-2.pooler.supabase.com   Port 5432 (session) / 6543 (transaction)
---      Database postgres
---      User     powerbi_reader.ywdlrrdkjbtpfgacuuoy
---      SSL      required · Mode: DirectQuery
---    BYPASSRLS is needed because the views are security_invoker and this role
---    has no supervisors row; it can still only SELECT the six views below.
---
--- CREATE ROLE powerbi_reader LOGIN PASSWORD '<STRONG-PASSWORD-HERE>' BYPASSRLS;
--- GRANT USAGE ON SCHEMA public TO powerbi_reader;
--- GRANT SELECT ON public.vw_daily_kpi_supervisor, public.vw_perfect_store_index,
---   public.vw_branch_performance, public.vw_competitor_heatmap, public.vw_oor_analysis,
---   public.vw_asset_fleet_health TO powerbi_reader;
--- -- security_invoker views read the base tables as the caller:
--- GRANT SELECT ON public.visits, public.supervisors, public.customers, public.shelf_audit,
---   public.competitor_products, public.orders, public.assets, public.asset_types,
---   public.asset_tickets, public.branches TO powerbi_reader;
+-- BI access is deliberately not provisioned here.
+-- Never create a shared BYPASSRLS reporting reader for multiple companies.
+-- Review tenant-specific identities, grants and view definitions before enabling reporting access.

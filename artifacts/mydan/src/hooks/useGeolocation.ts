@@ -5,6 +5,7 @@ interface LocationState {
   latitude: number | null;
   longitude: number | null;
   accuracy: number | null;
+  recordedAt?: string;
   error: string | null;
   loading: boolean;
   isMock: boolean;
@@ -116,6 +117,7 @@ export function useGeolocation() {
           latitude: lat,
           longitude: lng,
           accuracy,
+          recordedAt: new Date(position.timestamp).toISOString(),
           error: null,
           loading: false,
           isMock: mockDetected,

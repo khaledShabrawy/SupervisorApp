@@ -1,3 +1,4 @@
+import { readAllRows } from './read-count';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -72,7 +73,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
     queryKey: [...sc.base, 'live-tracking-data', date, branchFilter],
     // Auto-refresh every 30 seconds for real-time tracking
     refetchInterval: 30_000,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       // 1. Fetch active supervisors of the company
       let supQuery = supabase
         .from('supervisors')
@@ -81,14 +82,14 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
         .eq('is_active', true);
 
       // If user is a branch manager, restrict to their branch
-      if (sc.supervisor.role === 'branch_manager' && sc.supervisor.branch_id) {
+      if (['branch_manager','manager'].includes(sc.supervisor.role) && sc.supervisor.branch_id) {
         supQuery = supQuery.eq('branch_id', sc.supervisor.branch_id);
       } else if (branchFilter !== 'all') {
         supQuery = supQuery.eq('branch_id', branchFilter);
       }
 
-      const { data: sups, error: supErr } = await supQuery.order('full_name');
-      if (supErr) throw new Error(t('تعذر تحميل بيانات المشرفين.'));
+      const sups = await readAllRows<any>(()=>supQuery,signal,t('تعذر تحميل بيانات المشرفين.'));
+      sups.sort((a,b)=>a.full_name.localeCompare(b.full_name));
 
       const supIds = (sups ?? []).map((s) => s.id);
       if (supIds.length === 0) {
@@ -96,10 +97,11 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
       }
 
       // 2. Fetch branches for lookup with coordinates
-      const { data: branches } = await supabase
+      const { data: branches, error: branchesError } = await supabase
         .from('branches')
         .select('id, name, region, latitude, longitude')
-        .eq('company_id', sc.companyId);
+        .eq('company_id', sc.companyId).abortSignal(signal);
+      if(branchesError) throw new Error('تعذر تحميل الفروع.');
 
       const branchMap = new Map(
         (branches ?? []).map((b) => [
@@ -107,7 +109,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
           {
             name: b.name,
             location:
-              Number.isFinite(Number(b.latitude)) && Number.isFinite(Number(b.longitude))
+              b.latitude != null && b.longitude != null && Number.isFinite(Number(b.latitude)) && Number.isFinite(Number(b.longitude))
                 ? { latitude: Number(b.latitude), longitude: Number(b.longitude) }
                 : null,
           },
@@ -123,17 +125,15 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
           customers (id, name, address, latitude, longitude)
         `)
         .eq('company_id', sc.companyId)
-        .eq('visit_date', date)
-        .order('check_in_time', { ascending: true });
+        .eq('visit_date', date);
 
       // If scoped to a specific branch or branch manager, restrict to their supervisors only
-      if (branchFilter !== 'all' || (sc.supervisor.role === 'branch_manager' && sc.supervisor.branch_id)) {
+      if (branchFilter !== 'all' || (['branch_manager','manager'].includes(sc.supervisor.role) && sc.supervisor.branch_id)) {
         visitsQ = visitsQ.in('supervisor_id', supIds);
       }
 
-      const { data: visitsData, error: visitsErr } = await visitsQ;
-
-      if (visitsErr) throw new Error(t('تعذر تحميل بيانات زيارات اليوم.'));
+      const visitsData = await readAllRows<any>(()=>visitsQ,signal,t('تعذر تحميل بيانات زيارات اليوم.'));
+      visitsData.sort((a,b)=>String(a.check_in_time).localeCompare(String(b.check_in_time)));
 
       // Group visits by supervisor
       const visitsBySup = new Map<string, any[]>();
@@ -155,7 +155,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
         for (const v of supVisits) {
           const lat = Number(v.latitude);
           const lng = Number(v.longitude);
-          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          if (v.latitude != null && v.longitude != null && Number.isFinite(lat) && Number.isFinite(lng)) {
             route.push({
               seq: seq++,
               visitId: v.id,
@@ -176,7 +176,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
         // Determine current live location and status
         // Priority 1: Visit currently in progress
         const inProgress = supVisits.find((v) => v.status === 'in_progress');
-        if (inProgress && Number.isFinite(Number(inProgress.latitude)) && Number.isFinite(Number(inProgress.longitude))) {
+        if (inProgress && inProgress.latitude != null && inProgress.longitude != null && Number.isFinite(Number(inProgress.latitude)) && Number.isFinite(Number(inProgress.longitude))) {
           return {
             supervisorId: s.id,
             supervisorName: s.full_name,
@@ -318,8 +318,8 @@ export function useSupervisorVisitsHistory(supervisorId: string | null) {
         checkInTime: v.check_in_time,
         checkOutTime: v.check_out_time,
         status: v.status,
-        latitude: Number.isFinite(Number(v.latitude)) ? Number(v.latitude) : null,
-        longitude: Number.isFinite(Number(v.longitude)) ? Number(v.longitude) : null,
+        latitude: v.latitude != null && Number.isFinite(Number(v.latitude)) ? Number(v.latitude) : null,
+        longitude: v.longitude != null && Number.isFinite(Number(v.longitude)) ? Number(v.longitude) : null,
         onBeat: v.on_beat,
         geoDistance: v.geo_distance,
         notes: v.notes,

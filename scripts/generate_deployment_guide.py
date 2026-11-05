@@ -291,7 +291,7 @@ sudo certbot --nginx -d field.clientcompany.com
   1. عدّل ملف `artifacts/mydan/.env.android`:
      ```env
      VITE_SUPABASE_URL=https://field.clientcompany.com
-     VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5c...
+     VITE_SUPABASE_ANON_KEY=<SUPABASE_PUBLISHABLE_KEY>
      ```
   2. شغّل سكريبت البناء الآلي:
      ```powershell

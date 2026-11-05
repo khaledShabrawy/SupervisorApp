@@ -11,8 +11,7 @@
 //   Topic: Order created
 //   Delivery URL: https://<project>.supabase.co/functions/v1/purchase-webhook
 //   Secret: <WC_WEBHOOK_SECRET value>
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 
 const reply = (status: number, body: Record<string, unknown>) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -64,6 +63,12 @@ async function verifySignature(secret: string, body: string, signature: string):
 }
 
 Deno.serve(async (req) => {
+  // Release gate: legacy multi-step provisioning can acknowledge an incomplete account
+  // on a duplicate webhook. Keep it disabled until a durable, atomic provisioning saga
+  // and retry/concurrency tests are approved. This does not alter existing accounts.
+  if (Deno.env.get("ENABLE_WOOCOMMERCE_PROVISIONING") !== "true") {
+    return reply(503, { error: "Automatic provisioning is disabled pending security review" });
+  }
   if (req.method !== "POST") return reply(405, { error: "Method not allowed" });
 
   const rawBody = await req.text();
@@ -229,7 +234,7 @@ Deno.serve(async (req) => {
     },
   }).then(({ error }) => error && console.warn("[purchase-webhook] audit log skipped:", error.message));
 
-  console.log(`[purchase-webhook] ✓ provisioned company=${company.id} plan=${planKey} email=${email}`);
+  console.log(`[purchase-webhook] provisioned company=${company.id} plan=${planKey}`);
   return reply(200, {
     company_id:    company.id,
     supervisor_id: supervisor.id,

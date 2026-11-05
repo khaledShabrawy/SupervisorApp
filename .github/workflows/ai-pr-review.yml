@@ -1,59 +1,25 @@
-name: AI PR Code Review
-
+# These are two source guardrails, not an AI review or a certification of offline behavior.
+name: Architecture source guardrails
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-
 permissions:
   contents: read
-  pull-requests: write
-
 jobs:
-  review:
-    name: Architecture & Policy Guardrails
+  guardrails:
     runs-on: ubuntu-latest
-    if: github.actor != 'dependabot[bot]'
-    timeout-minutes: 10
-
+    timeout-minutes: 5
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Run Architecture & Safety Checklist
+      - uses: actions/checkout@v4
+      - name: Keep server credentials out of browser source
         run: |
-          echo "=== Mydan Architectural Guardrail Check ==="
-          
-          # Check 1: Ensure no service_role key leaked in client code
-          if grep -rn "service_role" artifacts/mydan/src/ 2>/dev/null; then
-            echo "❌ CRITICAL: service_role key referenced in client code!"
+          if rg -l 'SUPABASE_SERVICE_ROLE_KEY|sb_secret_' artifacts/mydan/src; then
+            echo 'Server credential reference in browser source'
             exit 1
           fi
-          
-          # Check 2: Ensure Android capacitor mode remains 100% native offline
-          if grep -rn "server:" artifacts/mydan/capacitor.config.ts 2>/dev/null | grep -v "//" | grep "url"; then
-            echo "❌ CRITICAL: Remote server URL found in capacitor.config.ts! Android app must remain 100% native & offline."
+      - name: Keep Android assets bundled locally
+        run: |
+          if rg '^[[:space:]]*url:' artifacts/mydan/capacitor.config.ts; then
+            echo 'Review remote Android server configuration'
             exit 1
           fi
-          
-          echo "✅ All Mydan architectural guardrails passed!"
-
-      - name: Post PR Review Summary
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const body = `### 🛡️ Mydan CI Architecture Review
-            - **Native Offline Policy:** Enforced (0 Remote URLs in Mobile App).
-            - **Credential Isolation:** Enforced (No service_role in client).
-            - **TypeScript & i18n:** Automated quality checks passed.
-            
-            *Automated by Mydan CI Quality Gate.*`;
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body
-            });

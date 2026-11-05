@@ -1,3 +1,4 @@
+import 'leaflet/dist/leaflet.css';
 import ReactDOM from 'react-dom/client';
 import { registerPwa } from './lib/pwa';
 import { applyDocumentLanguage, DIR, t } from './i18n';

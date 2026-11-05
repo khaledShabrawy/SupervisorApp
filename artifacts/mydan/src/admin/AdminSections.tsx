@@ -367,7 +367,6 @@ export function AdminTargets() {
   const criteriaLabels: Record<string, string> = {
     visits: t('زيارات ميدانية'),
     shelf_audit: t('مراجعات الرف'),
-    orders: t('فرص بيعية وطلبات'),
     new_opportunity: t('استقطاب عملاء'),
   };
 
@@ -482,7 +481,7 @@ export function AdminTargets() {
             </thead>
             <tbody>
               {filteredTargets.map((row) => {
-                const targetVal = row.criteria === 'orders' && row.target_amount ? row.target_amount : (row.visits_target || row.audit_target || 0);
+                const targetVal = row.criteria === 'shelf_audit' ? (row.audit_target || 0) : (row.visits_target || 0);
                 const actualVal = row.criteria === 'shelf_audit' ? (row.actual_audits || 0) : (row.actual_visits || 0);
                 const pct = targetVal > 0 ? Math.min(100, Math.round((actualVal / targetVal) * 100)) : 0;
                 const isGeneral = row.scope_type === 'general';
@@ -515,9 +514,7 @@ export function AdminTargets() {
                       </span>
                     </td>
                     <td style={{ fontWeight: 600 }}>
-                      {row.criteria === 'orders' && row.target_amount
-                        ? `${num(row.target_amount)} ج.م`
-                        : `${row.visits_target || 0} زيارة`}
+                      {`${targetVal} ${row.criteria === 'shelf_audit' ? t('مراجعة') : t('زيارة')}`}
                       {(row.audit_target ?? 0) > 0 && (
                         <div className="muted" style={{ fontSize: 12 }}>
                           {row.audit_target} {t('مراجعة')}
@@ -650,9 +647,7 @@ function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: 
   const [masterBrand, setMasterBrand] = useState(edit?.master_brand ?? '');
   const [subBrand, setSubBrand] = useState(edit?.sub_brand ?? '');
   const [unit, setUnit] = useState(edit?.unit ?? 'قطعة');
-  const [price, setPrice] = useState(edit?.price?.toString() ?? '');
   const [unitsPerCarton, setUnitsPerCarton] = useState(edit?.units_per_carton?.toString() ?? '1');
-  const [cartonPrice, setCartonPrice] = useState(edit?.carton_price?.toString() ?? '');
   const [active, setActive] = useState(edit?.is_active ?? true);
 
   const submit = useCallback((e: FormEvent) => {
@@ -666,12 +661,10 @@ function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: 
       master_brand: masterBrand,
       sub_brand: subBrand,
       unit,
-      price: numOrNull(price) ?? undefined,
       units_per_carton: numOrNull(unitsPerCarton) ?? 1,
-      carton_price: numOrNull(cartonPrice) ?? undefined,
       is_active: active,
     }, { onSuccess: onClose });
-  }, [m, edit, name, category, sku, itemCode, masterBrand, subBrand, unit, price, unitsPerCarton, cartonPrice, active, onClose]);
+  }, [m, edit, name, category, sku, itemCode, masterBrand, subBrand, unit, unitsPerCarton, active, onClose]);
 
   return <Modal title={edit ? t('تعديل المنتج') : t('منتج جديد')} onClose={onClose} onSubmit={submit}>
     <label className="f">{t('اسم المنتج *')}<input className="input" required value={name} onChange={useInput(setName)} /></label>
@@ -685,11 +678,9 @@ function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: 
     </div>
     <div className="row">
       <label className="f grow">{t('الوحدة الأساسية')}<input className="input" value={unit} onChange={useInput(setUnit)} placeholder={t('مثال: قطعة / باكو')} /></label>
-      <label className="f grow">{t('سعر القطعة (ج.م)')}<input className="input" dir="ltr" inputMode="decimal" value={price} onChange={useInput(setPrice)} placeholder="0.00" /></label>
     </div>
     <div className="row">
       <label className="f grow">{t('عدد القطع في الكرتونة (التعبئة)')}<input className="input" dir="ltr" type="number" min={1} value={unitsPerCarton} onChange={useInput(setUnitsPerCarton)} placeholder="مثال: 12 أو 24" /></label>
-      <label className="f grow">{t('سعر الكرتونة (ج.م) [اختياري]')}<input className="input" dir="ltr" inputMode="decimal" value={cartonPrice} onChange={useInput(setCartonPrice)} placeholder={t('يحسب تلقائياً إن ترك فارغاً')} /></label>
     </div>
     <label className="row" style={{ minHeight: 44 }}><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} style={{ width: 22, height: 22 }} /> {t('متاح في الكتالوج')}</label>
     <button className="btn" disabled={m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ المنتج')}</button>

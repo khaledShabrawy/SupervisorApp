@@ -41,3 +41,12 @@ export function requireExactCount(value: number | null): number {
   }
   return value;
 }
+
+export function passwordChangeRequired(profile: Supervisor | null, settings: AppSettings, now=Date.now()): boolean {
+  if (!profile) return false;
+  if (profile.force_password_change) return true;
+  if (settings.password_expiry_enabled !== true) return false;
+  const days=settings.password_expiry_days ?? 90;
+  const changed=profile.password_changed_at ? Date.parse(profile.password_changed_at) : NaN;
+  return !Number.isFinite(changed) || !Number.isFinite(days) || days<1 || changed+days*86400000<=now;
+}

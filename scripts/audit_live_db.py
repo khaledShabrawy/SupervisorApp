@@ -4,8 +4,8 @@ import json
 import urllib.request
 import urllib.error
 
-SUPABASE_URL = "https://ywdlrrdkjbtpfgacuuoy.supabase.co"
-ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3ZGxycmRramJ0cGZnYWN1dW95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMDAzNTgsImV4cCI6MjEwNjY3NjM1OH0.YY7pE4WNMkDLgvVg73jYFCZdVUv3YZD7kQzYsYSyPq8"
+SUPABASE_URL = os.environ["MYDAN_AUDIT_SUPABASE_URL"]
+ANON_KEY = os.environ["MYDAN_AUDIT_ANON_KEY"]
 
 def find_queries(src_dir):
     queries = []

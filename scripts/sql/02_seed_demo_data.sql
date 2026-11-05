@@ -1,3 +1,5 @@
+-- Historical script only. Never replay after the audited security contract.
+DO $$ BEGIN IF to_regprocedure('public.mdn_security_contract_version_v1()') IS NOT NULL THEN RAISE EXCEPTION 'Legacy SQL replay blocked: use versioned migrations.'; END IF; END $$;
 -- Demo seed (C-9): 10 عملاء + خطة زيارات + أهداف للمشرف التجريبي
 -- Idempotent: fixed UUIDs + ON CONFLICT DO NOTHING
 -- Schema notes (discovered from live DB):

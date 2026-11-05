@@ -1,3 +1,4 @@
+import { isOperationalReportColumn, operationalReportRows } from '@/lib/report-scope';
 import { useCallback, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -113,6 +114,7 @@ function ReportViewer({ config, onClose }: { config: ReportConfig; onClose: () =
   const q = useQuery({
     queryKey: ['mydan', 'report', sc.companyId, config.id, config.source, config.rowLimit],
     queryFn: async () => {
+      if (![...config.columns, config.valueCol, config.labelCol].filter(Boolean).every(isOperationalReportColumn)) throw new Error(t('حقول البيع والأسعار خارج نطاق تقارير ميدان'));
       const isAllowed = SOURCES.some((s) => s.id === config.source);
       if (!isAllowed) throw new Error(t('مصدر التقرير المطلوب غير مصرح به'));
       if (!sc.companyId) throw new Error(t('معرف الشركة مطلوب لعرض التقرير'));
@@ -123,7 +125,7 @@ function ReportViewer({ config, onClose }: { config: ReportConfig; onClose: () =
         .eq('company_id', sc.companyId)
         .limit(limit);
       if (error) throw new Error(error.message);
-      return (data ?? []) as Row[];
+      return operationalReportRows((data ?? []) as Row[]);
     },
   });
 
@@ -217,7 +219,7 @@ function ReportWizard({
         .eq('company_id', sc.companyId)
         .limit(3);
       if (error) throw new Error(error.message);
-      return (data ?? []) as Row[];
+      return operationalReportRows((data ?? []) as Row[]);
     },
     enabled: wizard.step === 2 && SOURCES.some((s) => s.id === wizard.source) && !!sc.companyId,
   });

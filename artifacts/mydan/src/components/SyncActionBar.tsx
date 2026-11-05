@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, Upload, WifiOff } from '@/components/Icons';
 import { notify } from '@/lib/toast';
@@ -18,7 +18,7 @@ export function SyncActionBar() {
   const supervisorId = supervisor?.id;
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [pendingCount, setPendingCount] = useState(() => getPendingCount(companyId, supervisorId));
+  const [pendingCount, setPendingCount] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -29,8 +29,7 @@ export function SyncActionBar() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    setPendingCount(getPendingCount(companyId, supervisorId));
-    const unsubscribe = subscribeToQueueChanges((cnt) => setPendingCount(cnt), companyId, supervisorId);
+    const unsubscribe = subscribeToQueueChanges((cnt) => setPendingCount(cnt), companyId, supervisorId, () => notify('تعذر قراءة العمل المحلي المحفوظ.', 'error'));
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -81,9 +80,16 @@ export function SyncActionBar() {
       notify(err?.message || t('تعذر رفع البيانات المعلقة.'), 'error');
     } finally {
       setIsUploading(false);
-      setPendingCount(getPendingCount(companyId, supervisorId));
-    }
+      }
   }, [qc, isUploading, isRefreshing, companyId, supervisorId]);
+
+  const uploadRef = useRef(handleUpload);
+  uploadRef.current = handleUpload;
+  useEffect(() => {
+    const resume = () => { void uploadRef.current(); };
+    window.addEventListener('online', resume);
+    return () => window.removeEventListener('online', resume);
+  }, []);
 
   return (
     <div

@@ -1,3 +1,5 @@
+import { withClientCors } from '../_shared/client-cors.ts';
+import { corsHeaders as sdkCorsHeaders } from 'npm:@supabase/supabase-js@2.117.2/cors';
 // analyze-shelf v5 — Google Gemini Flash Vision with Multi-Model Fallback and Claude Vision Backup.
 //
 // Secrets (Dashboard → Edge Functions → Secrets):
@@ -10,12 +12,9 @@
 // Body: { audit_id }. Everything else (photo, brands, ownership) is read
 // server-side so a caller cannot point the function at another tenant's row
 // or at an arbitrary URL.
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
-import { encodeBase64 } from "jsr:@std/encoding@1/base64";
-import Anthropic from "npm:@anthropic-ai/sdk";
-import { zodOutputFormat } from "npm:@anthropic-ai/sdk/helpers/zod";
-import { z } from "npm:zod@3";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
+import { encodeBase64, verifiedTokenSession } from "../_shared/encoding.ts";
+import { z } from "npm:zod@3.25.76";
 
 const PHOTO_BUCKET = "shelf-photos";
 const CANDIDATE_GEMINI_MODELS = [
@@ -30,10 +29,7 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB limit
 const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
 type MediaType = typeof MEDIA_TYPES[number];
 
-const cors = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "https://mydan.digityoucan.com",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const cors = sdkCorsHeaders;
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
@@ -41,17 +37,17 @@ const json = (status: number, body: unknown) =>
 // Power BI views (vw_perfect_store_index) and frontend — keep them stable.
 const AuditSchema = z.object({
   audit_summary_ar: z.string(),
-  score: z.number(),
+  score: z.number().min(0).max(100),
   target_brand_metrics: z.object({
     brand_present: z.boolean(),
-    facings: z.number(),
-    share_of_shelf_percentage: z.number(),
+    facings: z.number().int().min(0),
+    share_of_shelf_percentage: z.number().min(0).max(100),
     out_of_stock: z.boolean(),
     oos_items: z.array(z.string()),
   }),
   competitor_metrics: z.object({
     competitor_presence_detected: z.boolean(),
-    competitor_share_pct: z.number(),
+    competitor_share_pct: z.number().min(0).max(100),
     brands_detected: z.array(z.string()),
   }),
   posm_present: z.boolean(),
@@ -127,6 +123,7 @@ async function callGemini(apiKey: string, base64Data: string, mediaType: string,
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const resp = await fetch(url, {
         method: "POST",
+        signal: AbortSignal.timeout(40_000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{
@@ -155,7 +152,7 @@ async function callGemini(apiKey: string, base64Data: string, mediaType: string,
       const parsed = JSON.parse(cleanJson);
       return { result: AuditSchema.parse(parsed), model };
     } catch (err: any) {
-      console.warn(`[analyze-shelf] Gemini model ${model} attempt failed:`, err?.message ?? err);
+      console.warn("Shelf provider attempt failed");
       lastError = err;
     }
   }
@@ -165,27 +162,22 @@ async function callGemini(apiKey: string, base64Data: string, mediaType: string,
 
 /** Fallback to Anthropic Claude Vision if ANTHROPIC_API_KEY is configured */
 async function callAnthropic(apiKey: string, base64Data: string, mediaType: MediaType, brand: string, competitors: string): Promise<AuditResult> {
-  const client = new Anthropic({ apiKey });
-  const response = await client.messages.parse({
-    model: CLAUDE_MODEL,
-    max_tokens: 4000,
-    system: SYSTEM,
-    messages: [{
-      role: "user",
-      content: [
-        { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
-        { type: "text", text: `العلامة المستهدفة: ${brand}\nالمنافسون المتوقعون: ${competitors}\nحلل الرف.` },
-      ],
-    }],
-    output_config: { format: zodOutputFormat(AuditSchema) },
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST', signal:AbortSignal.timeout(60_000),
+    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
+    body:JSON.stringify({model:CLAUDE_MODEL,max_tokens:4000,system:SYSTEM,messages:[{role:'user',content:[
+      {type:'image',source:{type:'base64',media_type:mediaType,data:base64Data}},{type:'text',text:`Target brand: ${brand}. Competitors: ${competitors}. Return only JSON with audit_summary_ar, score, target_brand_metrics (brand_present, facings, share_of_shelf_percentage, out_of_stock, oos_items), competitor_metrics (competitor_presence_detected, competitor_share_pct, brands_detected), posm_present, price_tag_visible, issues, recommendations and detailed_report (brand_analysis, competitor_analysis, display_quality, action_priority).`}
+    ]}]}),
   });
+  if(!response.ok) throw new Error('Analysis provider rejected the request');
+  const output=await response.json();
+  const text=output.content?.find((part:{type:string;text?:string})=>part.type==='text')?.text;
+  if(output.stop_reason==='refusal' || !text) throw new Error('Provider returned no measurement');
+  return AuditSchema.parse(JSON.parse(text.trim().replace(/^```(?:json)?\s*/i,'').replace(/```$/i,'')));
 
-  if (response.stop_reason === "refusal") throw new Error("model declined to analyze this photo");
-  if (!response.parsed_output) throw new Error("model returned unparseable output");
-  return response.parsed_output;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withClientCors(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json(405, { error: "method not allowed" });
 
@@ -222,59 +214,27 @@ Deno.serve(async (req) => {
   }
   if (!audit.photo_url) return json(400, { error: "audit has no photo" });
 
-  // Rate limiting: daily cap + concurrent cap per company + hourly cap per supervisor.
-  const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0);
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const maxPerDay     = parseInt(Deno.env.get("MAX_AUDITS_PER_DAY")       ?? "100", 10);
-  const maxConcurrent = parseInt(Deno.env.get("MAX_CONCURRENT_AUDITS")    ?? "5",   10);
-  const maxPerHour    = parseInt(Deno.env.get("MAX_AUDITS_PER_HOUR_USER") ?? "20",  10);
-  const [{ count: todayCompleted }, { count: inFlight }, { count: userHourly }] = await Promise.all([
-    admin.from("shelf_audit")
-      .select("id", { count: "exact", head: true })
-      .eq("company_id", caller.company_id)
-      .eq("status", "completed")
-      .gte("audited_at", todayStart.toISOString()),
-    admin.from("shelf_audit")
-      .select("id", { count: "exact", head: true })
-      .eq("company_id", caller.company_id)
-      .eq("status", "processing"),
-    admin.from("shelf_audit")
-      .select("id", { count: "exact", head: true })
-      .eq("supervisor_id", caller.id)
-      .or(`audited_at.gte.${oneHourAgo},status.eq.processing`),
-  ]);
-  if ((userHourly ?? 0) >= maxPerHour)
-    return json(429, { error: `تجاوزت الحد المسموح به لتحليلات الذكاء الاصطناعي (${maxPerHour} تحليل/ساعة). يرجى الانتظار قليلاً.` });
-  if ((todayCompleted ?? 0) >= maxPerDay)
-    return json(429, { error: `تم تجاوز الحد اليومي لتحليلات الذكاء الاصطناعي (${maxPerDay} تحليل/يوم). يُجدَّد عند منتصف الليل.` });
-  if ((inFlight ?? 0) >= maxConcurrent)
-    return json(429, { error: `يوجد ${inFlight} تحليلات قيد المعالجة حالياً. يرجى الانتظار قليلاً.` });
+  let path: string;
+  try { path = storagePath(audit.photo_url); } catch { return json(400,{error:'Invalid photo path'}); }
+  if (!path.startsWith(`${audit.company_id}/${audit.supervisor_id}/`)) return json(400,{error:'Invalid photo owner path'});
+  const sid=verifiedTokenSession(token!);
+  if(!sid) return json(403,{error:'Session identity required'});
+  const claim = await admin.rpc('mdn_claim_analysis_job_v1', {p_user_id:auth.user.id,
+    p_session_id:sid,p_resource_type:'shelf_audit',p_resource_id:audit.id});
+  if(claim.error || !claim.data) return json(claim.error?.code==='23505'?409:claim.error?.code==='54000'?429:403,{error:'Analysis could not be authorized or reserved'});
+  const jobId=claim.data;
 
-  const path = storagePath(audit.photo_url);
-  if (!path.startsWith(`${audit.company_id}/`)) return json(400, { error: "photo outside company folder" });
-
-  const fail = async (status: number, error: string) => {
-    await admin.from("shelf_audit").update({ status: "failed" }).eq("id", audit.id);
-    return json(status, { error });
+  const fail = async (status:number,error:string) => {
+    const result=await admin.rpc('mdn_finish_analysis_job_v1',{p_job_id:jobId,p_success:false});
+    if(result.error) console.error('Could not finalize shelf failure',jobId);
+    return json(status,{error});
   };
-
-  // Atomic claim: UPDATE only succeeds when status is not already 'processing' or 'completed'.
-  const { count: claimedCount } = await admin.from("shelf_audit")
-    .update({ status: "processing" })
-    .eq("id", audit.id)
-    .not("status", "in", "(processing,completed)")
-    .select("id", { count: "exact", head: true });
-  if (!claimedCount) {
-    const { data: cur } = await admin.from("shelf_audit").select("status").eq("id", audit.id).maybeSingle();
-    const msg = cur?.status === "completed" ? "audit already analyzed" : "analysis already running";
-    return json(409, { error: msg });
-  }
 
   try {
     // 3) Brand settings come from the company's own row.
     const { data: settings } = await admin.from("app_settings")
       .select("target_brand_name,competitor_brands,ai_audit_enabled").eq("company_id", audit.company_id).maybeSingle();
-    if (settings && settings.ai_audit_enabled === false) return await fail(403, "AI audit disabled for company");
+    if (!settings || settings.ai_audit_enabled !== true) return await fail(403, "AI audit disabled for company");
     const brand = settings?.target_brand_name || "العلامة المستهدفة";
     const competitors = (settings?.competitor_brands ?? []).join("، ") || "المنافسون";
 
@@ -288,14 +248,15 @@ Deno.serve(async (req) => {
     // 5) Execute analysis: Primary is Gemini Flash Vision, fallback is Anthropic
     let result: AuditResult;
     let modelUsed: string;
+    let engine: 'google-gemini' | 'anthropic' = 'anthropic';
 
     if (geminiKey) {
       try {
         const geminiRes = await callGemini(geminiKey, base64Data, mediaType, brand, competitors);
         result = geminiRes.result;
-        modelUsed = geminiRes.model;
+        modelUsed = geminiRes.model; engine = 'google-gemini';
       } catch (geminiErr) {
-        console.warn("Gemini Flash failed, attempting fallback if available:", geminiErr);
+        console.warn("Primary shelf provider failed");
         if (anthropicKey) {
           result = await callAnthropic(anthropicKey, base64Data, mediaType, brand, competitors);
           modelUsed = CLAUDE_MODEL;
@@ -309,27 +270,10 @@ Deno.serve(async (req) => {
     }
 
     const score = Math.max(0, Math.min(100, Math.round(result.score)));
-    const { error: updateError } = await admin.from("shelf_audit").update({
-      audit_summary_ar: result.audit_summary_ar,
-      audit_score: score,
-      ai_detailed_report: { ...result, score, model: modelUsed, engine: geminiKey ? "google-gemini" : "anthropic" },
-      status: "completed",
-      audited_at: new Date().toISOString(),
-    }).eq("id", audit.id);
-
-    if (updateError) return await fail(500, "could not save result to database");
-
-    if (result.target_brand_metrics?.out_of_stock || (result.target_brand_metrics?.oos_items && result.target_brand_metrics.oos_items.length > 0)) {
-      const oosList = (result.target_brand_metrics.oos_items ?? []).join('، ') || brand;
-      await admin.from('notifications').insert({
-        company_id: audit.company_id,
-        supervisor_id: audit.supervisor_id,
-        type: 'oos_critical',
-        title_ar: 'إنذار: نقص حاد في بضاعة الرف (OOS) 🚨',
-        body_ar: `رصد نقص أصناف (${oosList}) لعلامة ${brand} في تدقيق الرف. يرجى المتابعة العاجلة.`,
-        is_read: false,
-      }).catch(() => {});
-    }
+    const { data: saved,error: updateError }=await admin.rpc('mdn_finish_analysis_job_v1',{
+      p_job_id:jobId,p_success:true,p_result:{...result,score,model:modelUsed,engine},
+    });
+    if(updateError || saved!==true) return await fail(500,'Could not confirm persisted analysis');
 
     return json(200, {
       success: true,
@@ -339,7 +283,7 @@ Deno.serve(async (req) => {
       model: modelUsed
     });
   } catch (err: any) {
-    console.error("[analyze-shelf] error:", err);
+    console.error("Shelf analysis failed",jobId);
     return await fail(500, "فشل تحليل الرف — يرجى المحاولة مرة أخرى");
   }
-});
+},Deno.env.get('ALLOWED_ORIGIN') ?? 'https://mydan.digityoucan.com',sdkCorsHeaders));

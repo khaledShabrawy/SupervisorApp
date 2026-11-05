@@ -1,3 +1,4 @@
+import { csvCell } from './csv-cell';
 /**
  * Export data to CSV with UTF-8 BOM for seamless Microsoft Excel Arabic rendering.
  */
@@ -12,22 +13,13 @@ export function exportToCsv<T = any>(
   columns: CsvColumn<T>[],
   data: T[]
 ) {
-  const sanitizeCell = (val: unknown): string => {
-    if (val === null || val === undefined) return '';
-    let str = String(val);
-    // If it contains double quotes, commas, or line breaks, enclose in quotes and escape quotes
-    if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
-      str = `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-  };
 
-  const headerRow = columns.map((c) => sanitizeCell(c.header)).join(',');
+  const headerRow = columns.map((c) => csvCell(c.header)).join(',');
   const dataRows = data.map((row) =>
     columns
       .map((col) => {
         const val = col.accessor ? col.accessor(row) : col.key ? (row as any)[col.key] : '';
-        return sanitizeCell(val);
+        return csvCell(val);
       })
       .join(',')
   );
