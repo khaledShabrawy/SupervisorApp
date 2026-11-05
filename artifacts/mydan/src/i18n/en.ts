@@ -229,7 +229,7 @@ export const EN: Record<string, string> = {
   'أضف': 'Add',
   'و': 'and',
   'إلى الملف:': 'to the file:',
-  'استخدم عنوان المشروع والمفتاح العام (anon أو publishable) من إعدادات Supabase. لا تستخدم مفتاح service_role ولا ترسله في المحادثة.': 'Use the project URL and the public (anon or publishable) key from Supabase settings. Never use or share the service_role key.',
+  'استخدم عنوان المشروع والمفتاح العام (anon أو publishable) من إعدادات Supabase. لا تستخدم مفاتيح الخادم السرية ولا ترسلها في المحادثة.': 'Use the project URL and the public (anon or publishable) key from Supabase settings. Never use or share secret server keys.',
   'بعد حفظ الملف، أعد تشغيل خادم التطوير ثم حدّث هذه الصفحة.': 'After saving the file, restart the dev server and refresh this page.',
   'تعذر تحميل التطبيق. راجع أخطاء التشغيل في الطرفية ثم أعد تحميل الصفحة.': 'Could not load the app. Check the terminal for errors, then reload the page.',
   'تعذر تفعيل تشغيل التطبيق دون اتصال.': 'Could not enable offline mode.',

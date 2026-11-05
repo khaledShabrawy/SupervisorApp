@@ -44,13 +44,11 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const body = `### 🛡️ Mydan CI Architecture Review
-            - **Native Offline Policy:** Enforced (0 Remote URLs in Mobile App).
-            - **Credential Isolation:** Enforced (No service_role in client).
-            - **TypeScript & i18n:** Automated quality checks passed.
-            
-            *Automated by Mydan CI Quality Gate.*`;
-            
+            const status = '${{ job.status }}';
+            const body = `### Mydan architecture checks
+            Result: **${status}**. Checks cover client credential references and remote mobile server configuration.
+            TypeScript, browser, database and build results are reported by their separate jobs.`;
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
