@@ -1,3 +1,5 @@
+import { newMutationId, isRetryableMutationError } from './mutation-receipt';
+import { insertScopedOnce, finishAttendanceOnce } from './persistent-mutation';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useMemo } from 'react';
@@ -197,78 +199,35 @@ export function useAttendanceAction() {
     mutationFn: async (a: { kind: 'in' | 'out'; row: Attendance | null; lat?: number | null; lng?: number | null }) => {
 
       const timestamp = nowIso(); const today = todayStr();
-
-      if (!navigator.onLine) {
-
-        enqueueOfflineAction({
-
-          type: 'attendance_action', companyId: sc.companyId, supervisorId: sc.supervisorId,
-
-          payload: a.kind === 'in'
-
-            ? { kind: 'in', attendance_date: today, check_in_time: timestamp, check_in_lat: a.lat ?? null, check_in_lng: a.lng ?? null }
-
-            : { kind: 'out', attendance_date: today, check_out_time: timestamp },
-
-        });
-
-        return;
-
+      const payload = a.kind === 'in'
+        ? { id: newMutationId(), kind: 'in', attendance_date: today, check_in_time: timestamp, check_in_lat: a.lat ?? null, check_in_lng: a.lng ?? null }
+        : { id: a.row?.id, kind: 'out', attendance_date: today, check_out_time: timestamp };
+      const saveLocally = () => {
+        enqueueOfflineAction({ type: 'attendance_action', companyId: sc.companyId, supervisorId: sc.supervisorId, payload });
+        return { queued: true };
+      };
+      if (!navigator.onLine) return saveLocally();
+      try {
+        const { kind: _, ...values } = payload;
+        const row = { ...values, company_id: sc.companyId, supervisor_id: sc.supervisorId };
+        if (a.kind === 'in') await insertScopedOnce('attendance', row);
+        else await finishAttendanceOnce(row);
+        return { queued: false };
+      } catch (error) {
+        if (!isRetryableMutationError(error)) throw error;
+        return saveLocally();
       }
-
-      if (a.kind === 'in') {
-
-        const { error } = await supabase.from('attendance').insert({
-
-          supervisor_id: sc.supervisorId, company_id: sc.companyId,
-
-          attendance_date: today, check_in_time: timestamp,
-
-        });
-
-        if (error) {
-
-          enqueueOfflineAction({
-
-            type: 'attendance_action', companyId: sc.companyId, supervisorId: sc.supervisorId,
-
-            payload: { kind: 'in', attendance_date: today, check_in_time: timestamp, check_in_lat: a.lat ?? null, check_in_lng: a.lng ?? null },
-
-          });
-
-        }
-
-      } else {
-
-        const { error } = await supabase.from('attendance').update({ check_out_time: timestamp })
-
-          .eq('id', a.row!.id).eq('company_id', sc.companyId).eq('supervisor_id', sc.supervisorId).select('id').single();
-
-        if (error) {
-
-          enqueueOfflineAction({
-
-            type: 'attendance_action', companyId: sc.companyId, supervisorId: sc.supervisorId,
-
-            payload: { kind: 'out', attendance_date: today, check_out_time: timestamp },
-
-          });
-
-        }
-
-      }
-
     },
 
-    onSuccess: (_d, v) => {
+    onSuccess: (result, v) => {
 
-      const online = navigator.onLine;
+      const online = !result.queued;
 
       const msg = v.kind === 'in'
 
-        ? (online ? t('تم تسجيل الحضور') : t('📶 تم حفظ الحضور دون اتصال. سيُرفع عند توفر الشبكة'))
+        ? (online ? t('تم تسجيل الحضور') : t('📶 تم حفظ الحضور محلياً. اضغط رفع البيانات عند توفر الشبكة'))
 
-        : (online ? t('تم تسجيل الانصراف') : t('📶 تم حفظ الانصراف دون اتصال. سيُرفع عند توفر الشبكة'));
+        : (online ? t('تم تسجيل الانصراف') : t('📶 تم حفظ الانصراف محلياً. اضغط رفع البيانات عند توفر الشبكة'));
 
       notify(msg, 'success');
 
@@ -414,112 +373,47 @@ export function useCreateVisit() {
 
       geo_distance: number | null; on_beat: boolean }) => {
 
-      // geo_distance/on_beat feed the OOR (out-of-route) KPIs in the reporting views.
-
-      const geo = { geo_distance: v.geo_distance, on_beat: v.on_beat };
-
-      if (!navigator.onLine) {
-
-        const offlineId = v.existingId || (typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `offline-${Date.now()}`);
-
-        enqueueOfflineAction({
-
-          type: 'create_visit',
-
-          companyId: sc.companyId,
-
-          supervisorId: sc.supervisorId,
-
-          payload: { ...v, ...geo, id: offlineId, check_in_time: nowIso(), visit_date: todayStr() },
-
-        });
-
-        return { id: offlineId };
-
-      }
-
-      if (v.existingId) {
-
-        const { data, error } = await sc.scope(supabase.from('visits').update({
-
-          status: 'in_progress', check_in_time: nowIso(), latitude: v.latitude,
-
-          longitude: v.longitude, notes: v.notes.trim() || null, ...geo,
-
-        }).eq('id', v.existingId).eq('customer_id', v.customer_id).eq('status', 'pending'))
-
-          .select('id').single();
-
-        if (error || !data) {
-
-          enqueueOfflineAction({
-
-            type: 'create_visit',
-
-            companyId: sc.companyId,
-
-            supervisorId: sc.supervisorId,
-
-            payload: { ...v, ...geo, check_in_time: nowIso(), visit_date: todayStr() },
-
+      const id = v.existingId || newMutationId();
+      const timestamp = nowIso();
+      const payload = { ...v, id, check_in_time: timestamp, visit_date: todayStr() };
+      const saveLocally = () => {
+        enqueueOfflineAction({ type: 'create_visit', companyId: sc.companyId, supervisorId: sc.supervisorId, payload });
+        return { id, queued: true };
+      };
+      if (!navigator.onLine) return saveLocally();
+      try {
+        if (v.existingId) {
+          const { data, error } = await sc.scope(supabase.from('visits').update({
+            status: 'in_progress', check_in_time: timestamp, latitude: v.latitude, longitude: v.longitude,
+            notes: v.notes.trim() || null, geo_distance: v.geo_distance, on_beat: v.on_beat,
+          }).eq('id', id).eq('customer_id', v.customer_id).eq('status', 'pending')).select('id').single();
+          if (error || !data) throw error ?? new Error('Missing visit receipt');
+        } else {
+          await insertScopedOnce('visits', {
+            id, supervisor_id: sc.supervisorId, company_id: sc.companyId, customer_id: v.customer_id,
+            visit_date: payload.visit_date, status: 'in_progress', check_in_time: timestamp,
+            latitude: v.latitude, longitude: v.longitude, notes: v.notes.trim() || null,
+            geo_distance: v.geo_distance, on_beat: v.on_beat,
           });
-
-          return { id: v.existingId };
-
         }
-
-        return data as { id: string };
-
+        if (v.on_beat === false) {
+          const distance = v.geo_distance == null ? 'غير محددة' : String(Math.round(v.geo_distance)) + 'م';
+          void supabase.from('notifications').insert({
+            id, company_id: sc.companyId, supervisor_id: sc.supervisorId, type: 'oor_visit',
+            title_ar: 'تنبيه: زيارة خارج النطاق الجغرافي ⚠️',
+            body_ar: `تم تسجيل زيارة خارج نطاق السياج الجغرافي المعتمد (المسافة: ${distance}).`, is_read: false,
+          }).then(({ error }) => { if (error && error.code !== '23505') console.warn('Visit alert could not be saved', { code: error.code }); });
+        }
+        return { id, queued: false };
+      } catch (error) {
+        if (!isRetryableMutationError(error)) throw error;
+        return saveLocally();
       }
-
-      const { data, error } = await supabase.from('visits').insert({
-
-        supervisor_id: sc.supervisorId, company_id: sc.companyId, customer_id: v.customer_id, visit_date: todayStr(),
-
-        status: 'in_progress', check_in_time: nowIso(), latitude: v.latitude, longitude: v.longitude, notes: v.notes.trim() || null, ...geo,
-
-      }).select('id').single();
-
-      if (geo.on_beat === false) {
-        const distM = geo.geo_distance != null ? Math.round(geo.geo_distance * 1000) : null;
-        const distText = distM != null ? String(distM) + 'م' : 'غير محددة';
-        void (supabase.from('notifications') as any).insert({
-          company_id: sc.companyId,
-          supervisor_id: sc.supervisorId,
-          type: 'oor_visit',
-          title_ar: 'تنبيه: زيارة خارج النطاق الجغرافي ⚠️',
-          body_ar: `تم تسجيل زيارة خارج نطاق السياج الجغرافي المعتمد (المسافة: ${distText}).`,
-          is_read: false,
-        });
-      }
-
-      if (error) {
-
-        const offlineId = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `offline-${Date.now()}`;
-
-        enqueueOfflineAction({
-
-          type: 'create_visit',
-
-          companyId: sc.companyId,
-
-          supervisorId: sc.supervisorId,
-
-          payload: { ...v, ...geo, id: offlineId, check_in_time: nowIso(), visit_date: todayStr() },
-
-        });
-
-        return { id: offlineId };
-
-      }
-
-      return data as { id: string };
-
     },
 
-    onSuccess: () => {
+    onSuccess: (result) => {
 
-      const msg = navigator.onLine ? t('تم بدء الزيارة وتسجيل الدخول') : t('📶 تم بدء الزيارة دون اتصال. اضغط "رفع البيانات" عند توفر الشبكة');
+      const msg = !result.queued ? t('تم بدء الزيارة وتسجيل الدخول') : t('📶 تم بدء الزيارة دون اتصال. اضغط "رفع البيانات" عند توفر الشبكة');
 
       notify(msg, 'success');
 

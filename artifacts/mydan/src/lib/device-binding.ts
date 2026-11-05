@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Supervisor } from '@/types/database';
 import { notify } from '@/lib/toast';
@@ -29,6 +29,7 @@ export function getDeviceId(): string {
 export type DeviceBindingStatus =
   | { status: 'checking' }
   | { status: 'ok' }
+  | { status: 'error' }
   | { status: 'locked'; registeredDeviceId: string; currentDeviceId: string };
 
 /**
@@ -38,48 +39,44 @@ export type DeviceBindingStatus =
 export function useDeviceBinding(supervisor: Supervisor | null) {
   const [binding, setBinding] = useState<DeviceBindingStatus>({ status: 'checking' });
 
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((value) => value + 1), []);
   useEffect(() => {
-    if (!supervisor) {
+    let alive = true;
+    if (!supervisor || ['super_admin', 'admin'].includes(supervisor.role)) {
       setBinding({ status: 'ok' });
       return;
     }
-
-    // Admins and super_admins can log in on multiple workstations/dashboards
-    if (supervisor.role === 'super_admin' || supervisor.role === 'admin') {
-      setBinding({ status: 'ok' });
-      return;
-    }
-
     const currentDeviceId = getDeviceId();
-
-    // 1. If supervisor is not bound yet, bind via SECURITY DEFINER RPC.
-    //    The function only succeeds when device_id IS NULL in the database,
-    //    preventing a supervisor from re-binding by clearing localStorage.
-    if (!supervisor.device_id) {
-      void supabase
-        .rpc('mdn_bind_device_v1', { p_supervisor_id: supervisor.id, p_device_id: currentDeviceId })
-        .then(({ error }) => {
-          if (error) console.warn('Could not auto-bind device:', error);
-          setBinding({ status: 'ok' });
-        });
-      return;
+    const resolve = (registeredDeviceId: string) => {
+      if (!alive) return;
+      setBinding(registeredDeviceId === currentDeviceId
+        ? { status: 'ok' }
+        : { status: 'locked', registeredDeviceId, currentDeviceId });
+    };
+    if (supervisor.device_id) {
+      resolve(supervisor.device_id);
+    } else {
+      setBinding({ status: 'checking' });
+      void (async () => {
+        try {
+          const { error } = await supabase.rpc('mdn_bind_device_v1', {
+            p_supervisor_id: supervisor.id, p_device_id: currentDeviceId,
+          });
+          if (error) throw error;
+          const { data, error: readError } = await supabase.from('supervisors').select('device_id')
+            .eq('id', supervisor.id).eq('company_id', supervisor.company_id).single();
+          if (readError || !data?.device_id) throw readError ?? new Error('Device binding not confirmed');
+          resolve(data.device_id);
+        } catch {
+          if (alive) setBinding({ status: 'error' });
+        }
+      })();
     }
+    return () => { alive = false; };
+  }, [supervisor, attempt]);
 
-    // 2. If already bound and matches
-    if (supervisor.device_id === currentDeviceId) {
-      setBinding({ status: 'ok' });
-      return;
-    }
-
-    // 3. Device mismatch: locked!
-    setBinding({
-      status: 'locked',
-      registeredDeviceId: supervisor.device_id,
-      currentDeviceId,
-    });
-  }, [supervisor]);
-
-  return binding;
+  return { ...binding, retry };
 }
 
 /**
@@ -90,11 +87,9 @@ export function useResetDeviceBinding() {
   const sc = useScope();
   return useMutation({
     mutationFn: async (supervisorId: string) => {
-      const { error } = await supabase
-        .from('supervisors')
-        .update({ device_id: null })
-        .eq('id', supervisorId)
-        .eq('company_id', sc.companyId);
+      const { error } = await supabase.rpc('admin_update_supervisor', {
+        p_supervisor_id: supervisorId, p_reset_device: true,
+      });
       if (error) throw new Error(error.message || t('تعذر إلغاء اقتران الجهاز.'));
     },
     onSuccess: () => {

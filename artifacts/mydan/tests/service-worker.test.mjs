@@ -66,3 +66,32 @@ test('activation removes only stale caches belonging to this artifact', async ()
   w.handlers.activate({ waitUntil: promise => done = promise }); await done;
   assert.deepEqual(w.removed, ['mydan-shell:/mydan/:old']);
 });
+test('failed release installation rejects activation and preserves existing caches', async () => {
+  const w = worker(); let done; let skipped = false;
+  w.context.fetch = async () => new Response('unavailable', { status: 503 });
+  w.context.self.skipWaiting = async () => { skipped = true; };
+  w.handlers.install({ waitUntil: promise => { done = promise; } });
+  await assert.rejects(done, /Missing app-shell build manifest/);
+  assert.equal(skipped, false);
+  assert.deepEqual(w.removed, []);
+});
+test('cached shell navigation does not mix new HTML into an older release', async () => {
+  const w = worker(); let response; let fetched = 0;
+  w.context.fetch = async () => { fetched++; return new Response('new release'); };
+  w.handlers.fetch({ request: { url: 'https://example.test/mydan/visits', method: 'GET', mode: 'navigate' }, respondWith: value => { response = value; } });
+  assert.equal(await response, w.shell);
+  assert.equal(fetched, 0);
+});
+
+test('public assets ignore transport Vary headers and admin chunk names remain cacheable', async () => {
+  const w = worker(); let response; let options;
+  w.context.caches.match = async (_request, value) => { options = value; return w.shell; };
+  for (const path of ['assets/index-test.js', 'assets/admin-data-test.js', 'icons/icon-192.png']) {
+    w.handlers.fetch({ request: { url: 'https://example.test/mydan/' + path, method: 'GET', mode: 'cors' }, respondWith: value => { response = value; } });
+    assert.equal(await response, w.shell);
+    assert.equal(options.ignoreVary, true);
+  }
+  let intercepted = false;
+  w.handlers.fetch({ request: { url: 'https://example.test/mydan/admin/users', method: 'GET', mode: 'navigate' }, respondWith: () => { intercepted = true; } });
+  assert.equal(intercepted, false);
+});

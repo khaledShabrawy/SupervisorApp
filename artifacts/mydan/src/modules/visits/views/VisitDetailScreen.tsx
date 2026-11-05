@@ -138,7 +138,7 @@ const TaskItem = memo(function TaskItem({
           {['shelf_audit', 'competitor_check'].includes(task.task_type) && (
             <button className="btn sm ghost" style={{ fontSize: 13, padding: '0 10px' }} onClick={action}>{t('فتح')}</button>
           )}
-          <button className="btn sm success" style={{ fontSize: 13, padding: '0 10px' }} onClick={complete}><CheckCheck size={16} /></button>
+          <button className="btn sm success" aria-label={t('إنجاز المهمة: {name}', { name: task.title_ar })} style={{ fontSize: 13, padding: '0 10px' }} onClick={complete}><CheckCheck size={16} /></button>
         </div>
       )}
       {task.is_completed && (<CheckCheck size={20} color="var(--color-success)" />)}

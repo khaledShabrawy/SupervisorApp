@@ -14,7 +14,7 @@ const publicCompanyId = (import.meta.env.VITE_PUBLIC_COMPANY_ID as string | unde
 const publicDefaults: AppSettings = {
   id: '', company_id: '', app_name: 'Mydan', logo_url: null, primary_color: '#1A56DB',
   success_color: '#108981', danger_color: '#EF4444', background_color: '#F8FAFC',
-  geofence_radius_m: 100, target_brand_name: '', competitor_brands: [], ai_audit_enabled: true,
+  geofence_radius_m: 100, target_brand_name: '', competitor_brands: [], ai_audit_enabled: false,
 };
 const properties = ['--color-primary', '--color-success', '--color-danger', '--color-bg', '--primary-foreground'];
 export function AppSettingsProvider({ children }: { children: ReactNode }) {
@@ -41,30 +41,10 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     queryKey: ['company-settings', companyId],
     enabled: isAuthenticated && !!companyId,
     queryFn: async ({ signal }) => {
-      try {
-        const { data, error } = await supabase.from('app_settings').select(SETTINGS_COLUMNS)
-          .eq('company_id', companyId!).abortSignal(signal).maybeSingle();
-        if (error || !data) {
-          console.warn('Company settings row missing in database, falling back to defaults for company:', companyId);
-          return {
-            ...publicDefaults,
-            id: `default-${companyId}`,
-            company_id: companyId!,
-            app_name: 'Mydan',
-            target_brand_name: 'Mydan',
-          };
-        }
-        return validateSettings(data as AppSettings, companyId!);
-      } catch (err) {
-        console.warn('Error loading company settings, falling back to defaults:', err);
-        return {
-          ...publicDefaults,
-          id: `default-${companyId}`,
-          company_id: companyId!,
-          app_name: 'Mydan',
-          target_brand_name: 'Mydan',
-        };
-      }
+      const { data, error } = await supabase.from('app_settings').select(SETTINGS_COLUMNS)
+        .eq('company_id', companyId!).abortSignal(signal).maybeSingle();
+      if (error || !data) throw new Error(t('تعذر تحميل إعدادات الشركة. تحقق من الاتصال وأعد المحاولة.'));
+      return validateSettings(data as AppSettings, companyId!);
     },
     staleTime: 300_000, retry: 1,
   });
@@ -83,7 +63,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       if (meta) meta.content = getComputedStyle(root).getPropertyValue('--color-primary').trim();
     };
   }, [settings.data, isAuthenticated]);
-  if (!isAuthenticated) return <Context.Provider value={publicBrand.data ?? publicDefaults}>
+  if (!isAuthenticated || window.location.pathname.replace(/\/$/, '').endsWith('/set-password')) return <Context.Provider value={publicBrand.data ?? publicDefaults}>
     {children}
   </Context.Provider>;
   if (settings.isPending) return <LoadingSpinner />;

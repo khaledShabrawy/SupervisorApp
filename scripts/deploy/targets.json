@@ -1,0 +1,8 @@
+{
+  "production": {
+    "SUPABASE_PROJECT_REF": "ywdlrrdkjbtpfgacuuoy",
+    "VITE_SUPABASE_URL": "https://ywdlrrdkjbtpfgacuuoy.supabase.co",
+    "CLOUDFLARE_ACCOUNT_ID": "b01e9d7a55898e785edbd97a259f20d8",
+    "CLOUDFLARE_PAGES_PROJECT": "mydan"
+  }
+}

@@ -867,40 +867,13 @@ export function useEditSupervisorProfile() {
 
       if (!full_name.trim()) throw new Error(t('الاسم مطلوب.'));
 
-      // Step 1: Always update profile fields directly — decoupled from Auth to avoid email validation
-      const profilePatch: Record<string, any> = { full_name: full_name.trim(), phone: phone.trim() || null };
-      if (supervisor_code !== undefined) {
-        profilePatch.supervisor_code = supervisor_code.trim() || null;
-      }
-      const { error: profileErr } = await (supabase.from('supervisors') as any)
-        .update(profilePatch).eq('id', id).eq('company_id', sc.companyId);
-      if (profileErr && !profileErr.message?.includes('supervisor_code')) {
-        fail(t('تعذر تعديل بيانات المشرف.'), profileErr);
-      }
+      const { error } = await supabase.rpc('admin_update_supervisor', {
+        p_supervisor_id: id, p_role: role, p_branch_id: effectiveBranchId || null,
+        p_full_name: full_name.trim(), p_phone: phone.trim(), p_clear_branch: !effectiveBranchId,
+        p_supervisor_code: supervisor_code === undefined ? null : supervisor_code.trim(),
+      });
+      if (error) fail(t('تعذر تعديل بيانات المشرف.'), error);
 
-      // Step 2: Update privileged fields (role, branch_id) via RPC with direct fallback
-      let rpcError: any = null;
-      try {
-        const { error } = await supabase.rpc('admin_update_supervisor', {
-          p_supervisor_id: id,
-          p_role: role,
-          p_branch_id: effectiveBranchId || null,
-          p_full_name: full_name.trim(),
-          p_phone: phone.trim() || null,
-          p_clear_branch: !effectiveBranchId,
-        });
-        if (error) rpcError = error;
-      } catch (e) {
-        rpcError = e;
-      }
-
-      if (rpcError) {
-        // Do NOT fall back to direct DB write — the RPC enforces role-ceiling and branch-scope.
-        // A direct write would allow role escalation bypassing those guards (Security fix H3).
-        // Note: name/phone/supervisor_code were already saved in Step 1 above.
-        fail(t('تعذر تعديل بيانات المشرف.') + ' ' + ((rpcError as any)?.message || ''), rpcError as Error);
-      }
-      // Note: supervisor_code is handled in Step 1 profilePatch above.
     },
     onSuccess: () => { notify(t('تم تحديث بيانات المشرف'), 'success'); void invalidate(qc, sc, 'admin-supervisors'); },
     onError: (e: Error) => notify(e.message, 'error'),

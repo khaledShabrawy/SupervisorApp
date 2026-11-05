@@ -132,6 +132,7 @@ export default function OrderEntryScreen() {
   const [notes, setNotes] = useState('');
   const [search, setSearch] = useState('');
   const [saved, setSaved] = useState(false);
+  const [savedLocally, setSavedLocally] = useState(false);
 
   const inc = useCallback((id: string) => setItemsMap((prev) => {
     const cur = prev[id] ?? { qty: 0, unit: 'قطعة' };
@@ -203,7 +204,7 @@ export default function OrderEntryScreen() {
     if (!visitId || !customerId || lines.length === 0) return;
     save.mutate(
       { visitId, customerId, lines, notes },
-      { onSuccess: () => setSaved(true) }
+      { onSuccess: (result) => { setSavedLocally(result.queued); setSaved(true); } }
     );
   }, [visitId, customerId, lines, notes, save]);
 
@@ -215,7 +216,7 @@ export default function OrderEntryScreen() {
         <PageTitle>{t('تسجيل الطلب')}</PageTitle>
         <div className="card col" style={{ alignItems: 'center', padding: 32, gap: 16, textAlign: 'center' }}>
           <div style={{ fontSize: 56 }}>📦</div>
-          <div className="title" style={{ fontSize: 20 }}>{t('تم تسجيل فرصة البيع بنجاح!')}</div>
+          <div className="title" style={{ fontSize: 20 }}>{savedLocally ? t('تم حفظ العملية محلياً وتنتظر الرفع') : t('تم تسجيل فرصة البيع بنجاح!')}</div>
           <div className="muted">{t('تم تسجيل طلب العميل قيد الانتظار لمندوب المبيعات.')}</div>
           <div className="card col" style={{ width: '100%', background: '#F8FAFC', padding: 16, gap: 6, margin: '8px 0' }}>
             <div className="row between"><span className="muted">{t('العميل')}:</span><strong>{customerName}</strong></div>

@@ -665,3 +665,16 @@ button, a, input, select, textarea {
   border: 0;
   margin: 0;
 }
+
+/* Accessible focus and consistent secondary actions. */
+.lp-forgot {
+  font: inherit; font-size: 14px; font-weight: 700; min-height: 44px;
+  padding: 4px 0; color: var(--color-primary); background: none;
+  border: none; cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+:focus-visible { outline: 3px solid #2563EB; outline-offset: 3px; }
+.sheet:focus { outline: none; }
+@media (max-width: 899px) {
+  .lp-trust { color: #A7B6CA !important; font-size: 12px; flex-wrap: wrap; }
+  .lp-forgot { color: #93C5FD; }
+}

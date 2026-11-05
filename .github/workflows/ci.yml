@@ -1,6 +1,7 @@
 name: CI & Quality Gate
 
 on:
+  workflow_call:
   push:
     branches: [main]
   pull_request:
@@ -35,7 +36,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: TypeScript Typecheck
         run: pnpm run typecheck
@@ -43,5 +44,63 @@ jobs:
       - name: Run Unit & Integrity Tests
         run: pnpm test
 
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level=moderate
+
+      - name: Audit build tooling for moderate and higher advisories
+        run: pnpm audit --audit-level=moderate
+
+      - name: Install isolated browser tooling
+        run: |
+          npm install --prefix "$RUNNER_TEMP/mydan-browser-tools" --no-package-lock playwright@1.64.1
+          "$RUNNER_TEMP/mydan-browser-tools/node_modules/.bin/playwright" install --with-deps chromium
+          echo "NODE_PATH=$RUNNER_TEMP/mydan-browser-tools/node_modules" >> "$GITHUB_ENV"
+          browser_path=$(NODE_PATH="$RUNNER_TEMP/mydan-browser-tools/node_modules" node -p 'require("playwright").chromium.executablePath()')
+          echo "CHROMIUM_PATH=$browser_path" >> "$GITHUB_ENV"
+
+      - name: Run isolated end-user browser scenarios
+        env:
+          PORT: 5174
+          VITE_SUPABASE_URL: https://review.invalid
+          VITE_SUPABASE_ANON_KEY: public-synthetic-review-key
+        run: |
+          pnpm dev > "$RUNNER_TEMP/mydan-vite.log" 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5174/ > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/testing/review-smoke.cjs
+
       - name: Verify Production Build
         run: pnpm run build
+
+      - name: Verify generated service worker
+        run: MYDAN_TEST_BUILT_SW=1 node --test artifacts/mydan/tests/service-worker.test.mjs
+
+      - name: Verify real PWA offline shell
+        env:
+          PORT: 4174
+          VITE_SUPABASE_URL: https://review.invalid
+          VITE_SUPABASE_ANON_KEY: public-synthetic-review-key
+          REVIEW_BASE_URL: http://127.0.0.1:4174
+        run: |
+          pnpm exec vite build --outDir "$RUNNER_TEMP/mydan-pwa-smoke"
+          pnpm exec vite preview --outDir "$RUNNER_TEMP/mydan-pwa-smoke" --host 127.0.0.1 > "$RUNNER_TEMP/mydan-pwa-preview.log" 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4174/ > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/testing/pwa-smoke.cjs
+
+  database-authorization:
+    name: Disposable PostgreSQL authorization tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test proposed authorization on synthetic data
+        run: bash scripts/testing/database/run.sh

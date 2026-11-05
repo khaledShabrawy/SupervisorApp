@@ -1,0 +1,3 @@
+
+# Unified patch context intentionally retains upstream indentation/blank lines.
+patches/*.patch -whitespace

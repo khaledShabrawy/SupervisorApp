@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { t } from '@/i18n';
 
@@ -8,6 +9,7 @@ import { t } from '@/i18n';
 export default function SetPasswordScreen() {
   const s = useAppSettings();
   const nav = useNavigate();
+  const { retryProfile } = useAuth();
   const [ready, setReady] = useState<boolean | null>(null);
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
@@ -35,7 +37,7 @@ export default function SetPasswordScreen() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!alive) return;
-      if (session) setReady(true);
+      setReady(!!session);
     });
 
     return () => {
@@ -58,31 +60,26 @@ export default function SetPasswordScreen() {
         return;
       }
       setBusy(true);
-      const { error: failure } = await supabase.auth.updateUser({ password: pw });
-      if (failure) {
-        setBusy(false);
-        setError(failure.message);
+      try {
+        const { error: failure } = await supabase.auth.updateUser({ password: pw });
+        if (failure) throw failure;
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) throw userError ?? new Error(t('تعذر التحقق من الحساب'));
+        const { data: profile, error: profileError } = await supabase.from('supervisors')
+          .select('id,force_password_change,password_changed_at').eq('user_id', user.id).single();
+        if (profileError || !profile || profile.force_password_change || !profile.password_changed_at) {
+          throw profileError ?? new Error('Password change was not confirmed by the server');
+        }
+        await retryProfile();
+      } catch {
+        setError(t('تعذر إكمال تحديث الحساب. أعد المحاولة قبل المتابعة.'));
         return;
+      } finally {
+        setBusy(false);
       }
-
-      await supabase.auth.updateUser({
-        data: { force_password_change: false, password_changed_at: new Date().toISOString() },
-      });
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from('supervisors')
-          .update({ force_password_change: false, password_changed_at: new Date().toISOString() })
-          .eq('user_id', user.id);
-      }
-
-      setBusy(false);
       nav('/', { replace: true });
     },
-    [pw, pw2, nav]
+    [pw, pw2, nav, retryProfile]
   );
 
   return (
@@ -113,6 +110,7 @@ export default function SetPasswordScreen() {
               className="input"
               type="password"
               placeholder={t('كلمة المرور الجديدة')}
+              aria-label={t('كلمة المرور الجديدة')} autoComplete="new-password"
               required
               minLength={8}
               value={pw}
@@ -122,6 +120,7 @@ export default function SetPasswordScreen() {
               className="input"
               type="password"
               placeholder={t('تأكيد كلمة المرور')}
+              aria-label={t('تأكيد كلمة المرور')} autoComplete="new-password"
               required
               minLength={8}
               value={pw2}

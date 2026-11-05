@@ -131,6 +131,7 @@ export function useLoginController() {
       try {
         const { data: supData } = await supabase.from('supervisors')
           .select('id,role,branch_id,company_id')
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id ?? '')
           .maybeSingle();
 
         if (supData) {

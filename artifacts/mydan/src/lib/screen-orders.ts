@@ -1,3 +1,5 @@
+import { newMutationId, isRetryableMutationError } from './mutation-receipt';
+import { insertScopedOnce } from './persistent-mutation';
 import { useMemo } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,7 +10,7 @@ import { useScope } from './data';
 
 import { notify } from './toast';
 
-import { fmtDate, num } from './format';
+import { fmtDate, num, todayStr } from './format';
 
 import { enqueueOfflineAction } from './offline-sync';
 
@@ -930,7 +932,7 @@ export function useSaveOrder() {
 
 
 
-      const clientOrderId = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : undefined;
+      const clientOrderId = newMutationId();
 
       const payload: Record<string, any> = {
 
@@ -950,7 +952,7 @@ export function useSaveOrder() {
 
         notes: notes.trim() || null,
 
-        order_date: new Date().toISOString().slice(0, 10),
+        order_date: todayStr(),
 
         status: 'pending',
 
@@ -968,41 +970,24 @@ export function useSaveOrder() {
 
 
 
-      if (!navigator.onLine) {
-
-        enqueueOfflineAction({
-
-          type: 'save_order',
-
-          companyId: sc.companyId,
-
-          supervisorId: sc.supervisorId,
-
-          payload,
-
-        });
-
-        return total;
-
+      const saveLocally = () => {
+        enqueueOfflineAction({ type: 'save_order', companyId: sc.companyId, supervisorId: sc.supervisorId, payload });
+        return { total, queued: true };
+      };
+      if (!navigator.onLine) return saveLocally();
+      try {
+        await insertScopedOnce('orders', payload);
+        return { total, queued: false };
+      } catch (error) {
+        if (!isRetryableMutationError(error)) throw error;
+        return saveLocally();
       }
-
-
-
-      const { error } = await supabase.from('orders').insert(payload);
-
-      if (error) {
-
-        throw new Error(error.message || t('تعذر حفظ الطلب. تحقق من الصلاحيات أو تواصل مع المدير.'));
-
-      }
-
-      return total;
 
     },
 
-    onSuccess: (total) => {
+    onSuccess: ({ total, queued }) => {
 
-      const msg = navigator.onLine
+      const msg = !queued
 
         ? `✅ ${t('تم تسجيل الطلب بنجاح — الإجمالي:')} ${num(total)} ${t('ج.م')}`
 
