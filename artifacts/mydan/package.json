@@ -20,7 +20,7 @@
     "aab:release:unix": "npm run cap:sync && cd android && ./gradlew bundleRelease"
   },
   "dependencies": {
-    "@capacitor/android": "^7.6.9",
+    "@capacitor/android": "^8.6.0",
     "@capacitor/core": "^7.6.9",
     "@supabase/supabase-js": "^2.99.0",
     "@tanstack/react-query": "^5.90.0",
