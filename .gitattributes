@@ -3,3 +3,5 @@
 patches/*.patch -whitespace
 # Preserve the existing shelf-audit CRLF source format during targeted edits.
 artifacts/mydan/src/modules/shelf-audit/views/ShelfAuditScreen.tsx whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# Generated catalog fixture retains original PostgreSQL function-body whitespace.
+scripts/testing/database/full-schema.sql -whitespace
