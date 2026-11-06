@@ -29,8 +29,8 @@ function TargetGaugeChart({
   const tipY = 130 + needleLength * Math.sin(angleRad);
 
   const arcColor = rate >= 80 ? '#10B981' : rate >= 50 ? '#F59E0B' : '#EF4444';
-  const statusLabel = rate >= 80 ? t('🏆 تحقيق ممتاز') : rate >= 50 ? t('📈 تقدم جيد') : t('⚠️ يحتاج تكثيف');
-  const statusClass = rate >= 80 ? 'b-green' : rate >= 50 ? 'b-amber' : 'b-red';
+  const statusLabel = target <= 0 ? t('لم يُحدد مستهدف') : rate >= 80 ? t('🏆 تحقيق ممتاز') : rate >= 50 ? t('📈 تقدم جيد') : t('⚠️ يحتاج تكثيف');
+  const statusClass = target <= 0 ? 'b-gray' : rate >= 80 ? 'b-green' : rate >= 50 ? 'b-amber' : 'b-red';
 
   // Arc length for 180 deg radius 100 is PI * 100 ≈ 314.16
   const totalArc = 314.16;
@@ -350,7 +350,7 @@ export default function AdminDashboard() {
               {alerts.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '16px 0', color: '#10B981', fontSize: 13 }}>
                   <ShieldCheck size={28} style={{ margin: '0 auto 4px' }} />
-                  <div>{t('الميدان منضبط بالكامل · لا تنبيهات طارئة')}</div>
+                  <div>{t('لا توجد تنبيهات مسجلة في الفترة المحددة')}</div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

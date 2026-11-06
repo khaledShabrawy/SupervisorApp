@@ -7,18 +7,16 @@ let CACHE;
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
-    try {
-      const response = await fetch(new URL('asset-manifest.json', BASE), { cache: 'no-store' });
-      if (!response.ok) throw new Error('Missing app-shell build manifest');
-      const manifest = await response.json();
-      CACHE = PREFIX + manifest.version;
-      const cache = await caches.open(CACHE);
-      await cache.addAll([...new Set(['./', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
-        ...manifest.assets, ...BUILD_ASSETS.map(entry => entry.url)].map(path => new URL(path, BASE).href))]
-        .map(url => new Request(url, { cache: 'reload' })));
-    } catch {
-      // In production, redirects or network blips must never prevent the worker from installing and activating
-    }
+    const response = await fetch(new URL('asset-manifest.json', BASE), { cache: 'no-store' });
+    if (!response.ok) throw new Error('Missing app-shell build manifest');
+    const manifest = await response.json();
+    CACHE = PREFIX + manifest.version;
+    const cache = await caches.open(CACHE);
+    // Reject installation when any public asset is unavailable. The browser keeps
+    // the previous worker active, and its complete cache remains available.
+    await cache.addAll([...new Set(['./', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
+      ...manifest.assets, ...BUILD_ASSETS.map(entry => entry.url)].map(path => new URL(path, BASE).href))]
+      .map(url => new Request(url, { cache: 'reload' })));
     await self.skipWaiting();
   })());
 });
@@ -40,31 +38,20 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== BASE.origin || !url.pathname.startsWith(BASE.pathname)) return;
-  // Never intercept admin, login, auth or landing routes; let browser load them live
-  if (
-    url.pathname.includes('/admin') ||
-    url.pathname.includes('/login') ||
-    url.pathname.includes('/landing') ||
-    url.pathname.includes('/set-password')
-  ) {
-    return;
-  }
-  const isAsset = /\/assets\/[^/]+\.(js|css|woff2?|png|svg)$/.test(url.pathname);
+  // These HTML routes stay online-only; their public JS/CSS chunks remain cacheable.
+  const route = url.pathname.slice(BASE.pathname.length);
+  if (request.mode === 'navigate' && /^(admin|login|landing|set-password)(\/|$)/.test(route)) return;
+  const isAsset = /\/assets\/[^/]+\.(js|css|woff2?|png|svg)$/.test(url.pathname)
+    || /^icons\/[^/]+\.(png|svg)$/.test(route)
+    || ['manifest.webmanifest', 'favicon.svg'].includes(route);
   if (request.mode === 'navigate') {
     // Cache-first for the app shell: serve cached index.html instantly so returning
-    // to the app from the background doesn't cause a visible reload. Revalidate in background.
+    // to the app from the background doesn't cause a visible reload.
     event.respondWith((async () => {
       const cached = await caches.match(BASE.href);
       if (cached) {
-        // Background revalidation — don't await, just refresh the cache quietly
-        fetch(new Request(BASE.href, { cache: 'no-store' }))
-          .then(async fresh => {
-            if (fresh.ok) {
-              const c = await caches.open(CACHE || (PREFIX + 'default'));
-              c.put(BASE.href, fresh);
-            }
-          })
-          .catch(() => {});
+        // A new worker installs the next HTML and asset set together. Never
+        // overwrite this shell with HTML whose chunks have not been cached.
         return cached;
       }
       // No cache yet — go to network, fallback to offline message
@@ -75,7 +62,7 @@ self.addEventListener('fetch', event => {
       );
     })());
   } else if (isAsset) {
-    event.respondWith(caches.match(request).then(cached => cached || fetch(request)));
+    event.respondWith(caches.match(request, { ignoreVary: true }).then(cached => cached || fetch(request)));
   }
 });
 

@@ -1,3 +1,4 @@
+import { safeAppPath } from '@/lib/safe-navigation';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Bell, BellOff, CheckCheck, MapPin, Target } from '@/components/Icons';
@@ -175,7 +176,10 @@ export default function NotificationsScreen() {
   const mark = m.mutate;
   const onRead = useCallback((id: string) => mark(id), [mark]);
   const all = useCallback(() => mark('all'), [mark]);
-  const onAction = useCallback((path: string) => navigate(path), [navigate]);
+  const onAction = useCallback((path: string) => {
+    const target = safeAppPath(path);
+    if (target) navigate(target);
+  }, [navigate]);
 
   const filteredItems = useMemo(() => {
     if (tab === 'plans') {

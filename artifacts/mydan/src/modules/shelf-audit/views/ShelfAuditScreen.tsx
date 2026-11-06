@@ -209,7 +209,7 @@ export default function ShelfAuditScreen() {
   }, [audit, disabled, request]);
 
   const completeImmediately = useCallback(async () => {
-    if (!auditId) return;
+    if (!auditId || !supervisor?.company_id) return;
     if (!await confirm('هل تريد اعتماد مراجعة الرف يدوياً وحفظ التقرير؟')) return;
     try {
       const { error } = await supabase.from('shelf_audit').update({
@@ -220,7 +220,7 @@ export default function ShelfAuditScreen() {
           issues: ['مراجعة واعتماد يدوي مباشر من المشرف في الميدان.'],
           recommendations: ['متابعة ترتيب المعروضات وتوافر بطاقات الأسعار دائماً.'],
         },
-      }).eq('id', auditId);
+      }).eq('id', auditId).eq('company_id', supervisor.company_id).eq('supervisor_id', supervisor.id).select('id').single();
       if (error) throw error;
       void refetch();
       void visitAudits.refetch();
@@ -228,7 +228,7 @@ export default function ShelfAuditScreen() {
     } catch (e: any) {
       notify(e.message || 'تعذر إصدار التقرير', 'error');
     }
-  }, [auditId, refetch, visitAudits]);
+  }, [auditId, refetch, visitAudits, supervisor]);
 
   const pickAudit = useCallback((id: string) => {
     setParams({ visit: effectiveVisitId, audit: id }, { replace: true });
@@ -663,7 +663,7 @@ export default function ShelfAuditScreen() {
           <div className="alert err">{requestFailed ? t('تعذر إرسال طلب التحليل.') : t('فشل تحليل الرف.')}</div>
           <div className="row" style={{ gap: 8 }}>
             <button className="btn grow" disabled={request.isPending || disabled} onClick={retry}><RefreshCw /> {t('إعادة المحاولة')}</button>
-            <button className="btn success grow" onClick={completeImmediately}><FileText size={18} /> {t('إصدار التقرير الآن')}</button>
+            <button className="btn success grow" onClick={completeImmediately}><FileText size={18} /> {t('اعتماد مراجعة يدوية')}</button>
           </div>
         </> : !audit ? <div className="skel" style={{ height: 60 }} /> : <>
           <div className="s-wait" role="status"><span className="s-pulse" />{t('جاري تحليل الرف بالذكاء الاصطناعي...')}</div>
@@ -671,7 +671,7 @@ export default function ShelfAuditScreen() {
             <div className="alert warn">{t('التحليل يستغرق وقتا أطول من المعتاد، وقد يكون ما زال قيد التنفيذ.')}</div>
             <div className="row" style={{ gap: 8 }}>
               <button className="btn ghost grow" disabled={request.isPending} onClick={retry} data-testid="button-manual-retry"><RefreshCw /> {t('إعادة طلب التحليل')}</button>
-              <button className="btn success grow" onClick={completeImmediately}><FileText size={18} /> {t('إصدار التقرير فوراً')}</button>
+              <button className="btn success grow" onClick={completeImmediately}><FileText size={18} /> {t('اعتماد مراجعة يدوية')}</button>
             </div>
           </>}
         </>}

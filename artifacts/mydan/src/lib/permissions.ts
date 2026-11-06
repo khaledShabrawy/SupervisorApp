@@ -14,14 +14,8 @@ export const SCREENS = [
 ] as const;
 export type ScreenKey = typeof SCREENS[number]['key'];
 
-/**
- * A screen is blocked only by an explicit is_enabled=false row. Accounts created
- * before permissions existed have no rows and keep full access; invites write
- * the defaults above as explicit rows.
- */
-export function isScreenAllowed(rows: { screen_key: string; is_enabled: boolean }[], key: ScreenKey): boolean {
-  return rows.find((r) => r.screen_key === key)?.is_enabled !== false;
-}
+export { isScreenAllowed } from './screen-permissions';
+import { isScreenAllowed } from './screen-permissions';
 
 export function useMyPermissions() {
   const sc = useScope();

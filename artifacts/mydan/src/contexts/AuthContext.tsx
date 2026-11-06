@@ -69,30 +69,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Silent background refresh for the already authenticated user:
-    // Prevents unmounting the UI or showing a spinner on tab/app resume.
-    if (isSameUser && supervisorRef.current) {
-      try {
-        const { data, error: failure } = await supabase.from('supervisors')
-          .select('id,user_id,full_name,phone,role,branch_id,company_id,is_active,device_id')
-          .eq('user_id', next.user.id).maybeSingle();
-        if (!failure && data && isAuthorizedSupervisor(data, next.user.id) && epoch === generation.current) {
-          setSupervisor(data);
-          supervisorRef.current = data;
-        }
-      } catch {
-        // Keep existing profile on silent background failure
-      }
-      return;
-    }
-
-    setSupervisor(null);
-    supervisorRef.current = null;
+    // Refresh authorization without unmounting an already loaded screen.
+    // A failed or revoked profile must never retain the previous authorization.
+    const background = isSameUser && !!supervisorRef.current;
+    if (!background) setLoading(true);
     setError(null);
-    setLoading(true);
     try {
       const { data, error: failure } = await supabase.from('supervisors')
-        .select('id,user_id,full_name,phone,role,branch_id,company_id,is_active,device_id')
+        .select('id,user_id,full_name,phone,role,branch_id,company_id,is_active,device_id,force_password_change,supervisor_code')
         .eq('user_id', next.user.id).maybeSingle();
       if (failure) throw new Error(t('تعذر تحميل حساب المشرف. تحقق من بنية الجدول وسياسات الوصول ثم أعد المحاولة.'));
       if (!isAuthorizedSupervisor(data, next.user.id)) {
@@ -103,7 +87,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supervisorRef.current = data;
       }
     } catch (failure) {
-      if (epoch === generation.current) setError(failure instanceof Error ? failure.message : t('تعذر تحميل الحساب.'));
+      if (epoch === generation.current) {
+        setSupervisor(null); supervisorRef.current = null;
+        setError(failure instanceof Error ? failure.message : t('تعذر تحميل الحساب.'));
+      }
     } finally {
       if (epoch === generation.current) setLoading(false);
     }
@@ -139,27 +126,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [signOut]);
 
   useEffect(() => {
-    // Cold-start guard: sessionStorage clears on every fresh app open (APK killed / tab closed).
-    // If no marker exists this is a cold start → sign out any persisted session and force login.
-    const COLD_KEY = 'mydan_session_alive';
-    let isColdStart = false;
-    try { isColdStart = !sessionStorage.getItem(COLD_KEY); sessionStorage.setItem(COLD_KEY, '1'); } catch { isColdStart = true; }
-    if (isColdStart) {
-      void supabase.auth.signOut({ scope: 'local' });
-      setLoading(false);
-      return;
-    }
-
     let alive = true;
     const initialEpoch = generation.current;
     const timers = new Set<ReturnType<typeof setTimeout>>();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, next) => {
       if (event === 'INITIAL_SESSION' || signingIn.current) return;
-      if (event === 'TOKEN_REFRESHED') {
-        // Silent token renewal in background; do not reload/unmount the UI!
-        setSession(next);
-        return;
-      }
       if (event === 'SIGNED_OUT') {
         try { localStorage.removeItem(LAST_ACTIVITY_KEY); } catch {}
       }
@@ -176,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         setError(t('تعذر استعادة الجلسة. أعد تسجيل الدخول.'));
       } else if (data.session) {
-        if (isSessionExpired()) {
+        if (isSessionExpired() && !window.location.pathname.replace(/\/$/, '').endsWith('/set-password')) {
           try { localStorage.removeItem(LAST_ACTIVITY_KEY); } catch {}
           notify(t('انتهت مهلة الجلسة لعدم النشاط (١٥ ساعة). يرجى تسجيل الدخول مجدداً.'), 'info');
           void supabase.auth.signOut({ scope: 'local' }).catch(() => {});

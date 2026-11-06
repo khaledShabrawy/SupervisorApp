@@ -238,8 +238,8 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
   const updateM = useUpdateAdminTarget();
   const now = new Date();
 
-  const [criteria, setCriteria] = useState<'visits' | 'shelf_audit' | 'orders' | 'new_opportunity'>(
-    (editRow?.criteria as 'visits' | 'shelf_audit' | 'orders' | 'new_opportunity') ?? 'visits'
+  const [criteria, setCriteria] = useState<'visits' | 'shelf_audit' | 'new_opportunity'>(
+    (editRow?.criteria as 'visits' | 'shelf_audit' | 'new_opportunity') ?? 'visits'
   );
   const [scopeType, setScopeType] = useState<'per_user' | 'general'>(
     (editRow?.scope_type as 'per_user' | 'general') ?? 'per_user'
@@ -257,22 +257,17 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
   );
   const [v, setV] = useState(editRow ? String(editRow.visits_target ?? 0) : '50');
   const [a, setA] = useState(editRow ? String(editRow.audit_target ?? 0) : '25');
-  const [targetAmount, setTargetAmount] = useState(
-    editRow?.target_amount ? String(editRow.target_amount) : ''
-  );
-
   const retry = useRefetch(q.refetch);
   const onSid = useInput(setSid);
   const onV = useInput(setV);
   const onA = useInput(setA);
   const onBranchId = useInput(setBranchId);
-  const onTargetAmount = useInput(setTargetAmount);
   const onMonth = useCallback((e: ChangeEvent<HTMLSelectElement>) => setMonth(Number(e.target.value)), []);
   const onYear = useCallback((e: ChangeEvent<HTMLInputElement>) => setYear(Number(e.target.value)), []);
 
   const valid = (scopeType === 'general' || Boolean(sid)) &&
     (targetScope === 'all_branches' || Boolean(branchId)) &&
-    (criteria === 'orders' ? (Number(targetAmount) > 0 || Number(v) > 0) : Number(v) >= 0);
+    (Number.isSafeInteger(Number(v)) && Number(v) >= 0 && Number.isSafeInteger(Number(a)) && Number(a) >= 0);
 
   const isPending = editRow ? updateM.isPending : m.isPending;
 
@@ -289,7 +284,6 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
         target_scope: targetScope,
         supervisor_id: scopeType === 'per_user' ? sid : null,
         branch_id: targetScope === 'specific_branch' ? branchId : null,
-        target_amount: Number(targetAmount) || 0,
       }, { onSuccess: onClose });
     } else {
       m.mutate({
@@ -302,10 +296,9 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
         scope_type: scopeType,
         target_scope: targetScope,
         branch_id: targetScope === 'specific_branch' ? branchId : null,
-        target_amount: Number(targetAmount) || 0,
       });
     }
-  }, [valid, m, updateM, editRow, sid, month, year, v, a, criteria, scopeType, targetScope, branchId, targetAmount, onClose]);
+  }, [valid, m, updateM, editRow, sid, month, year, v, a, criteria, scopeType, targetScope, branchId, onClose]);
 
   if (q.isError) return <ErrorState error={q.error} onRetry={retry} />;
 
@@ -317,7 +310,6 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
         <select className="input" value={criteria} onChange={(e) => setCriteria(e.target.value as any)}>
           <option value="visits">{t('زيارات ميدانية')}</option>
           <option value="shelf_audit">{t('مراجعات الرف (Shelf Audits)')}</option>
-          <option value="orders">{t('فرص بيعية وطلبات')}</option>
           <option value="new_opportunity">{t('استقطاب عملاء جدد (Prospects)')}</option>
         </select>
       </label>
@@ -368,7 +360,7 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
 
       <div className="row">
         <label className="f grow">
-          {criteria === 'orders' ? t('هدف عدد الطلبات') : t('هدف الزيارات')}
+          {t('هدف الزيارات')}
           <input className="input" type="number" min="0" inputMode="numeric" value={v} onChange={onV} />
         </label>
         <label className="f grow">
@@ -376,13 +368,6 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
           <input className="input" type="number" min="0" step="1" inputMode="numeric" value={a} onChange={onA} />
         </label>
       </div>
-
-      {criteria === 'orders' && (
-        <label className="f">
-          {t('هدف القيمة البيعية (بالجنيه)')}
-          <input className="input" type="number" min="0" value={targetAmount} onChange={onTargetAmount} placeholder="مثال: 50000" />
-        </label>
-      )}
 
       <button className="btn" disabled={!valid || isPending} data-testid="button-save-target" style={{ marginTop: 6 }}>
         {isPending ? t('جاري الحفظ...') : editRow ? t('تحديث الهدف') : t('حفظ الهدف')}

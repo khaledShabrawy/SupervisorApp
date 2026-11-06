@@ -391,3 +391,6 @@
     border-radius: 20px;
   }
 }
+
+.adm-nav-group { display: flex; flex-direction: column; gap: 2px; }
+.adm-nav-group-label { color: #CBD5E1; font-size: 12px; font-weight: 700; padding: 12px 12px 5px; }

@@ -13,7 +13,7 @@ const err = (status: number, error_ar: string) => reply(status, { error_ar });
 
 const ROLES = ["supervisor", "senior_supervisor", "branch_manager", "admin"];
 const SCREENS = ["new_visit", "shelf_audit", "competitor_products", "my_reports", "notifications", "beat_plan", "field_survey"];
-const ALLOWED_REDIRECTS = ["https://mydan.digityoucan.com"];
+const ALLOWED_REDIRECTS = [Deno.env.get("ALLOWED_ORIGIN") ?? "https://mydan.digityoucan.com"];
 const safeRedirectTo = (url: unknown): string | undefined => {
   if (typeof url !== "string" || !url) return undefined;
   try {
@@ -63,14 +63,7 @@ Deno.serve(async (req) => {
       redirectTo,
     });
     if (resetErr) {
-      const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
-        type: "recovery",
-        email: targetEmail,
-        options: { redirectTo },
-      });
-      if (linkErr) return err(500, "تعذر إنشاء رابط الدعوة الجديد.");
-      console.log("[invite-supervisor] recovery link generated for", targetEmail);
-      return reply(200, { success: true, message: "تم إنشاء رابط استعادة جديد بنجاح." });
+      return err(502, "تعذر إرسال بريد الاستعادة. تحقق من إعدادات البريد وأعد المحاولة.");
     }
 
     await admin.from("audit_logs").insert({
@@ -103,8 +96,9 @@ Deno.serve(async (req) => {
     if (pwErr) return err(500, "تعذر تعيين كلمة المرور: " + pwErr.message);
 
     if (forceChange) {
-      await admin.from("supervisors").update({ force_password_change: true })
-        .eq("id", supervisorId).eq("company_id", companyId);
+      const { error: flagError } = await admin.from("supervisors").update({ force_password_change: true })
+        .eq("id", supervisorId).eq("company_id", companyId).select("id").single();
+      if (flagError) return err(500, "تم تحديث كلمة المرور لكن تعذر فرض تغييرها. أعد المحاولة.");
     }
 
     await admin.from("audit_logs").insert({
@@ -159,11 +153,12 @@ Deno.serve(async (req) => {
   }
 
   const perms = (body.permissions ?? {}) as Record<string, unknown>;
-  const rows = SCREENS.filter((k) => typeof perms[k] === "boolean")
-    .map((k) => ({ supervisor_id: sup.id, company_id: companyId, screen_key: k, is_enabled: perms[k] as boolean }));
+  const rows = SCREENS.map((k) => ({
+    supervisor_id: sup.id, company_id: companyId, screen_key: k, is_enabled: perms[k] === true,
+  }));
   if (rows.length) {
     const { error: permError } = await admin.from("supervisor_permissions").upsert(rows, { onConflict: "supervisor_id,screen_key" });
-    if (permError) console.error("permissions upsert failed", permError.message);
+    if (permError) return err(500, "تم إنشاء المستخدم، لكن تعذر حفظ صلاحياته. راجع حسابه من لوحة الإدارة قبل تفعيل الشاشات.");
   }
 
   await admin.from("audit_logs").insert({ company_id: companyId, table_name: "supervisors", action: "INSERT",

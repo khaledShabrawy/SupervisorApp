@@ -64,3 +64,12 @@ supabase/.temp/
 
 # Local session state and tokens
 /HOME/.claude-omniroute/sessions/
+
+# Database backups and encryption material (never commit production data)
+/backups/
+*.dump
+*.dump.enc
+*.sql.enc
+*.enc.partial
+*.backup-key
+__pycache__/

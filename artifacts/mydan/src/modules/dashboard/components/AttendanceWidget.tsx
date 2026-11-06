@@ -1,3 +1,4 @@
+import { useDialogFocus } from '@/hooks/useDialogFocus';
 import { useState } from 'react';
 import { CheckCircle2, Clock, LocateFixed, LogIn, LogOut, ShieldAlert, ShieldCheck, X } from '@/components/Icons';
 import { useGeolocation } from '@/hooks/useGeolocation';
@@ -14,6 +15,8 @@ export function AttendanceWidget() {
   const gps = useGeolocation();
   const [confirmKind, setConfirmKind] = useState<'in' | 'out' | null>(null);
 
+  const dialog = useDialogFocus(confirmKind !== null, () => setConfirmKind(null));
+
   if (isPending) {
     return (
       <div className="card" style={{ padding: '12px 16px', marginBottom: 8 }}>
@@ -27,12 +30,12 @@ export function AttendanceWidget() {
 
   const modal = confirmKind && (
     <div className="adm-modal-bg" onClick={() => setConfirmKind(null)} style={{ zIndex: 1000 }}>
-      <div className="adm-modal col" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, gap: 16 }}>
+      <div ref={dialog} tabIndex={-1} role="alertdialog" aria-modal="true" aria-label={confirmKind === 'in' ? t('تأكيد الحضور') : t('تأكيد الانصراف')} className="adm-modal col" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 360, gap: 16 }}>
         <div className="row between">
           <h3 style={{ margin: 0, fontSize: 16 }}>
             {confirmKind === 'in' ? t('تأكيد الحضور') : t('تأكيد الانصراف')}
           </h3>
-          <button type="button" className="icon-btn" onClick={() => setConfirmKind(null)}>
+          <button type="button" aria-label={t('إغلاق')} className="icon-btn" onClick={() => setConfirmKind(null)}>
             <X size={18} />
           </button>
         </div>

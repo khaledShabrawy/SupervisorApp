@@ -1,0 +1,8 @@
+select jsonb_build_object(
+ 'tables',(select coalesce(jsonb_agg(jsonb_build_object('name',c.relname,'kind',c.relkind,'rls',c.relrowsecurity,'force_rls',c.relforcerowsecurity)), '[]'::jsonb) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p','v')),
+ 'columns',(select coalesce(jsonb_agg(jsonb_build_object('table',table_name,'column',column_name,'type',data_type,'nullable',is_nullable,'default',column_default)), '[]'::jsonb) from information_schema.columns where table_schema='public'),
+ 'policies',(select coalesce(jsonb_agg(jsonb_build_object('schema',schemaname,'table',tablename,'name',policyname,'roles',roles,'command',cmd,'using',qual,'check',with_check)), '[]'::jsonb) from pg_policies where schemaname in ('public','storage')),
+ 'constraints',(select coalesce(jsonb_agg(jsonb_build_object('table',c.relname,'name',p.conname,'kind',p.contype,'definition',pg_get_constraintdef(p.oid))), '[]'::jsonb) from pg_constraint p join pg_class c on c.oid=p.conrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='public'),
+ 'indexes',(select coalesce(jsonb_agg(jsonb_build_object('table',tablename,'name',indexname,'definition',indexdef)), '[]'::jsonb) from pg_indexes where schemaname='public'),
+ 'functions',(select coalesce(jsonb_agg(jsonb_build_object('name',p.proname,'security_definer',p.prosecdef,'arguments',pg_get_function_identity_arguments(p.oid),'search_path',(select v from unnest(p.proconfig) v where v like 'search_path=%'))), '[]'::jsonb) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public')
+) as metadata;

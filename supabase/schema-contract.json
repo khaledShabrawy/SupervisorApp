@@ -1,0 +1,1093 @@
+{
+  "observed_at": "2026-11-05",
+  "project_ref": "ywdlrrdkjbtpfgacuuoy",
+  "source": "Read-only catalog audit; no customer rows or credentials",
+  "scope": "Reviewed application tables; this is not a full database backup",
+  "tables": [
+    {
+      "rls": true,
+      "kind": "r",
+      "name": "branches",
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "kind": "r",
+      "name": "supervisors",
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "kind": "r",
+      "name": "supervisor_permissions",
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "kind": "r",
+      "name": "companies",
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "kind": "r",
+      "name": "customers",
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "kind": "r",
+      "name": "orders",
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "kind": "r",
+      "name": "products",
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "kind": "r",
+      "name": "visits",
+      "force_rls": false
+    }
+  ],
+  "columns": [
+    {
+      "type": "integer",
+      "table": "products",
+      "column": "units_per_carton",
+      "default": "1",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "products",
+      "column": "carton_price",
+      "default": "0",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "visits",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "visits",
+      "column": "supervisor_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "visits",
+      "column": "customer_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "double precision",
+      "table": "visits",
+      "column": "latitude",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "double precision",
+      "table": "visits",
+      "column": "longitude",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "double precision",
+      "table": "visits",
+      "column": "geo_distance",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "visits",
+      "column": "on_beat",
+      "default": "false",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "visits",
+      "column": "visit_date",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "visits",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "visits",
+      "column": "company_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "visits",
+      "column": "check_in_time",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "visits",
+      "column": "check_out_time",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "branches",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "branches",
+      "column": "manager_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "double precision",
+      "table": "branches",
+      "column": "latitude",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "double precision",
+      "table": "branches",
+      "column": "longitude",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "branches",
+      "column": "is_active",
+      "default": "true",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "branches",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "branches",
+      "column": "company_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "branches",
+      "column": "region_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "supervisors",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "supervisors",
+      "column": "user_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "supervisors",
+      "column": "is_active",
+      "default": "true",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "supervisors",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "supervisors",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "supervisors",
+      "column": "branch_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "supervisors",
+      "column": "company_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "supervisors",
+      "column": "force_password_change",
+      "default": "false",
+      "nullable": "NO"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "supervisors",
+      "column": "password_changed_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "supervisor_permissions",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "supervisor_permissions",
+      "column": "supervisor_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "supervisor_permissions",
+      "column": "is_enabled",
+      "default": "true",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "supervisor_permissions",
+      "column": "updated_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "supervisor_permissions",
+      "column": "company_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "companies",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "integer",
+      "table": "companies",
+      "column": "max_supervisors",
+      "default": "50",
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "companies",
+      "column": "is_active",
+      "default": "true",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "companies",
+      "column": "activated_at",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "companies",
+      "column": "expires_at",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "companies",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "customers",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "double precision",
+      "table": "customers",
+      "column": "latitude",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "double precision",
+      "table": "customers",
+      "column": "longitude",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "boolean",
+      "table": "customers",
+      "column": "is_active",
+      "default": "true",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "customers",
+      "column": "created_by",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "customers",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "customers",
+      "column": "company_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "customers",
+      "column": "supervisor_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "customers",
+      "column": "survey_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "orders",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "uuid",
+      "table": "orders",
+      "column": "visit_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "orders",
+      "column": "supervisor_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "orders",
+      "column": "customer_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "orders",
+      "column": "product_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "integer",
+      "table": "orders",
+      "column": "quantity",
+      "default": "0",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "orders",
+      "column": "unit_price",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "orders",
+      "column": "total_price",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "orders",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "orders",
+      "column": "company_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "jsonb",
+      "table": "orders",
+      "column": "items",
+      "default": "'[]'::jsonb",
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "orders",
+      "column": "total_amount",
+      "default": "0",
+      "nullable": "YES"
+    },
+    {
+      "type": "date",
+      "table": "orders",
+      "column": "order_date",
+      "default": "CURRENT_DATE",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "orders",
+      "column": "delivered_at",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "products",
+      "column": "id",
+      "default": "gen_random_uuid()",
+      "nullable": "NO"
+    },
+    {
+      "type": "boolean",
+      "table": "products",
+      "column": "is_active",
+      "default": "true",
+      "nullable": "YES"
+    },
+    {
+      "type": "timestamp with time zone",
+      "table": "products",
+      "column": "created_at",
+      "default": "now()",
+      "nullable": "YES"
+    },
+    {
+      "type": "uuid",
+      "table": "products",
+      "column": "company_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "numeric",
+      "table": "products",
+      "column": "price",
+      "default": "0",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "branches",
+      "column": "name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "branches",
+      "column": "region",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "visits",
+      "column": "status",
+      "default": "'pending'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "visits",
+      "column": "visit_outcome",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "customers",
+      "column": "customer_type",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "customers",
+      "column": "status",
+      "default": "'active'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "customers",
+      "column": "customer_code",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "visits",
+      "column": "notes",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "orders",
+      "column": "status",
+      "default": "'pending'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "orders",
+      "column": "notes",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "supervisors",
+      "column": "full_name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "supervisors",
+      "column": "phone",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "supervisors",
+      "column": "branch",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "supervisors",
+      "column": "role",
+      "default": "'supervisor'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "supervisors",
+      "column": "device_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "supervisors",
+      "column": "supervisor_code",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "supervisor_permissions",
+      "column": "screen_key",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "name_en",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "logo_url",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "primary_color",
+      "default": "'#1A56DB'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "secondary_color",
+      "default": "'#108981'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "industry",
+      "default": "'FMCG'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "country",
+      "default": "'EG'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "city",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "contact_email",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "contact_phone",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "license_key",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "license_type",
+      "default": "'standard'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "products",
+      "column": "name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "products",
+      "column": "category",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "products",
+      "column": "sku_code",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "woo_order_id",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "companies",
+      "column": "subscription_plan",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "products",
+      "column": "image_url",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "products",
+      "column": "item_code",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "products",
+      "column": "master_brand",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "products",
+      "column": "sub_brand",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "products",
+      "column": "unit",
+      "default": "'قطعة'::text",
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "customers",
+      "column": "name",
+      "default": null,
+      "nullable": "NO"
+    },
+    {
+      "type": "text",
+      "table": "customers",
+      "column": "type",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "customers",
+      "column": "owner_name",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "customers",
+      "column": "phone",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "customers",
+      "column": "address",
+      "default": null,
+      "nullable": "YES"
+    },
+    {
+      "type": "text",
+      "table": "customers",
+      "column": "branch",
+      "default": null,
+      "nullable": "YES"
+    }
+  ],
+  "constraints": [
+    {
+      "kind": "f",
+      "name": "branches_company_id_fkey",
+      "table": "branches",
+      "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+    },
+    {
+      "kind": "f",
+      "name": "branches_manager_id_fkey",
+      "table": "branches",
+      "definition": "FOREIGN KEY (manager_id) REFERENCES supervisors(id)"
+    },
+    {
+      "kind": "p",
+      "name": "branches_pkey",
+      "table": "branches",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "kind": "f",
+      "name": "branches_region_id_fkey",
+      "table": "branches",
+      "definition": "FOREIGN KEY (region_id) REFERENCES regions(id) ON DELETE SET NULL"
+    },
+    {
+      "kind": "f",
+      "name": "supervisors_branch_id_fkey",
+      "table": "supervisors",
+      "definition": "FOREIGN KEY (branch_id) REFERENCES branches(id)"
+    },
+    {
+      "kind": "f",
+      "name": "supervisors_company_id_fkey",
+      "table": "supervisors",
+      "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+    },
+    {
+      "kind": "p",
+      "name": "supervisors_pkey",
+      "table": "supervisors",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "kind": "c",
+      "name": "supervisors_role_check",
+      "table": "supervisors",
+      "definition": "CHECK ((role = ANY (ARRAY['supervisor'::text, 'senior_supervisor'::text, 'branch_manager'::text, 'admin'::text, 'super_admin'::text])))"
+    },
+    {
+      "kind": "f",
+      "name": "supervisors_user_id_fkey",
+      "table": "supervisors",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "kind": "f",
+      "name": "supervisor_permissions_company_id_fkey",
+      "table": "supervisor_permissions",
+      "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+    },
+    {
+      "kind": "p",
+      "name": "supervisor_permissions_pkey",
+      "table": "supervisor_permissions",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "kind": "f",
+      "name": "supervisor_permissions_supervisor_id_fkey",
+      "table": "supervisor_permissions",
+      "definition": "FOREIGN KEY (supervisor_id) REFERENCES supervisors(id) ON DELETE CASCADE"
+    },
+    {
+      "kind": "u",
+      "name": "supervisor_permissions_supervisor_id_screen_key_key",
+      "table": "supervisor_permissions",
+      "definition": "UNIQUE (supervisor_id, screen_key)"
+    },
+    {
+      "kind": "u",
+      "name": "companies_license_key_key",
+      "table": "companies",
+      "definition": "UNIQUE (license_key)"
+    },
+    {
+      "kind": "c",
+      "name": "companies_license_type_check",
+      "table": "companies",
+      "definition": "CHECK ((license_type = ANY (ARRAY['standard'::text, 'pro'::text, 'enterprise'::text])))"
+    },
+    {
+      "kind": "p",
+      "name": "companies_pkey",
+      "table": "companies",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "kind": "c",
+      "name": "companies_subscription_plan_check",
+      "table": "companies",
+      "definition": "CHECK ((subscription_plan = ANY (ARRAY['monthly'::text, 'yearly'::text])))"
+    },
+    {
+      "kind": "f",
+      "name": "customers_company_id_fkey",
+      "table": "customers",
+      "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+    },
+    {
+      "kind": "f",
+      "name": "customers_created_by_fkey",
+      "table": "customers",
+      "definition": "FOREIGN KEY (created_by) REFERENCES supervisors(id)"
+    },
+    {
+      "kind": "p",
+      "name": "customers_pkey",
+      "table": "customers",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "kind": "f",
+      "name": "customers_supervisor_id_fkey",
+      "table": "customers",
+      "definition": "FOREIGN KEY (supervisor_id) REFERENCES supervisors(id) ON DELETE SET NULL"
+    },
+    {
+      "kind": "c",
+      "name": "customers_type_check",
+      "table": "customers",
+      "definition": "CHECK ((type = ANY (ARRAY['بقالة'::text, 'سوبر ماركت'::text, 'هايبر ماركت'::text, 'ميني ماركت'::text, 'كافيه'::text, 'مطعم'::text, 'أخرى'::text])))"
+    },
+    {
+      "kind": "f",
+      "name": "orders_company_id_fkey",
+      "table": "orders",
+      "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+    },
+    {
+      "kind": "f",
+      "name": "orders_customer_id_fkey",
+      "table": "orders",
+      "definition": "FOREIGN KEY (customer_id) REFERENCES customers(id)"
+    },
+    {
+      "kind": "p",
+      "name": "orders_pkey",
+      "table": "orders",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "kind": "f",
+      "name": "orders_product_id_fkey",
+      "table": "orders",
+      "definition": "FOREIGN KEY (product_id) REFERENCES products(id)"
+    },
+    {
+      "kind": "c",
+      "name": "orders_status_check",
+      "table": "orders",
+      "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'delivered'::text, 'cancelled'::text])))"
+    },
+    {
+      "kind": "f",
+      "name": "orders_supervisor_id_fkey",
+      "table": "orders",
+      "definition": "FOREIGN KEY (supervisor_id) REFERENCES supervisors(id)"
+    },
+    {
+      "kind": "f",
+      "name": "orders_visit_id_fkey",
+      "table": "orders",
+      "definition": "FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE"
+    },
+    {
+      "kind": "f",
+      "name": "products_company_id_fkey",
+      "table": "products",
+      "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+    },
+    {
+      "kind": "p",
+      "name": "products_pkey",
+      "table": "products",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "kind": "u",
+      "name": "products_sku_code_key",
+      "table": "products",
+      "definition": "UNIQUE (sku_code)"
+    },
+    {
+      "kind": "f",
+      "name": "visits_company_id_fkey",
+      "table": "visits",
+      "definition": "FOREIGN KEY (company_id) REFERENCES companies(id)"
+    },
+    {
+      "kind": "f",
+      "name": "visits_customer_id_fkey",
+      "table": "visits",
+      "definition": "FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE"
+    },
+    {
+      "kind": "p",
+      "name": "visits_pkey",
+      "table": "visits",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "kind": "c",
+      "name": "visits_status_check",
+      "table": "visits",
+      "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'in_progress'::text, 'completed'::text, 'skipped'::text])))"
+    },
+    {
+      "kind": "f",
+      "name": "visits_supervisor_id_fkey",
+      "table": "visits",
+      "definition": "FOREIGN KEY (supervisor_id) REFERENCES supervisors(id) ON DELETE CASCADE"
+    },
+    {
+      "kind": "c",
+      "name": "visits_visit_outcome_check",
+      "table": "visits",
+      "definition": "CHECK ((visit_outcome = ANY (ARRAY['متعامل'::text, 'غير متعامل'::text, 'غير موجود'::text])))"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { VerificationError } from '@/components/VerificationError';
 import { Suspense, useCallback, useEffect, type ReactNode } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, Bell, LogOut, Settings2 } from '@/components/Icons';
@@ -52,7 +53,13 @@ export function RequireAuth() {
 
   if (isLoading || binding.status === 'checking' || subscription.isLoading) return <LoadingSpinner />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (subscription.isError) return <VerificationError
+    message="تعذر التحقق من اشتراك الشركة. تحقق من الاتصال وأعد المحاولة."
+    onRetry={() => void subscription.retry()} />;
   if (supervisor?.force_password_change) return <Navigate to="/set-password" replace />;
+  if (binding.status === 'error') return <VerificationError
+    message="تعذر تأكيد ربط هذا الجهاز. تحقق من الاتصال وأعد المحاولة."
+    onRetry={binding.retry} />;
   if (binding.status === 'locked') {
     return (
       <DeviceLockedView

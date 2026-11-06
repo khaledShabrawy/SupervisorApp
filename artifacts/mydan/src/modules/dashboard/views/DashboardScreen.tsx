@@ -8,7 +8,6 @@ import {
   Plus,
   Route,
   ScanSearch,
-  ShoppingCart,
   Target as TargetIcon,
 } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -93,11 +92,8 @@ export default function DashboardScreen() {
             <Act id="/shelf-audit" onAct={go} className="s-act s-blue">
               <Camera /> {t('مراجعة الرف')}
             </Act>
-            <Act id="/training" onAct={go} className="s-act" style={{ background: '#7C3AED', color: '#fff' }}>
+            <Act id="/training" onAct={go} className="s-act" style={{ background: 'var(--color-primary)', color: '#fff' }}>
               <GraduationCap /> {t('أكاديمية التدريب')}
-            </Act>
-            <Act id="/orders" onAct={go} className="s-act" style={{ background: '#0F1B2D', color: '#fff' }}>
-              <ShoppingCart /> {t('الطلبات')}
             </Act>
             <Act id="/beat-plan" onAct={go} className="s-act s-purple">
               <Route /> {t('خطة الزيارات')}

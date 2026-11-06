@@ -16,19 +16,19 @@ const FEATURES = [
     icon: '🎯',
     bg: 'rgba(26,86,219,.28)',
     titleKey: 'رقابة الرف بالذكاء الاصطناعي',
-    subKey: 'دقة 99.4% في تحليل حصة الوجود والنواقص الفورية',
+    subKey: 'تحليل صور الرفوف لرصد التوافر والنواقص',
   },
   {
     icon: '📍',
     bg: 'rgba(16,137,129,.28)',
-    titleKey: 'سياج جغرافي 100% صارم',
-    subKey: 'منع التلاعب بتسجيل الزيارات والحضور تماماً',
+    titleKey: 'متابعة الزيارات بالموقع الجغرافي',
+    subKey: 'تسجيل الموقع وتنبيه الإدارة عند الخروج عن النطاق',
   },
   {
     icon: '⚡',
     bg: 'rgba(99,102,241,.28)',
-    titleKey: 'عمل أوفلاين بلا انقطاع',
-    subKey: 'مزامنة تلقائية ذكية عند استعادة الاتصال',
+    titleKey: 'حفظ العمليات دون اتصال',
+    subKey: 'ارفع العمليات المحفوظة عند استعادة الاتصال',
   },
 ] as const;
 
@@ -82,7 +82,7 @@ export default function LoginScreen() {
           <div>
             <h2 className="lp-headline">
               {t('أتمتة قوة')}<br />
-              <span className="lp-headline-accent">{t('المبيعات الميدانية')}</span><br />
+              <span className="lp-headline-accent">{t('المتابعة الميدانية')}</span><br />
               {t('بالذكاء الاصطناعي')}
             </h2>
             <p style={{ fontSize: 14, color: '#94A3B8', margin: '12px 0 0', lineHeight: 1.75 }}>
@@ -144,9 +144,9 @@ export default function LoginScreen() {
           {/* Stats strip */}
           <div className="lp-stats">
             {([
-              { num: '99.4%', lbl: t('دقة الذكاء'),    color: '#60A5FA' },
-              { num: '100%',  lbl: t('سياج جغرافي'),   color: '#34D399' },
-              { num: '<1s',   lbl: t('تحليل الرف'),     color: '#A78BFA' },
+              { num: 'AI', lbl: t('تحليل الرفوف'),    color: '#60A5FA' },
+              { num: 'GPS',  lbl: t('متابعة الموقع'),   color: '#34D399' },
+              { num: 'PWA',   lbl: t('تطبيق الويب'),     color: '#A78BFA' },
             ] as const).map((s) => (
               <div key={s.lbl} className="lp-stat">
                 <div className="lp-stat-num" style={{ color: s.color }}>{s.num}</div>
@@ -213,7 +213,7 @@ export default function LoginScreen() {
 
                 {/* Email */}
                 <div className="lp-field">
-                  <label className="lp-label">{t('البريد الإلكتروني')}</label>
+                  <label className="lp-label" htmlFor={ctrl.forgot ? "recovery-email" : "login-email"}>{t('البريد الإلكتروني')}</label>
                   <input
                     className="lp-input"
                     type="email"
@@ -224,13 +224,13 @@ export default function LoginScreen() {
                     required
                     value={ctrl.email}
                     onChange={(e) => ctrl.setEmail(e.target.value)}
-                    data-testid="input-email"
+                    id="login-email" data-testid="input-email"
                   />
                 </div>
 
                 {/* Password */}
                 <div className="lp-field">
-                  <label className="lp-label">{t('كلمة المرور')}</label>
+                  <label className="lp-label" htmlFor="login-password">{t('كلمة المرور')}</label>
                   <div className="lp-pw">
                     <input
                       className="lp-input"
@@ -242,7 +242,7 @@ export default function LoginScreen() {
                       required
                       value={ctrl.password}
                       onChange={(e) => ctrl.setPassword(e.target.value)}
-                      data-testid="input-password"
+                      id="login-password" data-testid="input-password"
                     />
                     <button
                       type="button"
@@ -262,6 +262,7 @@ export default function LoginScreen() {
                     {t('وحدة الأعمال (الفرع)')}
                   </label>
                   <select
+                    aria-label={t('وحدة الأعمال (الفرع)')}
                     className="lp-input"
                     value={ctrl.selectedBranch}
                     onChange={(e) => ctrl.setSelectedBranch(e.target.value)}
@@ -281,8 +282,7 @@ export default function LoginScreen() {
                   <div style={{ textAlign: 'end', marginTop: -4 }}>
                     <button
                       type="button"
-                      style={{ fontSize: 12, padding: 0, color: 'var(--color-primary)',
-                        background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+                      className="lp-forgot"
                       onClick={() => { ctrl.setForgot(true); ctrl.setForgotEmail(ctrl.email); }}
                     >
                       {t('نسيت كلمة المرور؟')}
@@ -330,14 +330,14 @@ export default function LoginScreen() {
 
               <form onSubmit={ctrl.handleForgot} className="col" style={{ gap: 14 }}>
                 <div className="lp-field">
-                  <label className="lp-label">{t('البريد الإلكتروني')}</label>
+                  <label className="lp-label" htmlFor={ctrl.forgot ? "recovery-email" : "login-email"}>{t('البريد الإلكتروني')}</label>
                   <input
                     className="lp-input"
                     type="email"
                     dir="ltr"
                     placeholder="name@company.com"
                     required
-                    value={ctrl.forgotEmail}
+                    id="recovery-email" autoComplete="email" value={ctrl.forgotEmail}
                     onChange={(e) => ctrl.setForgotEmail(e.target.value)}
                   />
                 </div>
@@ -368,11 +368,11 @@ export default function LoginScreen() {
           {/* Trust footer */}
           <div className="lp-trust">
             <ShieldCheck size={14} color="#16A34A" />
-            <span>{t('مشفر بـ')} <strong style={{ color: '#475569' }}>256-bit SSL</strong></span>
+            <span>{t('استخدم حساب العمل المعتمد')}</span>
             <span style={{ opacity: .35 }}>·</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span className="lp-live-dot" />
-              {t('الخوادم متصلة')}
+
+              {t('البيانات مرتبطة بصلاحيات حسابك')}
             </span>
           </div>
         </div>

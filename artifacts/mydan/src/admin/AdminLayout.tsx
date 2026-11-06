@@ -1,3 +1,4 @@
+import { VerificationError } from '@/components/VerificationError';
 import { Suspense, useCallback, useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BarChart3, Bell, Building2, Camera, ClipboardList, Download, FileText, GraduationCap, Home, LogOut, MapPin, Package, PieChart, ScanSearch, Settings2, ShieldCheck, ShoppingCart, Store, Target, Users } from '@/components/Icons';
@@ -17,7 +18,6 @@ export const ADMIN_NAV = [
   { to: '/admin/live-map', label: t('تتبع المشرفين 🗺️'), icon: MapPin },
   { to: '/admin/shelf-share', label: t('حصة الرف'), icon: BarChart3 },
   { to: '/admin/training', label: t('أكاديمية التدريب 🎓'), icon: GraduationCap },
-  { to: '/admin/orders', label: t('الطلبات'), icon: ShoppingCart },
   { to: '/admin/users', label: t('المستخدمين'), icon: Users },
   { to: '/admin/companies', label: t('الشركات'), icon: Building2, superAdminOnly: true },
   { to: '/admin/branches', label: t('الفروع'), icon: MapPin },
@@ -35,6 +35,12 @@ export const ADMIN_NAV = [
   { to: '/admin/field-surveys', label: t('سجل المسح الميداني'), icon: Camera },
 ] as const;
 
+const ADMIN_NAV_GROUPS = [
+  { label: 'المتابعة والتقارير', paths: ['/admin','/admin/live-map','/admin/shelf-share','/admin/training','/admin/reports','/admin/field-surveys'] },
+  { label: 'الفرق والبيانات', paths: ['/admin/users','/admin/branches','/admin/customers','/admin/products','/admin/targets','/admin/assets','/admin/surveys','/admin/bulk-import','/admin/prospects'] },
+  { label: 'إعدادات النظام', paths: ['/admin/companies','/admin/notifications','/admin/settings','/admin/audit'] },
+];
+
 /** Auth + role gate for /admin/*; renders the desktop admin shell instead of the mobile one. */
 export default function AdminLayout() {
   const { isAuthenticated, isLoading, supervisor, signOut } = useAuth();
@@ -49,6 +55,9 @@ export default function AdminLayout() {
 
   if (isLoading || subscription.isLoading) return <LoadingSpinner />;
   if (!isAuthenticated) return <Navigate to="/login" replace state={{ from: pathname }} />;
+  if (subscription.isError) return <VerificationError
+    message="تعذر التحقق من اشتراك الشركة. تحقق من الاتصال وأعد المحاولة."
+    onRetry={() => void subscription.retry()} />;
   if (supervisor?.force_password_change) return <Navigate to="/set-password" replace />;
   if (!canAdmin(supervisor)) return <Navigate to="/" replace />;
   if (subscription.isLocked) {
@@ -69,8 +78,13 @@ export default function AdminLayout() {
         <span className="adm-lang-mobile"><LanguageToggle /></span>
       </div>
       <nav className="adm-nav" aria-label={t('قائمة الإدارة')}>
-        {ADMIN_NAV.filter(({ ...rest }) => !('superAdminOnly' in rest) || supervisor?.role === 'super_admin').map(({ to, label, icon: Icon, ...rest }) =>
-          <NavLink key={to} to={to} end={'end' in rest} data-testid={`admin-nav-${to.split('/').pop()}`}><Icon size={18} />{label}</NavLink>)}
+        {ADMIN_NAV_GROUPS.map(group => <section className="adm-nav-group" key={group.label} aria-label={t(group.label)}>
+          <div className="adm-nav-group-label">{t(group.label)}</div>
+          {ADMIN_NAV.filter(item => group.paths.includes(item.to))
+            .filter(item => !('superAdminOnly' in item) || supervisor?.role === 'super_admin')
+            .map(({ to, label, icon: Icon, ...rest }) => <NavLink key={to} to={to} end={'end' in rest}
+              data-testid={`admin-nav-${to.split('/').pop()}`}><Icon size={18} />{label}</NavLink>)}
+        </section>)}
       </nav>
       {/* صف ثابت على الموبايل — دائماً مرئي بدون تمرير */}
       <div className="adm-mobile-actions">
