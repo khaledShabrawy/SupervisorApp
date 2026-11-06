@@ -1,3 +1,5 @@
 
 # Unified patch context intentionally retains upstream indentation/blank lines.
 patches/*.patch -whitespace
+# Preserve the existing shelf-audit CRLF source format during targeted edits.
+artifacts/mydan/src/modules/shelf-audit/views/ShelfAuditScreen.tsx whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
