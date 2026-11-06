@@ -103,4 +103,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Test proposed authorization on synthetic data
-        run: bash scripts/testing/database/run.sh
+        run: bash scripts/testing/database/run.sh --full-schema
+      - name: Set up Python for authenticated backup tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated backup test dependency
+        run: |
+          python3 -m venv "$RUNNER_TEMP/mydan-backup-venv"
+          "$RUNNER_TEMP/mydan-backup-venv/bin/pip" install -r scripts/backup/requirements.txt
+      - name: Verify encrypted dump and isolated restore
+        run: '"$RUNNER_TEMP/mydan-backup-venv/bin/python" scripts/testing/database/backup-roundtrip.py'
