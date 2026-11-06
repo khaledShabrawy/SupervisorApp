@@ -26,7 +26,7 @@ jobs:
     environment: staging
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Verify staging schema, identities and read isolation
@@ -48,7 +48,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 10.26.1
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
