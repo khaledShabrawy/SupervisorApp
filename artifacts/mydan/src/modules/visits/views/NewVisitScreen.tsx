@@ -123,17 +123,23 @@ export default function NewVisitScreen() {
   const here = useMemo<Gps | null>(() => gps.latitude != null && gps.longitude != null
     ? { latitude: gps.latitude, longitude: gps.longitude } : null, [gps.latitude, gps.longitude]);
 
+  const [queuedVisitId, setQueuedVisitId] = useState<string | null>(null);
+  const handleVisitStarted = useCallback((visit: { id: string; queued: boolean }) => {
+    if (visit.queued) setQueuedVisitId(visit.id);
+    else nav(`/visits/${visit.id}`, { replace: true });
+  }, [nav]);
+
   const checkIn = useCallback((c: Customer, note: string) => {
     if (!supervisor || !here) return;
     const g = geofence(here, c, s.geofence_radius_m);
     if (g.on_beat) {
       m.mutate({ customer_id: c.id, latitude: here.latitude, longitude: here.longitude, notes: note,
         geo_distance: g.distance_m, on_beat: true, ...(existingId ? { existingId } : {}) },
-      { onSuccess: (visit) => nav(`/visits/${visit.id}`, { replace: true }) });
+      { onSuccess: handleVisitStarted });
     } else {
       setOorPending({ c, g, note });
     }
-  }, [supervisor, here, s.geofence_radius_m, m, existingId, nav]);
+  }, [supervisor, here, s.geofence_radius_m, m, existingId, handleVisitStarted]);
 
   const confirmOor = useCallback(() => {
     if (!oorPending || !here) return;
@@ -143,8 +149,8 @@ export default function NewVisitScreen() {
     const combinedNote = note ? `${notePrefix} ${note}` : notePrefix;
     m.mutate({ customer_id: c.id, latitude: here.latitude, longitude: here.longitude, notes: combinedNote,
       geo_distance: g.distance_m, on_beat: false, ...(existingId ? { existingId } : {}) },
-    { onSuccess: (visit) => nav(`/visits/${visit.id}`, { replace: true }) });
-  }, [oorPending, here, oorReason, m, existingId, nav]);
+    { onSuccess: handleVisitStarted });
+  }, [oorPending, here, oorReason, m, existingId, handleVisitStarted]);
 
   const cancelOor = useCallback(() => setOorPending(null), []);
   const logNearest = useCallback((c: Ranked) => checkIn(c, ''), [checkIn]);
@@ -181,6 +187,16 @@ export default function NewVisitScreen() {
   const back = useCallback(() => nav('/visits'), [nav]);
   const clear = useCallback(() => setPicked(null), []);
   const focused = !!existingId || !!paramCustomerId || !!customer || !!picked;
+
+  if (queuedVisitId) return <div className="page" aria-label={s.app_name} data-role={supervisor?.role}>
+    <PageTitle>{t('زيارة جديدة')}</PageTitle>
+    <div className="card col" role="status" data-testid="queued-visit-confirmation">
+      <h3 style={{ margin: 0 }}>{t('تم حفظ بداية الزيارة محلياً')}</h3>
+      <p style={{ margin: 0 }}>{t('تم حفظ العملية محلياً وتنتظر الرفع')}</p>
+      <p className="muted" style={{ margin: 0 }}>{t('عند عودة الاتصال، اضغط رفع البيانات. بعد نجاح الرفع، افتح الزيارة من قائمة الزيارات لاستكمال المهام.')}</p>
+    </div>
+    <button type="button" className="btn ghost" onClick={back}>{t('العودة إلى الزيارات')}</button>
+  </div>;
 
   return <div className="page" aria-label={s.app_name} data-role={supervisor?.role}>
     <PageTitle action={<button className="icon-btn" aria-label={t('رجوع إلى الزيارات')} onClick={back}><ArrowRight className="flip-ltr" /></button>}>{existingId ? t('بدء زيارة معلقة') : t('زيارة جديدة')}</PageTitle>

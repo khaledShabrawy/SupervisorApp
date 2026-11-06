@@ -134,6 +134,13 @@ async function callAnthropic(apiKey: string, base64Data: string, mediaType: Medi
   return response.parsed_output;
 }
 
+function safeSurveyPhotoPath(value: unknown, companyId: string): value is string {
+  if (typeof value !== "string" || !value.startsWith(`${companyId}/`)) return false;
+  // Do not let URL normalization turn an own-company key into another folder/bucket.
+  if (/[%\\?#\u0000-\u0020\u007f-\u009f]/.test(value)) return false;
+  return !value.split("/").some(part => !part || part === "." || part === "..");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json(405, { error: "method not allowed" });
@@ -159,7 +166,18 @@ Deno.serve(async (req) => {
 
   const { data: caller } = await admin.from("supervisors")
     .select("id,company_id,role,is_active").eq("user_id", auth.user.id).maybeSingle();
-  if (!caller?.is_active) return json(403, { error: "inactive or unknown supervisor" });
+  const allowedRoles = ["supervisor", "senior_supervisor", "branch_manager", "admin", "super_admin"];
+  if (!caller?.is_active || !caller.company_id || !allowedRoles.includes(caller.role)) {
+    return json(403, { error: "inactive or unknown supervisor" });
+  }
+  const isAdmin = ["admin", "super_admin"].includes(caller.role);
+  if (!isAdmin) {
+    const { data: permission, error: permissionError } = await admin.from("supervisor_permissions")
+      .select("is_enabled").eq("supervisor_id", caller.id).eq("company_id", caller.company_id)
+      .eq("screen_key", "field_survey").maybeSingle();
+    if (permissionError) return json(503, { error: "تعذر التحقق من صلاحية المسح الميداني." });
+    if (permission?.is_enabled !== true) return json(403, { error: "field survey permission required" });
+  }
 
   // 2) Validate survey ownership
   let surveyId: unknown;
@@ -168,24 +186,30 @@ Deno.serve(async (req) => {
 
   const { data: survey } = await admin.from("field_surveys")
     .select("id,company_id,supervisor_id,photo_url,status").eq("id", surveyId).maybeSingle();
-  const isAdmin = ["admin", "super_admin"].includes(caller.role);
   if (
     !survey ||
     survey.company_id !== caller.company_id ||
     (!isAdmin && survey.supervisor_id !== caller.id)
   ) return json(404, { error: "survey not found" });
   if (!survey.photo_url) return json(400, { error: "survey has no photo" });
-  if (!survey.photo_url.startsWith(`${caller.company_id}/`)) {
+  if (!safeSurveyPhotoPath(survey.photo_url, caller.company_id)) {
     return json(403, { error: "photo path does not belong to your company" });
   }
   if (survey.status === "processing") return json(409, { error: "analysis already running" });
   if (survey.status === "completed") return json(409, { error: "survey already completed" });
 
   const fail = async (status: number, error: string) => {
-    await admin.from("field_surveys").update({ status: "failed" }).eq("id", survey.id);
+    await admin.from("field_surveys").update({ status: "failed" })
+      .eq("id", survey.id).eq("company_id", caller.company_id).eq("status", "processing");
     return json(status, { error });
   };
-  await admin.from("field_surveys").update({ status: "processing" }).eq("id", survey.id);
+  // The row state is the atomic claim. Two requests may read pending, but only
+  // one can move pending/failed to processing and incur provider work.
+  const { data: claimed, error: claimError } = await admin.from("field_surveys")
+    .update({ status: "processing" }).eq("id", survey.id).eq("company_id", caller.company_id)
+    .in("status", ["pending", "failed"]).select("id").maybeSingle();
+  if (claimError) return json(503, { error: "تعذر بدء التحليل. أعد المحاولة لاحقًا." });
+  if (!claimed || claimed.id !== survey.id) return json(409, { error: "survey state changed or analysis already running" });
 
   try {
     // 3) Download photo from private bucket
@@ -217,11 +241,15 @@ Deno.serve(async (req) => {
       modelUsed = CLAUDE_MODEL;
     }
 
-    await admin.from("field_surveys").update({
+    const { data: saved, error: saveError } = await admin.from("field_surveys").update({
       stores_found: result.stores_found,
       ai_raw_result: { ...result, model: modelUsed, engine: geminiKey ? "google-gemini" : "anthropic" },
       status: "completed",
-    }).eq("id", survey.id);
+    }).eq("id", survey.id).eq("company_id", caller.company_id).eq("status", "processing")
+      .select("id").maybeSingle();
+    if (saveError || !saved || saved.id !== survey.id) {
+      return await fail(500, "تعذر تأكيد حفظ نتيجة المسح. حدّث الصفحة للتحقق قبل إعادة المحاولة.");
+    }
 
     return json(200, {
       success: true,

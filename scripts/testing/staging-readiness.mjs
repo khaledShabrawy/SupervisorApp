@@ -7,7 +7,6 @@ const schemas = {
   app_settings: 'id,company_id,app_name,geofence_radius_m,ai_audit_enabled',
   customers: 'id,company_id,name,latitude,longitude',
   visits: 'id,company_id,supervisor_id,customer_id,status,geo_distance',
-  orders: 'id,company_id,supervisor_id,status,total_amount',
   supervisor_permissions: 'id,company_id,supervisor_id,screen_key,is_enabled',
 };
 
@@ -20,7 +19,7 @@ export async function checkStaging(env, request = fetch) {
   async function get(resource, token) {
     const response = await request(config.url + resource, {
       method: 'GET', redirect: 'error', signal: AbortSignal.timeout(15000),
-      headers: { apikey: config.key, Authorization: `Bearer ${token || config.key}` },
+      headers: { apikey: config.key, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     });
     if (!response.ok) throw new Error(`Staging request failed (${response.status}) at ${resource.split('?')[0]}.`);
     return response.json();
@@ -46,12 +45,31 @@ export async function checkStaging(env, request = fetch) {
   const grants = await get(`/rest/v1/supervisor_permissions?select=screen_key,is_enabled&supervisor_id=eq.${encodeURIComponent(profiles.SUPERVISOR.id)}`, env.STAGING_SUPERVISOR_ACCESS_TOKEN);
   if (!grants.some(row => row.screen_key === 'new_visit' && row.is_enabled === true)) throw new Error('The test supervisor needs an explicit new_visit grant.');
   checks.push({ name: 'explicit supervisor screen grant', status: 'passed' });
-  for (const table of ['supervisors','customers','visits','orders','app_settings','supervisor_permissions']) {
+  for (const table of ['supervisors','customers','visits','app_settings','supervisor_permissions']) {
     const sample = await get(`/rest/v1/${table}?select=id&company_id=eq.${encodeURIComponent(profiles.OTHER_TENANT.company_id)}&limit=1`, env.STAGING_OTHER_TENANT_ACCESS_TOKEN);
     if (!sample.length) { checks.push({ name: `${table} cross-tenant read isolation`, status: 'skipped', reason: 'A synthetic fixture is required in the second company.' }); continue; }
     const visible = await get(`/rest/v1/${table}?select=id&id=eq.${encodeURIComponent(sample[0].id)}&limit=1`, env.STAGING_SUPERVISOR_ACCESS_TOKEN);
     if (visible.length) throw new Error(`Cross-tenant data exposure in ${table}.`);
     checks.push({ name: `${table} cross-tenant read isolation`, status: 'passed' });
+  }
+  // Orders are deliberately retired. A successful empty response would still
+  // prove the client has SELECT privileges, so it must never count as denial.
+  // Authenticated identities were verified above; a later 401 may be an expired
+  // session and is not accepted as a permission test. PostgREST maps SQL 42501
+  // to 401 for an anonymous caller and 403 for an authenticated caller.
+  for (const role of [...roles, 'ANONYMOUS']) {
+    const token = role === 'ANONYMOUS' ? null : env[`STAGING_${role}_ACCESS_TOKEN`];
+    const response = await request(`${config.url}/rest/v1/orders?select=id&limit=0`, {
+      method: 'GET', redirect: 'error', signal: AbortSignal.timeout(15000),
+      headers: { apikey: config.key, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    });
+    let body;
+    try { body = await response.json(); } catch { body = null; }
+    const expectedStatus = role === 'ANONYMOUS' ? 401 : 403;
+    if (response.status !== expectedStatus || body?.code !== '42501') {
+      throw new Error(`Retired sales access denial was not verified for ${role.toLowerCase()} (HTTP ${response.status}).`);
+    }
+    checks.push({ name: `${role.toLowerCase()} retired sales read denied`, status: 'passed' });
   }
   return { status: checks.some(c => c.status === 'skipped') ? 'incomplete' : 'passed', checks };
 }

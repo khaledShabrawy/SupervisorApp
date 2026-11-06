@@ -11,6 +11,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { PageTitle } from '@/components/Layout';
+import { useDialogFocus } from '@/hooks/useDialogFocus';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { fmtDate } from '@/lib/format';
 import { t } from '@/i18n';
@@ -340,10 +341,14 @@ export default function TrainingAcademyScreen() {
   }, [quizAnswers]);
 
   const quizPercentage = Math.round((quizCorrectCount / QUIZ_QUESTIONS.length) * 100);
-  const isCertified = quizSubmitted && quizPercentage >= 80 && totalSimulatorScore >= 75;
+  const maxSimulatorScore = SCENARIOS.reduce((sum, scenario) => sum + Math.max(...scenario.options.map(option => option.points)), 0);
+  const simulatorPercentage = maxSimulatorScore > 0 ? totalSimulatorScore / maxSimulatorScore * 100 : 0;
+  const isCertified = quizSubmitted && quizPercentage >= 80 && simulatorPercentage >= 75;
 
   // ── Certificate Modal ────────────────────────────────────────────────────
   const [showCertificate, setShowCertificate] = useState(false);
+  const closeCertificate = useCallback(() => setShowCertificate(false), []);
+  const certificateDialog = useDialogFocus(showCertificate, closeCertificate);
 
   const printCertificate = useCallback(() => {
     window.print();
@@ -396,7 +401,7 @@ export default function TrainingAcademyScreen() {
           onClick={() => setTab('badges')}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
-          <Award size={15} color="#10B981" /> {t('شهاداتي وشارات الإنجاز 🏆')}
+          <Award size={15} color="#10B981" /> {t('نتائج التدريب الذاتي 🏆')}
         </button>
       </div>
 
@@ -703,7 +708,7 @@ export default function TrainingAcademyScreen() {
                 <h3 style={{ margin: 0, fontSize: 17 }}>{t('محاكي القرارات الميدانية FMCG')}</h3>
               </div>
               <span className="badge b-amber" style={{ fontSize: 12, padding: '4px 10px' }}>
-                {totalSimulatorScore} / 100 {t('نقطة')}
+                {totalSimulatorScore} / {maxSimulatorScore} {t('نقطة')}
               </span>
             </div>
             <p style={{ margin: '8px 0 0', fontSize: 13, color: '#94A3B8', lineHeight: 1.5 }}>
@@ -856,7 +861,7 @@ export default function TrainingAcademyScreen() {
               )}
             </div>
             <p style={{ margin: '8px 0 0', fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
-              {t('5 أسئلة تخصصية في صميم عمل المشرف الميداني لقياس المعرفة بالـ Share of Shelf، الـ Eye-Level، والـ OOS. نسبة الاجتياز 80% للحصول على الشهادة.')}
+              {t('5 أسئلة تخصصية في عمل المشرف الميداني لقياس المعرفة بالرف والتوافر. نسبة اجتياز التدريب الذاتي 80%.')}
             </p>
           </div>
 
@@ -989,7 +994,7 @@ export default function TrainingAcademyScreen() {
                     onClick={() => setShowCertificate(true)}
                     style={{ flex: 2, padding: 10, fontSize: 13, background: '#7C3AED', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                   >
-                    <Award size={16} /> {t('عرض وتحميل شهادة التميز 🎓')}
+                    <Award size={16} /> {t('عرض ملخص التدريب الذاتي')}
                   </button>
                 )}
               </div>
@@ -1015,14 +1020,14 @@ export default function TrainingAcademyScreen() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Award size={24} />
-                <h3 style={{ margin: 0, fontSize: 18 }}>{t('سجل الشارات والاعتمادات المهنية')}</h3>
+                <h3 style={{ margin: 0, fontSize: 18 }}>{t('سجل نتائج التدريب الذاتي')}</h3>
               </div>
               <span className="badge b-blue" style={{ fontSize: 12 }}>
                 {supervisor?.full_name || t('المشرف الميداني')}
               </span>
             </div>
             <p style={{ margin: '8px 0 0', fontSize: 13, opacity: 0.9, lineHeight: 1.5 }}>
-              {t('تُمنح هذه الشارات والشهادات الرسمية بناءً على اجتياز محاكاة القرارات واختبار معايير الرف النموذجي والالتزام الميداني.')}
+              {t('هذه نتائج تدريب ذاتي محفوظة على هذا الجهاز، وليست اعتماداً مهنياً أو تقييماً للالتزام الميداني.')}
             </p>
           </div>
 
@@ -1034,14 +1039,14 @@ export default function TrainingAcademyScreen() {
               style={{
                 borderTop: '4px solid #10B981',
                 padding: 16,
-                background: totalSimulatorScore >= 75 ? '#ECFDF5' : '#FFFFFF',
+                background: simulatorPercentage >= 75 ? '#ECFDF5' : '#FFFFFF',
               }}
             >
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <span style={{ fontSize: 28 }}>🥇</span>
-                  <span className={`badge ${totalSimulatorScore >= 75 ? 'b-green' : 'b-gray'}`} style={{ fontSize: 11 }}>
-                    {totalSimulatorScore >= 75 ? t('تم الاستحقاق ✓') : t('قيد الإنجاز')}
+                  <span className={`badge ${simulatorPercentage >= 75 ? 'b-green' : 'b-gray'}`} style={{ fontSize: 11 }}>
+                    {simulatorPercentage >= 75 ? t('تم الاستحقاق ✓') : t('قيد الإنجاز')}
                   </span>
                 </div>
                 <h3 style={{ margin: '0 0 6px', fontSize: 16, color: '#0F172A' }}>
@@ -1052,7 +1057,7 @@ export default function TrainingAcademyScreen() {
                 </p>
               </div>
               <div style={{ marginTop: 12, fontSize: 12, color: '#059669', fontWeight: 'bold' }}>
-                {t('درجة المحاكي:')} {totalSimulatorScore} / 100
+                {t('درجة المحاكي:')} {totalSimulatorScore} / {maxSimulatorScore}
               </div>
             </div>
 
@@ -1069,18 +1074,18 @@ export default function TrainingAcademyScreen() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <span style={{ fontSize: 28 }}>⚡</span>
                   <span className="badge b-blue" style={{ fontSize: 11 }}>
-                    {t('تم الاستحقاق ✓')}
+                    {t('موضوع للتعلّم')}
                   </span>
                 </div>
                 <h3 style={{ margin: '0 0 6px', fontSize: 16, color: '#0F172A' }}>
                   {t('محترف المسار والسياج الجغرافي (Route Master)')}
                 </h3>
                 <p className="muted" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.4 }}>
-                  {t('الالتزام التام بخط السير اليومي والحد من زيارات خارج النطاق.')}
+                  {t('تعلّم مراجعة خط السير وفهم نطاق الزيارة الجغرافي.')}
                 </p>
               </div>
               <div style={{ marginTop: 12, fontSize: 12, color: '#2563EB', fontWeight: 'bold' }}>
-                {t('الامتثال الجغرافي الميداني: 100%')}
+                {t('الالتزام الفعلي يظهر في تقارير الزيارات.')}
               </div>
             </div>
 
@@ -1097,14 +1102,14 @@ export default function TrainingAcademyScreen() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <span style={{ fontSize: 28 }}>🎓</span>
                   <span className={`badge ${isCertified ? 'b-blue' : 'b-gray'}`} style={{ fontSize: 11 }}>
-                    {isCertified ? t('معتمد رسمياً 🏆') : t('يتطلب اجتياز الاختبار')}
+                    {isCertified ? t('اجتاز التدريب الذاتي') : t('يتطلب اجتياز الاختبار')}
                   </span>
                 </div>
                 <h3 style={{ margin: '0 0 6px', fontSize: 16, color: '#0F172A' }}>
                   {t('متخصص المتابعة الميدانية والرف (FMCG Field Specialist)')}
                 </h3>
                 <p className="muted" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.4 }}>
-                  {t('اجتياز اختبار الكفاءات بنسبة تفوق 80% وإتقان مفاهيم السوق.')}
+                  {t('اجتياز الاختبار الذاتي بنسبة 80% على الأقل وإتمام المحاكي.')}
                 </p>
               </div>
 
@@ -1116,7 +1121,7 @@ export default function TrainingAcademyScreen() {
                     onClick={() => setShowCertificate(true)}
                     style={{ width: '100%', fontSize: 12.5, background: '#7C3AED', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                   >
-                    <Award size={14} /> {t('استعراض الشهادة الرسمية')}
+                    <Award size={14} /> {t('استعراض ملخص التدريب')}
                   </button>
                 ) : (
                   <span style={{ fontSize: 12, color: '#64748B' }}>
@@ -1137,6 +1142,11 @@ export default function TrainingAcademyScreen() {
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
         >
           <div
+            ref={certificateDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="self-study-result-title"
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
             style={{
               background: '#FFFFFF',
@@ -1153,38 +1163,34 @@ export default function TrainingAcademyScreen() {
             {/* Certificate Header Banner */}
             <div style={{ borderBottom: '2px solid #E2E8F0', paddingBottom: 16, marginBottom: 16 }}>
               <div style={{ fontSize: 36, marginBottom: 4 }}>🏆</div>
-              <h2 style={{ margin: 0, fontSize: 22, color: '#0F172A' }}>
-                {t('شهادة إتمام واجتياز الكفاءة الميدانية FMCG')}
+              <h2 id="self-study-result-title" style={{ margin: 0, fontSize: 22, color: '#0F172A' }}>
+                {t('ملخص نتيجة التدريب الذاتي FMCG')}
               </h2>
               <div style={{ fontSize: 13, color: '#D97706', fontWeight: 'bold', marginTop: 4 }}>
-                {t('CERTIFICATE OF PROFESSIONAL FIELD EXCELLENCE')}
+                {t('SELF-STUDY RESULTS')}
               </div>
             </div>
 
             {/* Certificate Body */}
             <p style={{ fontSize: 14, color: '#64748B', margin: '0 0 10px' }}>
-              {t('تشهد إدارة المتابعة وتطوير الكفاءات الميدانية بأن المشرف:')}
+              {t('نتيجة التدريب الذاتي للمشرف:')}
             </p>
             <h3 style={{ fontSize: 24, color: '#1E293B', margin: '0 0 12px', fontWeight: 'bold' }}>
               {supervisor?.full_name || '—'}
             </h3>
             <p style={{ fontSize: 14, color: '#334155', lineHeight: 1.6, maxWidth: 500, margin: '0 auto 20px' }}>
-              {t('قد اجتاز بنجاح محاكي القرارات الميدانية واختبار معايير المتجر النموذجي بنسبة تفوق {p}% واستحق شارة الاعتماد المهني لميدان التجزئة والأغذية.', { p: quizPercentage })}
+              {t('نتيجة الاختبار {p}% مع اجتياز المحاكي. هذا الملخص محفوظ محلياً ولا يمثل شهادة أو اعتماداً صادراً من الشركة.', { p: quizPercentage })}
             </p>
 
             {/* Certificate Meta Details */}
             <div style={{ display: 'flex', justifyContent: 'space-around', borderTop: '1px solid #E2E8F0', paddingTop: 14, marginBottom: 20, fontSize: 12.5, color: '#64748B' }}>
               <div>
-                <strong>{t('تاريخ الإصدار:')}</strong>
+                <strong>{t('تاريخ عرض النتيجة:')}</strong>
                 <div>{fmtDate(new Date().toISOString())}</div>
               </div>
               <div>
-                <strong>{t('كود التحقق الرقمي:')}</strong>
-                <div>MYD-CERT-{supId.slice(0, 8).toUpperCase()}</div>
-              </div>
-              <div>
                 <strong>{t('الحالة:')}</strong>
-                <div style={{ color: '#059669', fontWeight: 'bold' }}>{t('معتمد ورسمي ✓')}</div>
+                <div style={{ color: '#059669', fontWeight: 'bold' }}>{t('نتيجة محلية')}</div>
               </div>
             </div>
 
@@ -1196,7 +1202,7 @@ export default function TrainingAcademyScreen() {
                 onClick={printCertificate}
                 style={{ background: '#0F172A', color: '#fff', padding: '8px 18px', fontSize: 13 }}
               >
-                {t('طباعة الشهادة 🖨️')}
+                {t('طباعة ملخص التدريب')}
               </button>
               <button
                 type="button"

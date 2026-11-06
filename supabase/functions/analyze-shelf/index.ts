@@ -79,10 +79,24 @@ const SYSTEM = `أنت خبير تدقيق ومراجعة رفوف متاجر ا
 score هو تقييم المتجر النموذجي (Perfect Store Score) من 0 إلى 100 (يعتمد على توافر المنتجات + الحصة السوقية + ترتيب العرض + وضوح الأسعار).
 إذا لم تكن الصورة لرف متجر FMCG، أعطِ score = 0 مع توضيح ذلك في الملخص.`;
 
-function storagePath(photoUrl: string): string {
-  const marker = `/${PHOTO_BUCKET}/`;
-  const i = photoUrl.indexOf(marker);
-  return decodeURIComponent(i >= 0 ? photoUrl.slice(i + marker.length).split("?")[0] : photoUrl);
+function storagePath(photoUrl: unknown): string | null {
+  if (typeof photoUrl !== "string" || /[\\\u0000-\u0020\u007f-\u009f]/.test(photoUrl)) return null;
+  let path = photoUrl;
+  if (/^https?:\/\//i.test(photoUrl)) {
+    try {
+      if (new URL(photoUrl).origin !== new URL(Deno.env.get("SUPABASE_URL")!).origin) return null;
+    } catch { return null; }
+    const marker = `/${PHOTO_BUCKET}/`;
+    const index = photoUrl.indexOf(marker);
+    if (index < 0) return null;
+    // Legacy signed/public URLs may contain a URL query. It is not part of the key.
+    path = photoUrl.slice(index + marker.length).split("?")[0];
+  }
+  // Storage SDK builds a URL from this key. Fetch normalizes dot segments and
+  // backslashes, so checking a tenant prefix alone is insufficient.
+  if (!path || /[%\\?#\u0000-\u0020\u007f-\u009f]/.test(path)) return null;
+  if (path.split("/").some(part => !part || part === "." || part === "..")) return null;
+  return path;
 }
 
 /** Analyze shelf using Google Gemini Flash API with automatic multi-model fallback */
@@ -222,36 +236,59 @@ Deno.serve(async (req) => {
   }
   if (!audit.photo_url) return json(400, { error: "audit has no photo" });
 
+  // Authorization/configuration failures must not enable a billable AI action.
+  const { data: settings, error: settingsError } = await admin.from("app_settings")
+    .select("target_brand_name,competitor_brands,ai_audit_enabled").eq("company_id", audit.company_id).maybeSingle();
+  if (settingsError || !settings) return json(503, { error: "تعذر التحقق من إعدادات التحليل. أعد المحاولة لاحقًا." });
+  if (settings.ai_audit_enabled !== true) return json(403, { error: "AI audit disabled for company" });
+  const brand = settings.target_brand_name || "العلامة المستهدفة";
+  const competitors = (settings.competitor_brands ?? []).join("، ") || "المنافسون";
+
   // Rate limiting: daily cap + concurrent cap per company + hourly cap per supervisor.
   const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0);
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const maxPerDay     = parseInt(Deno.env.get("MAX_AUDITS_PER_DAY")       ?? "100", 10);
-  const maxConcurrent = parseInt(Deno.env.get("MAX_CONCURRENT_AUDITS")    ?? "5",   10);
-  const maxPerHour    = parseInt(Deno.env.get("MAX_AUDITS_PER_HOUR_USER") ?? "20",  10);
-  const [{ count: todayCompleted }, { count: inFlight }, { count: userHourly }] = await Promise.all([
-    admin.from("shelf_audit")
-      .select("id", { count: "exact", head: true })
-      .eq("company_id", caller.company_id)
-      .eq("status", "completed")
-      .gte("audited_at", todayStart.toISOString()),
-    admin.from("shelf_audit")
-      .select("id", { count: "exact", head: true })
-      .eq("company_id", caller.company_id)
-      .eq("status", "processing"),
-    admin.from("shelf_audit")
-      .select("id", { count: "exact", head: true })
-      .eq("supervisor_id", caller.id)
-      .or(`audited_at.gte.${oneHourAgo},status.eq.processing`),
-  ]);
-  if ((userHourly ?? 0) >= maxPerHour)
+  const rawLimits = [
+    Deno.env.get("MAX_AUDITS_PER_DAY") ?? "100",
+    Deno.env.get("MAX_CONCURRENT_AUDITS") ?? "5",
+    Deno.env.get("MAX_AUDITS_PER_HOUR_USER") ?? "20",
+  ];
+  if (rawLimits.some(value => !/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)))) {
+    return json(503, { error: "تعذر التحقق من حدود التحليل. أعد المحاولة لاحقًا." });
+  }
+  const [maxPerDay, maxConcurrent, maxPerHour] = rawLimits.map(Number);
+  let quotaResults: { count: number | null; error: unknown }[];
+  try {
+    quotaResults = await Promise.all([
+      admin.from("shelf_audit")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", caller.company_id)
+        .eq("status", "completed")
+        .gte("audited_at", todayStart.toISOString()),
+      admin.from("shelf_audit")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", caller.company_id)
+        .eq("status", "processing"),
+      admin.from("shelf_audit")
+        .select("id", { count: "exact", head: true })
+        .eq("supervisor_id", caller.id)
+        .or(`audited_at.gte.${oneHourAgo},status.eq.processing`),
+    ]);
+  } catch {
+    return json(503, { error: "تعذر التحقق من حدود التحليل. أعد المحاولة لاحقًا." });
+  }
+  if (quotaResults.some(({ error, count }) => error || !Number.isSafeInteger(count) || count === null || count < 0)) {
+    return json(503, { error: "تعذر التحقق من حدود التحليل. أعد المحاولة لاحقًا." });
+  }
+  const [{ count: todayCompleted }, { count: inFlight }, { count: userHourly }] = quotaResults;
+  if (userHourly! >= maxPerHour)
     return json(429, { error: `تجاوزت الحد المسموح به لتحليلات الذكاء الاصطناعي (${maxPerHour} تحليل/ساعة). يرجى الانتظار قليلاً.` });
-  if ((todayCompleted ?? 0) >= maxPerDay)
+  if (todayCompleted! >= maxPerDay)
     return json(429, { error: `تم تجاوز الحد اليومي لتحليلات الذكاء الاصطناعي (${maxPerDay} تحليل/يوم). يُجدَّد عند منتصف الليل.` });
-  if ((inFlight ?? 0) >= maxConcurrent)
+  if (inFlight! >= maxConcurrent)
     return json(429, { error: `يوجد ${inFlight} تحليلات قيد المعالجة حالياً. يرجى الانتظار قليلاً.` });
 
   const path = storagePath(audit.photo_url);
-  if (!path.startsWith(`${audit.company_id}/`)) return json(400, { error: "photo outside company folder" });
+  if (!path || !path.startsWith(`${audit.company_id}/`)) return json(400, { error: "photo outside company folder" });
 
   const fail = async (status: number, error: string) => {
     await admin.from("shelf_audit").update({ status: "failed" }).eq("id", audit.id);
@@ -271,13 +308,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // 3) Brand settings come from the company's own row.
-    const { data: settings } = await admin.from("app_settings")
-      .select("target_brand_name,competitor_brands,ai_audit_enabled").eq("company_id", audit.company_id).maybeSingle();
-    if (settings && settings.ai_audit_enabled === false) return await fail(403, "AI audit disabled for company");
-    const brand = settings?.target_brand_name || "العلامة المستهدفة";
-    const competitors = (settings?.competitor_brands ?? []).join("، ") || "المنافسون";
-
     // 4) Download photo from private storage
     const { data: blob, error: dlError } = await admin.storage.from(PHOTO_BUCKET).download(path);
     if (dlError || !blob) return await fail(404, "photo not found in storage");

@@ -49,7 +49,7 @@ export default function DashboardScreen() {
 
   const go = useCallback((p: string) => nav(p), [nav]);
   const goNew = useCallback(() => nav('/visits/new'), [nav]);
-  const open = useCallback(() => nav('/visits'), [nav]);
+  const open = useCallback((id: string) => nav(`/visits/${id}`), [nav]);
   const recent = useMemo(() => d?.recent.slice(0, 5) ?? [], [d?.recent]);
 
   return (

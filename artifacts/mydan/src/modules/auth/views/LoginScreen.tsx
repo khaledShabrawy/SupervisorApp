@@ -9,8 +9,6 @@ import { t } from '@/i18n';
 
 const IS_ANDROID = import.meta.env.VITE_PLATFORM === 'android';
 
-const CHART_HEIGHTS = [40, 62, 48, 80, 55, 88, 70, 95, 65, 100];
-
 const FEATURES = [
   {
     icon: '🎯',
@@ -90,7 +88,7 @@ export default function LoginScreen() {
             </p>
           </div>
 
-          {/* Mini Dashboard Mockup */}
+          {/* Field workflow overview */}
           <div className="lp-mockup">
             <div className="lp-mockup-topbar">
               <div className="lp-dot" style={{ background: '#EF4444' }} />
@@ -100,32 +98,19 @@ export default function LoginScreen() {
             </div>
             <div className="lp-mockup-kpis">
               {([
-                { num: '94%', lbl: t('حضور الرف'),   color: '#34D399' },
-                { num: '287', lbl: t('زيارة اليوم'), color: '#60A5FA' },
-                { num: '3.2k',lbl: t('طلب'),        color: '#A78BFA' },
+                { symbol: '◷', lbl: t('خطة اليوم'), color: '#34D399' },
+                { symbol: '✓', lbl: t('تنفيذ المهام'), color: '#60A5FA' },
+                { symbol: '↗', lbl: t('مراجعة النتائج'), color: '#A78BFA' },
               ] as const).map((k) => (
                 <div key={k.lbl} className="lp-kpi">
-                  <div className="lp-kpi-num" style={{ color: k.color }}>{k.num}</div>
+                  <div className="lp-kpi-num" aria-hidden="true" style={{ color: k.color }}>{k.symbol}</div>
                   <div className="lp-kpi-lbl">{k.lbl}</div>
                 </div>
               ))}
             </div>
-            <div className="lp-chart">
-              {CHART_HEIGHTS.map((h, i) => (
-                <div
-                  key={i}
-                  className="lp-bar"
-                  style={{
-                    height: `${h}%`,
-                    animationDelay: `${i * 0.07}s`,
-                    background: i >= 7
-                      ? 'linear-gradient(180deg, #93C5FD, #1D4ED8)'
-                      : 'linear-gradient(180deg, #3B82F6, #1E40AF)',
-                    opacity: 0.55 + i * 0.04,
-                  }}
-                />
-              ))}
-            </div>
+            <p style={{ margin: '12px 0 0', color: '#CBD5E1', fontSize: 12, lineHeight: 1.7 }}>
+              {t('حدّد خطة الزيارات، أنجز المهام، وتابع النتائج الفعلية من لوحة الإدارة.')}
+            </p>
           </div>
 
           {/* Feature cards */}
