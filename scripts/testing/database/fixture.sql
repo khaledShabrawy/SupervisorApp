@@ -402,3 +402,84 @@ CREATE POLICY "visits_own" ON public."visits" FOR ALL TO public USING (((company
 GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
 
 CREATE TRIGGER supervisor_self_escalation_guard BEFORE UPDATE ON public.supervisors FOR EACH ROW EXECUTE FUNCTION public.prevent_supervisor_self_escalation();
+
+CREATE OR REPLACE FUNCTION public.delete_supervisor_cascade(p_supervisor_id uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_caller_role text;
+  v_caller_company_id uuid;
+  v_caller_branch_id uuid;
+  v_caller_is_active boolean;
+  v_target_record public.supervisors%ROWTYPE;
+BEGIN
+  -- 1. Explicit Fail-Closed Authentication
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  -- 2. Fetch Caller Credentials
+  SELECT role, company_id, branch_id, is_active
+  INTO v_caller_role, v_caller_company_id, v_caller_branch_id, v_caller_is_active
+  FROM public.supervisors
+  WHERE user_id = auth.uid()
+  LIMIT 1;
+
+  IF NOT FOUND OR v_caller_role IS NULL OR v_caller_is_active IS NOT TRUE THEN
+    RAISE EXCEPTION 'Forbidden: Caller supervisor record not found or inactive';
+  END IF;
+
+  IF v_caller_role NOT IN ('admin', 'super_admin', 'branch_manager', 'manager') THEN
+    RAISE EXCEPTION 'Forbidden: Insufficient privileges';
+  END IF;
+
+  -- 3. Fetch Target Supervisor
+  SELECT * INTO v_target_record
+  FROM public.supervisors
+  WHERE id = p_supervisor_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Supervisor not found';
+  END IF;
+
+  -- 4. Multi-Tenant Company Match
+  IF v_caller_role <> 'super_admin' AND v_target_record.company_id IS DISTINCT FROM v_caller_company_id THEN
+    RAISE EXCEPTION 'Forbidden: Cannot delete supervisors outside your company';
+  END IF;
+
+  -- 4b. Branch-Scope for branch_manager (mirrors admin_update_supervisor guard)
+  IF v_caller_role = 'branch_manager' THEN
+    IF v_caller_branch_id IS NULL OR v_target_record.branch_id IS DISTINCT FROM v_caller_branch_id THEN
+      RAISE EXCEPTION 'Forbidden: Branch manager can only delete supervisors within their own branch';
+    END IF;
+  END IF;
+
+  -- 5. Super Admin and Self-Delete Protections
+  IF v_target_record.role = 'super_admin' THEN
+    RAISE EXCEPTION 'Forbidden: Cannot delete system super admin';
+  END IF;
+
+  IF v_target_record.user_id = auth.uid() THEN
+    RAISE EXCEPTION 'Forbidden: Cannot delete your own account';
+  END IF;
+
+  -- 6. Cascading Cleanup of Dependent Records
+  DELETE FROM public.supervisor_permissions WHERE supervisor_id = p_supervisor_id;
+  DELETE FROM public.beat_plans WHERE supervisor_id = p_supervisor_id;
+  DELETE FROM public.notifications WHERE supervisor_id = p_supervisor_id;
+  DELETE FROM public.supervisors WHERE id = p_supervisor_id;
+
+  RETURN TRUE;
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.manager_set_order_status(p_order_id uuid, p_new_status text)
+ RETURNS orders
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$ DECLARE v_old public.orders; v_new public.orders; v_actor_id uuid; v_role text; BEGIN IF (SELECT auth.uid()) IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501'; END IF; v_actor_id := private_rls.current_supervisor_id(); v_role := public.get_my_role(); IF v_actor_id IS NULL OR COALESCE(v_role, '') NOT IN ('branch_manager', 'admin', 'super_admin') THEN RAISE EXCEPTION 'Role not allowed to approve orders' USING ERRCODE = '42501'; END IF; IF COALESCE(p_new_status, '') NOT IN ('confirmed', 'cancelled') THEN RAISE EXCEPTION 'Only confirmed or cancelled is allowed' USING ERRCODE = '22023'; END IF; SELECT o.* INTO v_old FROM public.orders AS o WHERE o.id = p_order_id FOR UPDATE; IF NOT FOUND THEN RAISE EXCEPTION 'Order not found' USING ERRCODE = 'P0002'; END IF; IF NOT private_rls.can_access_supervisor(v_old.supervisor_id, v_old.company_id) THEN RAISE EXCEPTION 'Order is outside the manager scope' USING ERRCODE = '42501'; END IF; IF v_old.status <> 'pending' THEN RAISE EXCEPTION 'Only pending orders can be approved or rejected' USING ERRCODE = '22023'; END IF; IF p_new_status = 'confirmed' AND (v_old.unit_price IS NULL OR v_old.total_price IS NULL) THEN RAISE EXCEPTION 'Order prices must be calculated before confirmation' USING ERRCODE = '22023'; END IF; UPDATE public.orders AS o SET status = p_new_status WHERE o.id = p_order_id RETURNING o.* INTO v_new; INSERT INTO public.audit_logs (table_name, action, performed_by, old_data, new_data, company_id) VALUES ('orders', 'UPDATE', v_actor_id, to_jsonb(v_old), to_jsonb(v_new), v_new.company_id); RETURN v_new; END; $function$
+;

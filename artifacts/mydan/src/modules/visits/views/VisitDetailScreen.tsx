@@ -4,7 +4,6 @@ import { AlertTriangle, Camera, CheckCheck, ClipboardList, Compass, Plus, ScanSe
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useScope, useSetVisitOutcome, useUpdateVisitStatus } from '@/lib/data';
-import { useVisitOrders, formatOrderWhatsAppMessage, openWhatsAppShare } from '@/lib/screen-orders';
 import { isVisitOutcome, mapsDirectionsUrl, VISIT_OUTCOMES, type VisitOutcome } from '@/lib/visit-geo';
 import { triggerWhatsAppShare } from '@/shared/utils/whatsapp';
 import { useScreenAllowed } from '@/lib/permissions';
@@ -246,9 +245,8 @@ export default function VisitDetailScreen() {
   const completeTask = useCompleteTask();
   const checkOut = useUpdateVisitStatus();
   const setOutcome = useSetVisitOutcome();
-  const orders = useVisitOrders(id ?? '');
   const pickOutcome = useCallback((outcome: VisitOutcome) => { if (id) setOutcome.mutate({ id, outcome }); }, [id, setOutcome]);
-  const refetch = useCallback(() => { void detail.refetch(); void orders.refetch(); }, [detail, orders]);
+  const refetch = useCallback(() => { void detail.refetch(); }, [detail]);
 
   const handleAction = useCallback((task: VisitTask) => {
     if (!id) return;
@@ -281,12 +279,6 @@ export default function VisitDetailScreen() {
     const c = detail.data?.customers;
     const p = new URLSearchParams({ visit: id ?? '', customer: c?.id ?? '', name: c?.name ?? '' });
     nav(`/competitors?${p}`);
-  }, [nav, id, detail.data]);
-
-  const goOrder = useCallback(() => {
-    const c = detail.data?.customers;
-    const p = new URLSearchParams({ visit: id ?? '', customer: c?.id ?? '', name: c?.name ?? '', type: c?.customer_type ?? '' });
-    nav(`/orders/new?${p}`);
   }, [nav, id, detail.data]);
 
   const goFieldSurvey = useCallback(() => nav('/field-survey'), [nav]);
@@ -350,63 +342,8 @@ export default function VisitDetailScreen() {
               <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn sm ghost grow" onClick={goShelfAudit} style={{ whiteSpace: 'nowrap', minWidth: 90 }}><Camera size={16} /> {t('مراجعة الرف')}</button>
                 <button className="btn sm ghost grow" onClick={goCompetitors} style={{ whiteSpace: 'nowrap', minWidth: 80 }}><Plus size={16} /> {t('منافسين')}</button>
-                <button className="btn sm ghost grow" onClick={goOrder} data-testid="button-quick-order" style={{ whiteSpace: 'nowrap', minWidth: 70 }}><ShoppingCart size={16} /> {t('طلب')}</button>
                 {fieldSurveyAllowed && <button className="btn sm ghost grow" onClick={goFieldSurvey} style={{ whiteSpace: 'nowrap', minWidth: 80 }}><ScanSearch size={16} /> {t('مسح ميداني')}</button>}
               </div>
-            </div>
-          )}
-
-          {orders.data && orders.data.length > 0 && (
-            <div className="card col" style={{ gap: 8 }}>
-              <div className="row between">
-                <div className="title" style={{ fontSize: 15 }}><ShoppingCart size={16} style={{ display: 'inline', marginInlineEnd: 6 }} />{t('الطلبات المسجلة في الزيارة')}</div>
-                <span className="badge b-blue">{t('{n} طلب', { n: num(orders.data.length) })}</span>
-              </div>
-              {orders.data.map((ord) => (
-                <div key={ord.id} className="card row between" style={{ padding: '8px 12px', background: '#F8FAFC', margin: 0, border: '1px solid var(--line)' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--color-primary)' }}>{num(ord.total_amount)} {t('ج.م')}</div>
-                    <div className="muted" style={{ fontSize: 12 }}>{t('{n} صنف', { n: num(ord.items.length) })}</div>
-                  </div>
-                  <div className="row" style={{ gap: 6, alignItems: 'center' }}>
-                    <button
-                      type="button"
-                      className="btn sm"
-                      style={{
-                        background: '#25D366',
-                        color: '#fff',
-                        border: 'none',
-                        padding: '2px 8px',
-                        fontSize: 12,
-                        minHeight: 44,
-                        borderRadius: 6,
-                        fontWeight: 600,
-                      }}
-                      onClick={() => {
-                        const msg = formatOrderWhatsAppMessage({
-                          customerName: detail.data?.customers?.name,
-                          customerAddress: detail.data?.customers?.address,
-                          supervisorName: supervisor?.full_name,
-                          supervisorPhone: supervisor?.phone,
-                          orderDate: ord.order_date || ord.created_at,
-                          items: ord.items,
-                          totalAmount: ord.total_amount,
-                          notes: ord.notes,
-                          latitude: detail.data?.customers?.latitude,
-                          longitude: detail.data?.customers?.longitude,
-                        }, settings.app_name);
-                        openWhatsAppShare(msg);
-                      }}
-                      title={t('إرسال تفاصيل الفرصة للمندوب عبر واتساب')}
-                    >
-                      💬 {t('واتساب')}
-                    </button>
-                    <span className={`badge ${ord.status === 'delivered' ? 'b-green' : 'b-amber'}`} style={{ fontSize: 11 }}>
-                      {ord.status === 'delivered' ? `✅ ${t('تم التسليم')}` : `⏳ ${t('قيد المتابعة')}`}
-                    </span>
-                  </div>
-                </div>
-              ))}
             </div>
           )}
 

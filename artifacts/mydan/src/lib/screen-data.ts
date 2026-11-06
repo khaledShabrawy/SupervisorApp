@@ -29,9 +29,7 @@ export type CatalogProduct = {
   master_brand?: string;
   sub_brand?: string;
   units_per_carton?: number;
-  carton_price?: number;
   unit?: string;
-  price?: number;
   is_active: boolean;
 };
 export type SettingsInput = Pick<AppSettings, 'app_name' | 'primary_color' | 'geofence_radius_m' | 'target_brand_name' | 'competitor_brands'> &
@@ -46,7 +44,6 @@ export type MonthlyTargetInput = {
   scope_type?: 'per_user' | 'general';
   target_scope?: 'all_branches' | 'specific_branch';
   branch_id?: string | null;
-  target_amount?: number;
 };
 type Scope = ReturnType<typeof useScope>;
 const errorMessage = (message: string, error: { message: string } | null) => {
@@ -163,7 +160,7 @@ export function useMonthlyTargets() {
 export function useAdminProducts(availability: 'all' | 'active' | 'inactive' = 'all') {
   const sc = useScope();
   return usePaged<CatalogProduct>(sc, 'products', [availability], async (from, to, signal) => {
-    let q = supabase.from('products').select('id,name,category,sku:sku_code,item_code,master_brand,sub_brand,unit,price,units_per_carton,carton_price,is_active').eq('company_id', sc.companyId);
+    let q = supabase.from('products').select('id,name,category,sku:sku_code,item_code,master_brand,sub_brand,unit,units_per_carton,is_active').eq('company_id', sc.companyId);
     if (availability === 'active') q = q.eq('is_active', true);
     if (availability === 'inactive') q = q.or('is_active.eq.false,is_active.is.null');
     const r = await q.order('name').order('id').range(from, to).abortSignal(signal);
@@ -199,6 +196,7 @@ export function useSaveMonthlyTarget() {
       if (!Number.isInteger(input.month) || input.month < 1 || input.month > 12
         || !Number.isInteger(input.year) || input.year < 2000 || input.year > 2100) throw new Error('الشهر أو السنة غير صالحة.');
 
+      if (input.criteria && !['visits','shelf_audit','new_opportunity'].includes(input.criteria)) throw new Error('نوع الهدف غير مدعوم.');
       const targetDate = `${input.year}-${String(input.month).padStart(2, '0')}-01`;
       const targetMonthPrefix = targetDate.slice(0, 7);
       const supervisorId = input.scope_type === 'per_user' && input.supervisor_id ? input.supervisor_id : null;
@@ -214,7 +212,6 @@ export function useSaveMonthlyTarget() {
         scope_type: input.scope_type || 'per_user',
         target_scope: input.target_scope || 'all_branches',
         branch_id: branchId,
-        target_amount: Number(input.target_amount) || 0,
       };
 
       const lastDay = new Date(input.year, input.month, 0).getDate();

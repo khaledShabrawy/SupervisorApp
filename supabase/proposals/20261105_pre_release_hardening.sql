@@ -4,10 +4,10 @@
 BEGIN;
 
 -- Keep ordinary profile edits available; route privileged changes through a checked RPC.
-REVOKE UPDATE ON public.supervisors FROM authenticated, anon;
+REVOKE UPDATE ON public.supervisors FROM PUBLIC, authenticated, anon;
 REVOKE UPDATE (id,user_id,full_name,phone,branch,role,is_active,created_at,updated_at,
   branch_id,company_id,device_id,force_password_change,password_changed_at,supervisor_code)
-  ON public.supervisors FROM authenticated, anon;
+  ON public.supervisors FROM PUBLIC, authenticated, anon;
 GRANT UPDATE (full_name,phone) ON public.supervisors TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.mdn_bind_device_v1(p_supervisor_id uuid, p_device_id text)
@@ -42,7 +42,7 @@ BEGIN
   EXCEPTION WHEN NO_DATA_FOUND OR TOO_MANY_ROWS THEN
     RAISE EXCEPTION 'Exactly one active administrator profile is required' USING ERRCODE = '42501';
   END;
-  IF actor.role NOT IN ('admin','super_admin','branch_manager') THEN
+  IF actor.role IS NULL OR actor.role NOT IN ('admin','super_admin','branch_manager') THEN
     RAISE EXCEPTION 'Administrator access required' USING ERRCODE = '42501';
   END IF;
   SELECT * INTO target FROM public.supervisors WHERE id = p_supervisor_id FOR UPDATE;
@@ -107,30 +107,91 @@ DROP TRIGGER IF EXISTS mydan_password_changed ON auth.users;
 CREATE TRIGGER mydan_password_changed AFTER UPDATE OF encrypted_password ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.mdn_password_changed_v1();
 
--- Permissive policies combine with OR. This legacy ALL policy bypasses newer scoped restrictions.
+-- Sales/orders are outside this product. Retain historical rows but remove
+-- all client table/column privileges and the privileged status-changing RPC.
+REVOKE ALL ON TABLE public.orders FROM PUBLIC, anon, authenticated;
+REVOKE SELECT ("id","visit_id","supervisor_id","customer_id","product_id","quantity","unit_price","total_price","status","notes","created_at","company_id","items","total_amount","order_date","delivered_at") ON public.orders FROM PUBLIC, anon, authenticated;
+REVOKE INSERT ("id","visit_id","supervisor_id","customer_id","product_id","quantity","unit_price","total_price","status","notes","created_at","company_id","items","total_amount","order_date","delivered_at") ON public.orders FROM PUBLIC, anon, authenticated;
+REVOKE UPDATE ("id","visit_id","supervisor_id","customer_id","product_id","quantity","unit_price","total_price","status","notes","created_at","company_id","items","total_amount","order_date","delivered_at") ON public.orders FROM PUBLIC, anon, authenticated;
+REVOKE REFERENCES ("id","visit_id","supervisor_id","customer_id","product_id","quantity","unit_price","total_price","status","notes","created_at","company_id","items","total_amount","order_date","delivered_at") ON public.orders FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.manager_set_order_status(uuid,text) FROM PUBLIC, anon, authenticated;
 DROP POLICY IF EXISTS orders_company_all ON public.orders;
-DROP POLICY IF EXISTS orders_admin_manage_scoped ON public.orders;
-CREATE POLICY orders_admin_manage_scoped ON public.orders FOR ALL TO authenticated
-USING (company_id = public.get_my_company_id() AND public.get_my_role() IN ('admin','super_admin'))
-WITH CHECK (company_id = public.get_my_company_id() AND public.get_my_role() IN ('admin','super_admin'));
+REVOKE DELETE ON TABLE public.supervisors FROM PUBLIC, anon, authenticated;
+CREATE OR REPLACE FUNCTION public.delete_supervisor_cascade(p_supervisor_id uuid)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_caller_role text;
+  v_caller_company_id uuid;
+  v_caller_branch_id uuid;
+  v_caller_is_active boolean;
+  v_target_record public.supervisors%ROWTYPE;
+BEGIN
+  -- 1. Explicit Fail-Closed Authentication
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
 
--- Revalidate foreign links and quantity-only fields on UPDATE as well as INSERT.
-DROP POLICY IF EXISTS orders_update_self_pending ON public.orders;
-CREATE POLICY orders_update_self_pending ON public.orders FOR UPDATE TO authenticated
-USING (supervisor_id = private_rls.current_supervisor_id()
-  AND company_id = public.get_my_company_id() AND public.get_my_role() = 'supervisor'
-  AND status = 'pending')
-WITH CHECK (supervisor_id = private_rls.current_supervisor_id()
-  AND company_id = public.get_my_company_id() AND public.get_my_role() = 'supervisor'
-  AND status IN ('pending','cancelled') AND quantity > 0
-  AND unit_price IS NULL AND total_price IS NULL
-  AND EXISTS (SELECT 1 FROM public.visits v WHERE v.id = orders.visit_id
-    AND v.company_id = orders.company_id AND v.supervisor_id = orders.supervisor_id
-    AND v.customer_id = orders.customer_id)
-  AND EXISTS (SELECT 1 FROM public.customers c WHERE c.id = orders.customer_id
-    AND c.company_id = orders.company_id AND c.is_active IS TRUE)
-  AND EXISTS (SELECT 1 FROM public.products p WHERE p.id = orders.product_id
-    AND p.company_id = orders.company_id AND p.is_active IS TRUE));
+  -- 2. Fetch Caller Credentials
+  SELECT role, company_id, branch_id, is_active
+  INTO v_caller_role, v_caller_company_id, v_caller_branch_id, v_caller_is_active
+  FROM public.supervisors
+  WHERE user_id = auth.uid()
+  LIMIT 1;
 
--- Legacy price-bearing UI is not made compatible by weakening RLS.
+  IF NOT FOUND OR v_caller_role IS NULL OR v_caller_is_active IS NOT TRUE THEN
+    RAISE EXCEPTION 'Forbidden: Caller supervisor record not found or inactive';
+  END IF;
+
+  IF v_caller_role NOT IN ('admin', 'super_admin', 'branch_manager', 'manager') THEN
+    RAISE EXCEPTION 'Forbidden: Insufficient privileges';
+  END IF;
+
+  -- 3. Fetch Target Supervisor
+  SELECT * INTO v_target_record
+  FROM public.supervisors
+  WHERE id = p_supervisor_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Supervisor not found';
+  END IF;
+
+  -- 4. Multi-Tenant Company Match
+  IF v_caller_role <> 'super_admin' AND v_target_record.company_id IS DISTINCT FROM v_caller_company_id THEN
+    RAISE EXCEPTION 'Forbidden: Cannot delete supervisors outside your company';
+  END IF;
+
+  -- 4b. Branch-Scope for branch_manager (mirrors admin_update_supervisor guard)
+  IF v_caller_role IN ('branch_manager','manager') THEN
+    IF v_caller_branch_id IS NULL OR v_target_record.branch_id IS DISTINCT FROM v_caller_branch_id THEN
+      RAISE EXCEPTION 'Forbidden: Branch manager can only delete supervisors within their own branch';
+    END IF;
+  END IF;
+
+  IF v_caller_role IN ('branch_manager','manager') AND v_target_record.role NOT IN ('supervisor','senior_supervisor') THEN
+    RAISE EXCEPTION 'Forbidden: Branch manager cannot delete administrators' USING ERRCODE = '42501';
+  END IF;
+
+  -- 5. Super Admin and Self-Delete Protections
+  IF v_target_record.role = 'super_admin' THEN
+    RAISE EXCEPTION 'Forbidden: Cannot delete system super admin';
+  END IF;
+
+  IF v_target_record.user_id = auth.uid() THEN
+    RAISE EXCEPTION 'Forbidden: Cannot delete your own account';
+  END IF;
+
+  -- 6. Cascading Cleanup of Dependent Records
+  DELETE FROM public.supervisor_permissions WHERE supervisor_id = p_supervisor_id;
+  DELETE FROM public.beat_plans WHERE supervisor_id = p_supervisor_id;
+  DELETE FROM public.notifications WHERE supervisor_id = p_supervisor_id;
+  DELETE FROM public.supervisors WHERE id = p_supervisor_id;
+
+  RETURN TRUE;
+END;
+$function$
+;
 COMMIT;

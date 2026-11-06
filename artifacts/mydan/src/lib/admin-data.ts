@@ -432,8 +432,6 @@ export function useSaveProduct() {
       master_brand?: string;
       sub_brand?: string;
       units_per_carton?: number;
-      carton_price?: number;
-      price?: number;
       unit?: string;
       is_active: boolean;
     }) => {
@@ -446,8 +444,6 @@ export function useSaveProduct() {
         master_brand: p.master_brand?.trim() || null,
         sub_brand: p.sub_brand?.trim() || null,
         units_per_carton: p.units_per_carton != null ? Math.max(1, Number(p.units_per_carton)) : 1,
-        carton_price: p.carton_price != null ? Number(p.carton_price) : null,
-        price: p.price != null ? Number(p.price) : null,
         unit: p.unit?.trim() || 'قطعة',
         is_active: p.is_active,
       };
@@ -888,21 +884,9 @@ export function useDeleteSupervisor() {
       if (target.id === sc.supervisorId) throw new Error(t('لا يمكنك حذف حسابك الشخصي.'));
       if (target.role === 'super_admin') throw new Error(t('لا يمكن حذف المدير الأعلى للنظام.'));
       
-      // Server-side deletion via delete_supervisor_cascade RPC with direct delete fallback
-      let delError: any = null;
-      try {
-        const { error: rpcErr } = await supabase.rpc('delete_supervisor_cascade', { p_supervisor_id: target.id });
-        if (rpcErr) delError = rpcErr;
-      } catch (e) {
-        delError = e;
-      }
+      const { data, error } = await supabase.rpc('delete_supervisor_cascade', { p_supervisor_id: target.id });
+      if (error || data !== true) fail(t('تعذر حذف المستخدم. قد يكون مرتبطاً ببيانات أخرى أو تفتقر للصلاحية المطلوبة.'), error);
 
-      if (delError) {
-        const { error: dirErr } = await supabase.from('supervisors').delete().eq('id', target.id).eq('company_id', sc.companyId);
-        if (dirErr) {
-          fail(t('تعذر حذف المستخدم. قد يكون مرتبطاً ببيانات أخرى أو تفتقر للصلاحية المطلوبة.') + ' ' + (dirErr.message || delError.message || ''), dirErr);
-        }
-      }
     },
     onSuccess: () => {
       notify(t('تم حذف المستخدم بنجاح'), 'success');
@@ -919,7 +903,6 @@ export function useUpdateAdminTarget() {
       id: string;
       visits_target: number;
       audit_target: number;
-      target_amount: number;
       criteria: string;
       scope_type: string;
       target_scope: string;
@@ -927,10 +910,10 @@ export function useUpdateAdminTarget() {
       branch_id?: string | null;
     }) => {
       requireAdmin(sc);
+      if (!['visits','shelf_audit','new_opportunity'].includes(row.criteria)) throw new Error('نوع الهدف غير مدعوم.');
       const { error } = await supabase.from('targets').update({
         visits_target: row.visits_target,
         audit_target: row.audit_target,
-        target_amount: row.target_amount,
         criteria: row.criteria,
         scope_type: row.scope_type,
         target_scope: row.target_scope,
@@ -978,7 +961,6 @@ export interface AdminTargetRow {
   criteria?: string | null;
   visits_target?: number | null;
   audit_target?: number | null;
-  target_amount?: number | null;
   actual_visits?: number | null;
   actual_audits?: number | null;
   scope_type?: string | null;
@@ -1000,7 +982,7 @@ export function useAdminTargets(month: number, year: number) {
         .from('targets')
         .select(`
           id, company_id, supervisor_id, target_date, criteria,
-          visits_target, audit_target, target_amount, actual_visits, actual_audits,
+          visits_target, audit_target, actual_visits, actual_audits,
           scope_type, target_scope, branch_id, created_at,
           supervisors(id, full_name, phone, supervisor_code),
           branches(id, name)

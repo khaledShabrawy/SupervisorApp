@@ -3,9 +3,8 @@ import { useCallback, useMemo, useState, type ChangeEvent, type FormEvent } from
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
-import { Bell, Camera, CheckCheck, Download, FileText, MapPin, Package, Pencil, Plus, ShoppingCart, Store, Target, Trash2, X, BarChart3, ShieldAlert, ShieldCheck } from '@/components/Icons';
+import { Bell, Camera, CheckCheck, Download, FileText, MapPin, Package, Pencil, Plus, Store, Target, Trash2, X, BarChart3, ShieldAlert, ShieldCheck } from '@/components/Icons';
 import { exportToCsv } from '@/lib/csv-export';
-import { useAdminOrders, useUpdateOrderStatus, formatOrderWhatsAppMessage, openWhatsAppShare, type OrderRecord } from '@/lib/screen-orders';
 import { fmtDate, fmtTime, num } from '@/lib/format';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -350,7 +349,7 @@ export function AdminTargets() {
 
   const filteredTargets = useMemo(() => {
     if (!targetsQ.data) return [];
-    let list = targetsQ.data;
+    let list = targetsQ.data.filter(row => row.criteria !== 'orders');
     if (filterBranchId) list = list.filter((r) => r.branch_id === filterBranchId);
     if (filterSupId) list = list.filter((r) => r.supervisor_id === filterSupId);
     if (!search.trim()) return list;
@@ -367,7 +366,6 @@ export function AdminTargets() {
   const criteriaLabels: Record<string, string> = {
     visits: t('زيارات ميدانية'),
     shelf_audit: t('مراجعات الرف'),
-    orders: t('فرص بيعية وطلبات'),
     new_opportunity: t('استقطاب عملاء'),
   };
 
@@ -482,7 +480,7 @@ export function AdminTargets() {
             </thead>
             <tbody>
               {filteredTargets.map((row) => {
-                const targetVal = row.criteria === 'orders' && row.target_amount ? row.target_amount : (row.visits_target || row.audit_target || 0);
+                const targetVal = (row.visits_target || row.audit_target || 0);
                 const actualVal = row.criteria === 'shelf_audit' ? (row.actual_audits || 0) : (row.actual_visits || 0);
                 const pct = targetVal > 0 ? Math.min(100, Math.round((actualVal / targetVal) * 100)) : 0;
                 const isGeneral = row.scope_type === 'general';
@@ -515,9 +513,7 @@ export function AdminTargets() {
                       </span>
                     </td>
                     <td style={{ fontWeight: 600 }}>
-                      {row.criteria === 'orders' && row.target_amount
-                        ? `${num(row.target_amount)} ج.م`
-                        : `${row.visits_target || 0} زيارة`}
+                      {`${row.visits_target || 0} زيارة`}
                       {(row.audit_target ?? 0) > 0 && (
                         <div className="muted" style={{ fontSize: 12 }}>
                           {row.audit_target} {t('مراجعة')}
@@ -650,9 +646,7 @@ function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: 
   const [masterBrand, setMasterBrand] = useState(edit?.master_brand ?? '');
   const [subBrand, setSubBrand] = useState(edit?.sub_brand ?? '');
   const [unit, setUnit] = useState(edit?.unit ?? 'قطعة');
-  const [price, setPrice] = useState(edit?.price?.toString() ?? '');
   const [unitsPerCarton, setUnitsPerCarton] = useState(edit?.units_per_carton?.toString() ?? '1');
-  const [cartonPrice, setCartonPrice] = useState(edit?.carton_price?.toString() ?? '');
   const [active, setActive] = useState(edit?.is_active ?? true);
 
   const submit = useCallback((e: FormEvent) => {
@@ -666,12 +660,10 @@ function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: 
       master_brand: masterBrand,
       sub_brand: subBrand,
       unit,
-      price: numOrNull(price) ?? undefined,
       units_per_carton: numOrNull(unitsPerCarton) ?? 1,
-      carton_price: numOrNull(cartonPrice) ?? undefined,
       is_active: active,
     }, { onSuccess: onClose });
-  }, [m, edit, name, category, sku, itemCode, masterBrand, subBrand, unit, price, unitsPerCarton, cartonPrice, active, onClose]);
+  }, [m, edit, name, category, sku, itemCode, masterBrand, subBrand, unit, unitsPerCarton, active, onClose]);
 
   return <Modal title={edit ? t('تعديل المنتج') : t('منتج جديد')} onClose={onClose} onSubmit={submit}>
     <label className="f">{t('اسم المنتج *')}<input className="input" required value={name} onChange={useInput(setName)} /></label>
@@ -685,11 +677,9 @@ function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: 
     </div>
     <div className="row">
       <label className="f grow">{t('الوحدة الأساسية')}<input className="input" value={unit} onChange={useInput(setUnit)} placeholder={t('مثال: قطعة / باكو')} /></label>
-      <label className="f grow">{t('سعر القطعة (ج.م)')}<input className="input" dir="ltr" inputMode="decimal" value={price} onChange={useInput(setPrice)} placeholder="0.00" /></label>
     </div>
     <div className="row">
       <label className="f grow">{t('عدد القطع في الكرتونة (التعبئة)')}<input className="input" dir="ltr" type="number" min={1} value={unitsPerCarton} onChange={useInput(setUnitsPerCarton)} placeholder="مثال: 12 أو 24" /></label>
-      <label className="f grow">{t('سعر الكرتونة (ج.م) [اختياري]')}<input className="input" dir="ltr" inputMode="decimal" value={cartonPrice} onChange={useInput(setCartonPrice)} placeholder={t('يحسب تلقائياً إن ترك فارغاً')} /></label>
     </div>
     <label className="row" style={{ minHeight: 44 }}><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} style={{ width: 22, height: 22 }} /> {t('متاح في الكتالوج')}</label>
     <button className="btn" disabled={m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ المنتج')}</button>
@@ -1479,438 +1469,3 @@ export function AdminFieldSurveys() {
 }
 
 /* ---------- Orders (Opportunity / Sales Leads) ---------- */
-export function AdminOrders() {
-  const sups = useSupervisors();
-  const regions = useRegions();
-  const branches = useBranches();
-  const [status, setStatus] = useState<string>('all');
-  const [regionId, setRegionId] = useState<string>('all');
-  const [branchId, setBranchId] = useState<string>('all');
-  const [supId, setSupId] = useState<string>('all');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [search, setSearch] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<OrderRecord | null>(null);
-
-  // Cascading branches based on selected region
-  const filteredBranches = (branches.data ?? []).filter((b) =>
-    regionId === 'all' ? true : b.region_id === regionId
-  );
-
-  // Cascading supervisors based on selected branch/region
-  const filteredSupervisors = sups.items.filter((s) => {
-    if (branchId !== 'all') return s.branch_id === branchId;
-    if (regionId !== 'all') {
-      const allowedBranchIds = new Set(filteredBranches.map((b) => b.id));
-      return s.branch_id && allowedBranchIds.has(s.branch_id);
-    }
-    return true;
-  });
-
-  const q = useAdminOrders({
-    status,
-    supervisorId: supId,
-    branchId: branchId !== 'all' ? branchId : undefined,
-    regionId: regionId !== 'all' ? regionId : undefined,
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
-    search,
-  });
-  const updateStatus = useUpdateOrderStatus();
-  const retry = useRefetch(q.refetch);
-
-  const kpi = q.kpi;
-
-  const handleExportOrders = () => {
-    if (!q.data?.length) return;
-    exportToCsv(
-      `Orders_${new Date().toISOString().slice(0, 10)}`,
-      [
-        { header: t('تاريخ الطلب'), accessor: (o) => fmtDate(o.order_date || o.created_at) },
-        { header: t('المشرف'), accessor: (o) => o.supervisors?.full_name || '' },
-        { header: t('العميل'), accessor: (o) => o.customers?.name || '' },
-        { header: t('كود العميل'), accessor: (o) => o.customers?.customer_code || '' },
-        { header: t('عنوان العميل'), accessor: (o) => o.customers?.address || '' },
-        { header: t('عدد الأصناف'), accessor: (o) => o.items.length },
-        { header: t('إجمالي الكمية'), accessor: (o) => o.items.reduce((s, it) => s + it.quantity, 0) },
-        {
-          header: t('الأصناف والكميات'),
-          accessor: (o) =>
-            o.items
-              .map((it) => `${it.name} (${it.quantity}${it.unit ? ` ${it.unit}` : ''})`)
-              .join(' ; '),
-        },
-        { header: t('الإجمالي (ج.م)'), accessor: (o) => o.total_amount },
-        { header: t('الحالة'), accessor: (o) => { const s = String(o.status).toLowerCase(); return (s === 'delivered' || s === 'completed') ? t('تم التسليم') : t('قيد المتابعة'); } },
-        { header: t('تاريخ التسليم'), accessor: (o) => (o.delivered_at ? fmtDate(o.delivered_at) : '') },
-        { header: t('ملاحظات'), accessor: (o) => o.notes || '' },
-      ],
-      q.data
-    );
-  };
-
-  return <>
-    <div className="row between">
-      <div>
-        <h2>{t('طلبات الشركة والفرص البيعية')}</h2>
-        <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
-          {t('الطلبات التي يلتقطها المشرفون أثناء جولاتهم الميدانية لعرضها على المناديب. بمجرد تأكيد التسليم تصبح إنتاجية المشرف 100%.')}
-        </p>
-      </div>
-      <div className="row gap-2 items-center">
-        <button
-          type="button"
-          className="btn ghost"
-          onClick={handleExportOrders}
-          disabled={!q.data?.length}
-          title={t('تصدير قائمة الطلبات المصفاة إلى Excel')}
-        >
-          <Download size={16} /> {t('تصدير Excel')}
-        </button>
-        {q.data && <span className="badge b-blue" style={{ fontSize: 14 }}>{num(q.data.length)} {t('طلب')}</span>}
-      </div>
-    </div>
-
-    {/* KPI Summary Cards */}
-    <div className="adm-kpis" style={{ marginTop: 12 }}>
-      <div className="card col" style={{ padding: 14, gap: 4 }}>
-        <span className="muted" style={{ fontSize: 12 }}>{t('إجمالي الطلبات')}</span>
-        <strong style={{ fontSize: 22 }}>{num(kpi.totalOrders)}</strong>
-        <span className="muted" style={{ fontSize: 12 }}>{num(kpi.totalAmount)} {t('ج.م')}</span>
-      </div>
-
-      <div className="card col" style={{ padding: 14, gap: 4, borderRight: '4px solid #10B981' }}>
-        <span style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>{t('تم التسليم')}</span>
-        <strong style={{ fontSize: 22, color: '#10B981' }}>{num(kpi.deliveredOrders)}</strong>
-        <span className="muted" style={{ fontSize: 12 }}>{num(kpi.deliveredAmount)} {t('ج.م')}</span>
-      </div>
-
-      <div className="card col" style={{ padding: 14, gap: 4, borderRight: '4px solid #F59E0B' }}>
-        <span style={{ fontSize: 12, color: '#F59E0B', fontWeight: 600 }}>{t('قيد المتابعة')}</span>
-        <strong style={{ fontSize: 22, color: '#F59E0B' }}>{num(kpi.pendingOrders)}</strong>
-        <span className="muted" style={{ fontSize: 12 }}>{num(kpi.pendingAmount)} {t('ج.م')}</span>
-      </div>
-
-      <div className="card col" style={{ padding: 14, gap: 4, borderRight: '4px solid var(--color-primary)' }}>
-        <span className="muted" style={{ fontSize: 12 }}>{t('نسبة التسليم (الإنتاجية)')}</span>
-        <strong style={{ fontSize: 22, color: kpi.deliveryRate === 100 ? '#10B981' : 'var(--color-primary)' }}>
-          {num(kpi.deliveryRate)}%
-        </strong>
-        <div style={{ width: '100%', height: 6, background: '#E2E8F0', borderRadius: 3, overflow: 'hidden', marginTop: 4 }}>
-          <div style={{ width: `${kpi.deliveryRate}%`, height: '100%', background: kpi.deliveryRate === 100 ? '#10B981' : 'var(--color-primary)' }} />
-        </div>
-      </div>
-    </div>
-
-    {/* Filters Row */}
-    <div className="card col" style={{ marginTop: 12, padding: '12px 14px', gap: 10 }}>
-      <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div className="row" style={{ gap: 6, alignItems: 'center' }}>
-          <span className="muted" style={{ fontSize: 12 }}>{t('من:')}</span>
-          <input className="input" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ width: 140 }} />
-        </div>
-        <div className="row" style={{ gap: 6, alignItems: 'center' }}>
-          <span className="muted" style={{ fontSize: 12 }}>{t('إلى:')}</span>
-          <input className="input" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ width: 140 }} />
-        </div>
-
-        <select className="input" style={{ width: 150 }} value={regionId} onChange={(e) => {
-          setRegionId(e.target.value);
-          setBranchId('all');
-          setSupId('all');
-        }}>
-          <option value="all">{t('كل الأقاليم')}</option>
-          {regions.data?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-        </select>
-
-        <select className="input" style={{ width: 150 }} value={branchId} onChange={(e) => {
-          setBranchId(e.target.value);
-          setSupId('all');
-        }}>
-          <option value="all">{t('كل الفروع')}</option>
-          {filteredBranches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
-
-        <select className="input" style={{ width: 160 }} value={supId} onChange={(e) => setSupId(e.target.value)}>
-          <option value="all">{t('كل المشرفين')}</option>
-          {filteredSupervisors.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
-        </select>
-
-        <select className="input" style={{ width: 150 }} value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="all">{t('كل الحالات')}</option>
-          <option value="pending">{t('قيد المتابعة')}</option>
-          <option value="delivered">{t('تم التسليم')}</option>
-        </select>
-
-        {(status !== 'all' || supId !== 'all' || branchId !== 'all' || regionId !== 'all' || dateFrom || dateTo || search) && (
-          <button className="btn sm ghost" onClick={() => {
-            setStatus('all');
-            setRegionId('all');
-            setBranchId('all');
-            setSupId('all');
-            setDateFrom('');
-            setDateTo('');
-            setSearch('');
-          }}>
-            {t('إعادة ضبط')}
-          </button>
-        )}
-      </div>
-
-      <input
-        className="input"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder={t('بحث باسم العميل أو الكود أو المشرف أو الملاحظات...')}
-      />
-    </div>
-
-    {/* Table */}
-    {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} /> : !q.data?.length ? (
-      <EmptyState
-        icon={<ShoppingCart />}
-        title={t('لا توجد طلبات')}
-        text={search || status !== 'all' || supId !== 'all' ? t('لا توجد نتائج مطابقة لخيارات التصفية.') : t('لم يسجل أي مشرف طلبات أو فرص بيعية بعد.')}
-      />
-    ) : (
-      <div className="adm-table-wrap">
-        <table className="adm-table">
-          <thead>
-            <tr>
-              <th>{t('التاريخ')}</th>
-              <th>{t('المشرف')}</th>
-              <th>{t('العميل')}</th>
-              <th>{t('الأصناف والكميات')}</th>
-              <th>{t('الإجمالي')}</th>
-              <th>{t('الحالة')}</th>
-              <th>{t('تاريخ التسليم')}</th>
-              <th>{t('الإجراء')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {q.data.map((o) => {
-              const orderStatus = String(o.status).toLowerCase();
-              const isDelivered = (orderStatus === 'delivered' || orderStatus === 'completed');
-              const totalUnits = o.items.reduce((s, it) => s + it.quantity, 0);
-
-              return (
-                <tr key={o.id} data-testid={`admin-order-row-${o.id}`}>
-                  <td className="muted" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
-                    {fmtDate(o.order_date || o.created_at)}
-                  </td>
-                  <td style={{ fontWeight: 600 }}>{o.supervisors?.full_name ?? '—'}</td>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{o.customers?.name ?? t('عميل غير معروف')}</div>
-                    {o.customers?.address && <div className="muted" style={{ fontSize: 11 }}>{o.customers.address}</div>}
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn sm ghost"
-                      style={{ fontSize: 12, padding: '2px 8px' }}
-                      onClick={() => setSelectedOrder(o)}
-                    >
-                      {t('{n} صنف', { n: num(o.items.length) })} ({num(totalUnits)} {t('وحدة')}) 🔍
-                    </button>
-                  </td>
-                  <td style={{ fontWeight: 700, color: 'var(--color-primary)', whiteSpace: 'nowrap' }}>
-                    {num(o.total_amount)} {t('ج.م')}
-                  </td>
-                  <td>
-                    <span className={`badge ${isDelivered ? 'b-green' : 'b-amber'}`} style={{ whiteSpace: 'nowrap' }}>
-                      {isDelivered ? `✅ ${t('تم التسليم')}` : `⏳ ${t('قيد المتابعة')}`}
-                    </span>
-                  </td>
-                  <td className="muted" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
-                    {o.delivered_at ? fmtDate(o.delivered_at) : '—'}
-                  </td>
-                  <td>
-                    <div className="row" style={{ gap: 6, alignItems: 'center' }}>
-                      <button
-                        type="button"
-                        className="btn sm"
-                        style={{
-                          background: '#25D366',
-                          color: '#fff',
-                          border: 'none',
-                          padding: '3px 8px',
-                          fontSize: 12,
-                          borderRadius: 6,
-                          fontWeight: 600,
-                          whiteSpace: 'nowrap',
-                          gap: 4,
-                        }}
-                        onClick={() => {
-                          const msg = formatOrderWhatsAppMessage({
-                            customerName: o.customers?.name,
-                            customerAddress: o.customers?.address,
-                            supervisorName: o.supervisors?.full_name,
-                            supervisorPhone: o.supervisors?.phone,
-                            orderDate: o.order_date || o.created_at,
-                            items: o.items,
-                            totalAmount: o.total_amount,
-                            notes: o.notes,
-                            latitude: o.customers?.latitude,
-                            longitude: o.customers?.longitude,
-                          });
-                          openWhatsAppShare(msg);
-                        }}
-                        title={t('إرسال تفاصيل الفرصة للمندوب عبر واتساب')}
-                      >
-                        💬 {t('واتساب')}
-                      </button>
-                      {!isDelivered ? (
-                        <button
-                          className="btn sm success"
-                          style={{ whiteSpace: 'nowrap', gap: 4 }}
-                          disabled={updateStatus.isPending}
-                          onClick={async () => {
-                            if (await confirm('تأكيد تسليم الطلب؟ سيتم رفع إنتاجية المشرف إلى 100%.')) {
-                              updateStatus.mutate({ id: o.id, status: 'delivered' });
-                            }
-                          }}
-                          data-testid={`btn-deliver-order-${o.id}`}
-                        >
-                          <CheckCheck size={14} /> {t('تأكيد التسليم')}
-                        </button>
-                      ) : (
-                        <button
-                          className="btn sm ghost"
-                          style={{ fontSize: 12, whiteSpace: 'nowrap' }}
-                          disabled={updateStatus.isPending}
-                          onClick={async () => {
-                            if (await confirm('إلغاء حالة التسليم وإعادة الطلب لقيد المتابعة؟')) {
-                              updateStatus.mutate({ id: o.id, status: 'pending' });
-                            }
-                          }}
-                        >
-                          {t('إعادة للمتابعة')}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    )}
-
-    {/* Order Items Modal */}
-    {selectedOrder && (
-      <div className="adm-modal-bg" onClick={() => setSelectedOrder(null)}>
-        <div className="adm-modal col" onClick={(e) => e.stopPropagation()} style={{ gap: 14 }}>
-          <div className="row between">
-            <h3 style={{ margin: 0 }}>📦 {t('تفاصيل الطلب')}</h3>
-            <button className="icon-btn" onClick={() => setSelectedOrder(null)}><X size={18} /></button>
-          </div>
-
-          <div className="card col" style={{ background: '#F8FAFC', padding: 12, gap: 4 }}>
-            <div className="row between"><span>{t('العميل')}:</span><strong>{selectedOrder.customers?.name}</strong></div>
-            <div className="row between"><span>{t('المشرف')}:</span><strong>{selectedOrder.supervisors?.full_name}</strong></div>
-            <div className="row between"><span>{t('التاريخ')}:</span><span>{fmtDate(selectedOrder.order_date || selectedOrder.created_at)}</span></div>
-            <div className="row between">
-              <span>{t('الحالة')}:</span>
-              <span className={`badge ${selectedOrder.status === 'delivered' ? 'b-green' : 'b-amber'}`}>
-                {selectedOrder.status === 'delivered' ? t('تم التسليم') : t('قيد المتابعة')}
-              </span>
-            </div>
-            {selectedOrder.delivered_at && (
-              <div className="row between"><span>{t('تاريخ التسليم')}:</span><span>{fmtDate(selectedOrder.delivered_at)}</span></div>
-            )}
-            {selectedOrder.notes && (
-              <div style={{ marginTop: 4, borderTop: '1px dashed var(--line)', paddingTop: 4 }}>
-                <span className="muted">{t('ملاحظات المندوب')}:</span> {selectedOrder.notes}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>{t('قائمة الأصناف المطلوبة')}:</div>
-            <div className="adm-table-wrap">
-              <table className="adm-table" style={{ fontSize: 13 }}>
-                <thead>
-                  <tr>
-                    <th>{t('الصنف')}</th>
-                    <th>{t('الكمية')}</th>
-                    <th>{t('سعر الوحدة')}</th>
-                    <th>{t('الإجمالي')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedOrder.items.map((it, idx) => (
-                    <tr key={idx}>
-                      <td style={{ fontWeight: 600 }}>{it.name}</td>
-                      <td>{num(it.quantity)}</td>
-                      <td>{num(it.unit_price)} {t('ج.م')}</td>
-                      <td style={{ fontWeight: 700 }}>{num(it.unit_price * it.quantity)} {t('ج.م')}</td>
-                    </tr>
-                  ))}
-                  <tr style={{ background: '#F8FAFC', fontWeight: 800 }}>
-                    <td colSpan={3}>{t('الإجمالي النهائي')}</td>
-                    <td style={{ color: 'var(--color-primary)', fontSize: 15 }}>
-                      {num(selectedOrder.total_amount)} {t('ج.م')}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="row between" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
-            <div className="row" style={{ gap: 8 }}>
-              <button
-                type="button"
-                className="btn"
-                style={{
-                  background: '#25D366',
-                  color: '#fff',
-                  border: 'none',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  padding: '8px 14px',
-                  borderRadius: 8,
-                  gap: 6,
-                }}
-                onClick={() => {
-                  const msg = formatOrderWhatsAppMessage({
-                    customerName: selectedOrder.customers?.name,
-                    customerAddress: selectedOrder.customers?.address,
-                    supervisorName: selectedOrder.supervisors?.full_name,
-                    supervisorPhone: selectedOrder.supervisors?.phone,
-                    orderDate: selectedOrder.order_date || selectedOrder.created_at,
-                    items: selectedOrder.items,
-                    totalAmount: selectedOrder.total_amount,
-                    notes: selectedOrder.notes,
-                    latitude: selectedOrder.customers?.latitude,
-                    longitude: selectedOrder.customers?.longitude,
-                  });
-                  openWhatsAppShare(msg);
-                }}
-              >
-                💬 {t('إرسال للمندوب عبر واتساب')}
-              </button>
-
-              {selectedOrder.status !== 'delivered' && (
-                <button
-                  className="btn success"
-                  disabled={updateStatus.isPending}
-                  onClick={async () => {
-                    if (!await confirm('تأكيد تسليم الطلب؟')) return;
-                    updateStatus.mutate({ id: selectedOrder.id, status: 'delivered' });
-                    setSelectedOrder(null);
-                  }}
-                >
-                  <CheckCheck size={16} /> {t('تأكيد التسليم الآن')}
-                </button>
-              )}
-            </div>
-            <button className="btn ghost" onClick={() => setSelectedOrder(null)}>{t('إغلاق')}</button>
-          </div>
-        </div>
-      </div>
-    )}
-  </>;
-}
-

@@ -18,7 +18,6 @@ export const ADMIN_NAV = [
   { to: '/admin/live-map', label: t('تتبع المشرفين 🗺️'), icon: MapPin },
   { to: '/admin/shelf-share', label: t('حصة الرف'), icon: BarChart3 },
   { to: '/admin/training', label: t('أكاديمية التدريب 🎓'), icon: GraduationCap },
-  { to: '/admin/orders', label: t('الطلبات'), icon: ShoppingCart },
   { to: '/admin/users', label: t('المستخدمين'), icon: Users },
   { to: '/admin/companies', label: t('الشركات'), icon: Building2, superAdminOnly: true },
   { to: '/admin/branches', label: t('الفروع'), icon: MapPin },
@@ -37,7 +36,7 @@ export const ADMIN_NAV = [
 ] as const;
 
 const ADMIN_NAV_GROUPS = [
-  { label: 'المتابعة والتقارير', paths: ['/admin','/admin/live-map','/admin/shelf-share','/admin/training','/admin/orders','/admin/reports','/admin/field-surveys'] },
+  { label: 'المتابعة والتقارير', paths: ['/admin','/admin/live-map','/admin/shelf-share','/admin/training','/admin/reports','/admin/field-surveys'] },
   { label: 'الفرق والبيانات', paths: ['/admin/users','/admin/branches','/admin/customers','/admin/products','/admin/targets','/admin/assets','/admin/surveys','/admin/bulk-import','/admin/prospects'] },
   { label: 'إعدادات النظام', paths: ['/admin/companies','/admin/notifications','/admin/settings','/admin/audit'] },
 ];

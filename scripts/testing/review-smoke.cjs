@@ -155,7 +155,7 @@ const session={access_token:jwt,refresh_token:'synthetic-refresh',expires_at:Mat
    const result=await f.p.evaluate(async({cid,sid})=>{const m=await import('/src/lib/offline-sync.ts');m.clearOfflineQueue(cid,sid);m.enqueueOfflineAction({type:'attendance_action',companyId:cid,supervisorId:sid,payload:{kind:'in',attendance_date:'2026-11-05',check_in_time:'2026-11-05T10:00:00Z'}});return m.uploadPendingOfflineActions(cid,sid);},{cid,sid});
    assert.equal(result.syncedCount,1);assert.equal(patches,0);assert.equal(existing.check_in_time,'2026-11-05T12:00:00+02:00');await f.c.close();
   });
-  await run('field journey: attendance, geofenced visit, mandatory task, order and checkout',async()=>{
+  await run('field journey: attendance, geofenced visit, mandatory task and checkout',async()=>{
    const f=await fixture({seeded:true,permissions:[{screen_key:'new_visit',is_enabled:true}]});const {p}=f;
    await p.goto(base+'/');await p.getByRole('button',{name:'تسجيل حضور',exact:true}).click();await p.getByRole('button',{name:'تأكيد الحضور',exact:true}).click();
    await p.getByRole('button',{name:'تسجيل انصراف',exact:true}).waitFor();assert.equal(f.state.attendance.check_in_lat,30.0444);assert.equal(f.state.attendance.check_in_lng,31.2357);
@@ -163,10 +163,19 @@ const session={access_token:jwt,refresh_token:'synthetic-refresh',expires_at:Mat
    assert.equal(f.state.visit.on_beat,true);assert.equal(f.state.visit.geo_distance,0);
    await p.getByTestId('outcome-متعامل').click();await p.getByRole('button',{name:'إنجاز المهمة: مراجعة العرض'}).click();
    await p.getByRole('button',{name:'إنجاز المهمة: مراجعة العرض'}).waitFor({state:'hidden'});assert.equal(f.state.visit.visit_tasks[0].is_completed,true);
-   await p.getByTestId('button-quick-order').click();await p.getByRole('button',{name:'زيادة',exact:true}).click();await p.getByRole('button',{name:'زيادة',exact:true}).click();await p.getByTestId('button-submit-order').click();
-   await p.getByText('تم تسجيل فرصة البيع بنجاح!').waitFor();assert.equal(f.state.orders[0].total_amount,50);assert.equal(f.state.orders[0].items[0].quantity,2);
-   await p.getByRole('button',{name:'العودة للزيارة'}).click();await p.getByTestId('button-check-out').click();await p.getByRole('alertdialog').getByRole('button',{name:'تأكيد',exact:true}).click();
+   assert.equal(await p.getByTestId('button-quick-order').count(),0);assert.equal(f.requests.filter(r=>r.path.includes('/rest/v1/orders')).length,0);await p.getByTestId('button-check-out').click();await p.getByRole('alertdialog').getByRole('button',{name:'تأكيد',exact:true}).click();
    await p.waitForURL(base+'/visits');assert.equal(f.state.visit.status,'completed');assert.ok(f.state.visit.check_out_time);assert.equal(f.errors.length,0);await f.c.close();
+  });
+  await run('retired sales routes and queued actions never reach the sales API',async()=>{
+   const f=await fixture();await f.p.goto(base+'/orders');await f.p.getByText('الصفحة غير موجودة',{exact:false}).waitFor();
+   const result=await f.p.evaluate(async({cid,sid})=>{const m=await import('/src/lib/offline-sync.ts');m.clearOfflineQueue(cid,sid);m.enqueueOfflineAction({type:'save_order',companyId:cid,supervisorId:sid,payload:{id:'88888888-8888-4888-8888-888888888888'}});const r=await m.uploadPendingOfflineActions(cid,sid);return {r,pending:m.getOfflineQueue(cid,sid).length};},{cid,sid});
+   assert.equal(result.r.syncedCount,0);assert.equal(result.pending,1);assert.equal(f.requests.filter(r=>r.path.includes('/orders')).length,0);await f.c.close();
+  });
+  await run('analysis outage reports failure without manufacturing a shelf result',async()=>{
+   const f=await fixture({seeded:true,permissions:[{screen_key:'shelf_audit',is_enabled:true}]});const auditId='99999999-9999-4999-8999-999999999999';let calls=0,patches=0;
+   await f.c.route('**/rest/v1/shelf_audit*',route=>{if(route.request().method()==='PATCH')patches++;const audit={id:auditId,visit_id:visitId,company_id:cid,supervisor_id:sid,status:'failed',photo_url:'https://review.invalid/photo.jpg'};return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(route.request().headers()['accept']?.includes('object')?audit:[audit])});});
+   await f.c.route('**/functions/v1/analyze-shelf',route=>{calls++;return route.fulfill({status:503,contentType:'application/json',body:'{}'});});
+   await f.p.goto(base+'/shelf-audit?visit='+visitId+'&audit='+auditId);await f.p.getByRole('button',{name:'إعادة المحاولة',exact:true}).click();await f.p.getByText('تعذر إرسال طلب التحليل.',{exact:true}).waitFor();assert.equal(calls,1);assert.equal(patches,0);await f.c.close();
   });
   await run('admin empty states avoid unsupported performance claims',async()=>{
    const f=await fixture({role:'admin'});await f.p.setViewportSize({width:1440,height:1000});await f.p.goto(base+'/admin');await f.p.getByText('لم يُحدد مستهدف').waitFor();assert.equal(await f.p.getByText('الميدان منضبط بالكامل · لا تنبيهات طارئة').count(),0);await f.p.screenshot({path:path.join(output,'admin-1440.png'),fullPage:true});await f.c.close();

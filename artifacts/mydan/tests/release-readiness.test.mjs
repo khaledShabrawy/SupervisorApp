@@ -73,7 +73,7 @@ test('deployment rejects an incomplete server contract and uses a read-only cata
     const body = JSON.parse(options.body);
     assert.equal(body.read_only, true);
     assert.match(body.query, /^select /);
-    assert.doesNotMatch(body.query, /ALTER|CREATE|DROP|UPDATE|DELETE/);
+    assert.doesNotMatch(body.query.replace(/'(?:''|[^'])*'/g, "''"), /\b(?:ALTER|CREATE|DROP|UPDATE|DELETE)\b/i);
     return new Response('[{"ready":true}]');
   });
   await assert.rejects(verifyServerContract(credentials, config, async () => new Response('[{"ready":false}]')), /contract is incomplete/);

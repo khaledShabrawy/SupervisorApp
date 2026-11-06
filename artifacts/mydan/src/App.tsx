@@ -27,8 +27,6 @@ const Targets = lazy(() => import('@/screens/TargetsScreen'));
 const BeatPlan = lazy(() => import('@/screens/BeatPlanScreen'));
 const Notifications = lazy(() => import('@/screens/NotificationsScreen'));
 const FieldSurvey = lazy(() => import('@/screens/FieldSurveyScreen'));
-const Orders = lazy(() => import('@/screens/OrdersScreen'));
-const OrderEntry = lazy(() => import('@/screens/OrderEntryScreen'));
 const SetPassword = lazy(() => import('@/screens/SetPasswordScreen'));
 const TrainingAcademy = lazy(() => import('@/screens/TrainingAcademyScreen'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
@@ -38,12 +36,12 @@ const AdminDashboard = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminDa
 const AdminTraining = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminTraining'));
 const AdminShelfShare = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminShelfShare'));
 const AdminUsers = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminUsers'));
-const section = (name: 'AdminBranches' | 'AdminCustomers' | 'AdminProducts' | 'AdminTargets' | 'AdminAssets' | 'AdminSurveys' | 'AdminNotifications' | 'AdminSettings' | 'AdminAuditLogs' | 'AdminProspects' | 'AdminOrders' | 'AdminFieldSurveys') =>
+const section = (name: 'AdminBranches' | 'AdminCustomers' | 'AdminProducts' | 'AdminTargets' | 'AdminAssets' | 'AdminSurveys' | 'AdminNotifications' | 'AdminSettings' | 'AdminAuditLogs' | 'AdminProspects' | 'AdminFieldSurveys') =>
   lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminSections').then((m) => ({ default: m[name] })));
 const AdminBranches = section('AdminBranches'), AdminCustomers = section('AdminCustomers'), AdminProducts = section('AdminProducts'),
   AdminTargets = section('AdminTargets'), AdminAssets = section('AdminAssets'), AdminSurveys = section('AdminSurveys'),
   AdminNotifications = section('AdminNotifications'), AdminSettings = section('AdminSettings'), AdminAuditLogs = section('AdminAuditLogs'),
-  AdminProspects = section('AdminProspects'), AdminOrders = section('AdminOrders'),
+  AdminProspects = section('AdminProspects'),
   AdminFieldSurveys = section('AdminFieldSurveys');
 const BulkImport = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/BulkTemplates').then(m => ({ default: m.BulkTemplates })));
 const AdminCompanies = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminCompanies'));
@@ -77,7 +75,6 @@ function App() {
                         <Route index element={<AdminDashboard />} />
                         <Route path="live-map" element={<AdminLiveMap />} />
                         <Route path="shelf-share" element={<AdminShelfShare />} />
-                        <Route path="orders" element={<AdminOrders />} />
                         <Route path="users" element={<AdminUsers />} />
                         <Route path="branches" element={<AdminBranches />} />
                         <Route path="customers" element={<AdminCustomers />} />
@@ -99,8 +96,6 @@ function App() {
                   <Route element={<RequireAuth />}>
                     <Route index element={<Dashboard />} />
                     <Route path="training" element={<TrainingAcademy />} />
-                    <Route path="orders" element={<Orders />} />
-                    <Route path="orders/new" element={<OrderEntry />} />
                     <Route path="visits" element={<Visits />} />
                     <Route path="visits/new" element={<RequireScreen screen="new_visit"><NewVisit /></RequireScreen>} />
                     <Route path="visits/:id" element={<VisitDetail />} />

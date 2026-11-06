@@ -82,7 +82,7 @@ export default function LoginScreen() {
           <div>
             <h2 className="lp-headline">
               {t('أتمتة قوة')}<br />
-              <span className="lp-headline-accent">{t('المبيعات الميدانية')}</span><br />
+              <span className="lp-headline-accent">{t('المتابعة الميدانية')}</span><br />
               {t('بالذكاء الاصطناعي')}
             </h2>
             <p style={{ fontSize: 14, color: '#94A3B8', margin: '12px 0 0', lineHeight: 1.75 }}>

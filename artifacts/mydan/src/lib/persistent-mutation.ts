@@ -2,10 +2,9 @@ import { supabase } from './supabase';
 import { withMutationReceipt, sameInstant, sameJsonValue } from './mutation-receipt';
 
 type Row = Record<string, any>;
-type Table = 'visits' | 'orders' | 'attendance' | 'survey_responses';
+type Table = 'visits' | 'attendance' | 'survey_responses';
 const columns: Record<Table, string> = {
   visits: 'id,company_id,supervisor_id,customer_id,check_in_time',
-  orders: 'id,company_id,supervisor_id,visit_id,customer_id,items,total_amount',
   attendance: 'id,company_id,supervisor_id,attendance_date,check_in_time',
   survey_responses: 'id,company_id,supervisor_id,survey_id,visit_id,answers',
 };
@@ -27,8 +26,6 @@ export function insertScopedOnce(table: Table, row: Row): Promise<Row> {
       if (table === 'attendance') return existing.attendance_date === row.attendance_date && sameInstant(existing.check_in_time, row.check_in_time);
       if (existing.id !== row.id) return false;
       if (table === 'visits') return existing.customer_id === row.customer_id && sameInstant(existing.check_in_time, row.check_in_time);
-      if (table === 'orders') return existing.visit_id === row.visit_id && existing.customer_id === row.customer_id
-        && sameJsonValue(existing.items, row.items) && Number(existing.total_amount) === Number(row.total_amount);
       return existing.survey_id === row.survey_id && existing.visit_id === row.visit_id
         && sameJsonValue(existing.answers, row.answers);
     },

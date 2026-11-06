@@ -43,3 +43,7 @@ Before release, validate on staging with the real schema, configured public Supa
 - Replace ten duplicate admin module implementations with compatibility re-exports of the maintained admin screens. Group navigation into monitoring, teams/data and system settings.
 - Add a sanitized eight-table schema contract and isolated PostgreSQL authorization tests. The SQL proposal is intentionally outside automatic migrations and was not applied live.
 - Read-only live inspection found missing RPCs, an overbroad orders policy, a quantity-only schema/legacy price-bearing UI conflict, and no API-visible database backups/PITR. See the current release-readiness document for evidence and remaining acceptance work; earlier access-blocked notes in this log describe the earlier environment only.
+
+## 2026-11-06 release preparation
+
+The product scope was rechecked and sales flows were removed entirely, including their routes, pricing forms/imports, financial targets and offline submission. Legacy queued sales are retained without uploading. Removed the fabricated shelf-analysis fallback and explicitly labelled manual review. Added a real browser test for each behavior. Prepared and tested an exact configuration rollback, narrowed cascade-delete authorization, and added NULL-role denial. See `release-status-2026-11-06.md` for the current deployment state and the automatic approval review block; the SQL remains unapplied.

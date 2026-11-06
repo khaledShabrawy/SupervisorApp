@@ -14,6 +14,6 @@ for attempt in $(seq 1 30); do
   if docker_local exec "$container_name" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then break; fi
   sleep 1
 done
-for script in scripts/testing/database/fixture.sql supabase/proposals/20261105_pre_release_hardening.sql scripts/testing/database/assertions.sql; do
+for script in scripts/testing/database/fixture.sql supabase/proposals/20261105_pre_release_hardening.sql scripts/testing/database/assertions.sql supabase/rollback/20261106_authorization.sql scripts/testing/database/rollback-assertions.sql supabase/proposals/20261105_pre_release_hardening.sql; do
   docker_local exec -i "$container_name" psql -X -q -v ON_ERROR_STOP=1 -U postgres < "$script"
 done

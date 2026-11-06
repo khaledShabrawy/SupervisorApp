@@ -1,6 +1,12 @@
 // English UI strings, keyed by the Arabic source text used in t('...').
 // Keep `{placeholders}` identical to the Arabic key.
 export const EN: Record<string, string> = {
+  'اعتماد مراجعة يدوية': 'Confirm manual review',
+  'قم بتنزيل قالب الأهداف، حدد أهداف الزيارات ومراجعات الرف لكل مشرف أو للفريق، ثم ارفعه.': 'Download the goals template, set visit and shelf-audit targets for each supervisor or team, then upload it.',
+  'المتابعة الميدانية': 'Field monitoring',
+  'متخصص المتابعة الميدانية والرف (FMCG Field Specialist)': 'FMCG Field Specialist',
+  'تشهد إدارة المتابعة وتطوير الكفاءات الميدانية بأن المشرف:': 'The field monitoring and training department certifies that supervisor:',
+
   'المتابعة والتقارير': 'Monitoring and reports',
   'الفرق والبيانات': 'Teams and data',
   'إعدادات النظام': 'System settings',

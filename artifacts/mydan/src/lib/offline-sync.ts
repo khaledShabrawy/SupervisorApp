@@ -213,24 +213,8 @@ async function uploadQueue(companyId?: string, supervisorId?: string): Promise<{
         const { error } = await supabase.from('visits').update({ visit_outcome: outcome }).eq('id', id).eq('company_id', companyId).eq('supervisor_id', supervisorId).select('id').single();
         if (error) throw error;
       } else if (item.type === 'save_order') {
-        // Explicitly whitelist known fields — prevents injecting unexpected columns
-        // from tampered localStorage. Supports upsert-by-id for idempotency on retry.
-        const p = item.payload as Record<string, unknown>;
-        const safeRow = {
-          supervisor_id: item.supervisorId,
-          company_id:    item.companyId,
-          visit_id:      typeof p.visit_id    === 'string' ? p.visit_id    : String(p.visit_id ?? ''),
-          customer_id:   typeof p.customer_id === 'string' ? p.customer_id : null,
-          product_id:    typeof p.product_id  === 'string' ? p.product_id  : null,
-          quantity:      typeof p.quantity    === 'number' ? p.quantity    : (p.quantity    != null ? Number(p.quantity)    : null),
-          unit_price:    typeof p.unit_price  === 'number' ? p.unit_price  : (p.unit_price  != null ? Number(p.unit_price)  : null),
-          total_amount:  typeof p.total_amount === 'number' ? p.total_amount : (p.total_amount != null ? Number(p.total_amount) : 0),
-          items:         Array.isArray(p.items) ? p.items : null,
-          status:        typeof p.status     === 'string' ? p.status     : 'pending',
-          notes:         typeof p.notes      === 'string' ? p.notes      : null,
-          order_date:    typeof p.order_date === 'string' ? p.order_date : new Date().toISOString().slice(0, 10),
-        };
-        await insertScopedOnce('orders', { ...safeRow, id: p.id });
+        // Keep historical queue entries for reconciliation; never submit out-of-scope sales.
+        throw new Error('عملية قديمة خارج نطاق التطبيق؛ احتُفظ بها دون إرسال.');
       } else if (item.type === 'attendance_action') {
         const { kind, attendance_date, check_in_time, check_out_time, check_in_lat, check_in_lng } = item.payload as {
           kind: 'in' | 'out'; attendance_date: string;

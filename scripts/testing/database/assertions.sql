@@ -58,39 +58,31 @@ DO $$ BEGIN
 END $$;
 SELECT 'database authorization and password tests passed' AS result;
 
--- Real RLS reads/writes against synthetic rows, including foreign/null-company rows.
-INSERT INTO customers(id,name,company_id,supervisor_id) VALUES
- ('aaaaaaaa-3333-4333-8333-333333333333','Synthetic A customer','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111'),
- ('bbbbbbbb-3333-4333-8333-333333333333','Synthetic B customer','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','33333333-3333-4333-8333-333333333333');
-INSERT INTO products(id,name,company_id) VALUES
- ('aaaaaaaa-4444-4444-8444-444444444444','Synthetic A product','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
- ('bbbbbbbb-4444-4444-8444-444444444444','Synthetic B product','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
-INSERT INTO visits(id,supervisor_id,customer_id,company_id) VALUES
- ('aaaaaaaa-5555-4555-8555-555555555555','11111111-1111-4111-8111-111111111111','aaaaaaaa-3333-4333-8333-333333333333','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
-INSERT INTO orders(id,company_id,supervisor_id,quantity) VALUES
- ('bbbbbbbb-6666-4666-8666-666666666666','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','33333333-3333-4333-8333-333333333333',1),
- ('cccccccc-6666-4666-8666-666666666666',NULL,'33333333-3333-4333-8333-333333333333',1);
+-- Sales table stays inaccessible to every client role, including an administrator.
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
-INSERT INTO orders(id,company_id,supervisor_id,customer_id,product_id,visit_id,quantity) VALUES
- ('aaaaaaaa-6666-4666-8666-666666666666','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','aaaaaaaa-3333-4333-8333-333333333333','aaaaaaaa-4444-4444-8444-444444444444','aaaaaaaa-5555-4555-8555-555555555555',2);
 DO $$ BEGIN
-  IF (SELECT count(*) FROM orders) <> 1 THEN RAISE EXCEPTION 'Supervisor saw foreign/null-company orders'; END IF;
-  UPDATE orders SET quantity=3 WHERE id='aaaaaaaa-6666-4666-8666-666666666666';
-  IF NOT FOUND THEN RAISE EXCEPTION 'Valid quantity update failed'; END IF;
-  BEGIN UPDATE orders SET product_id='bbbbbbbb-4444-4444-8444-444444444444'; RAISE EXCEPTION 'Foreign product update allowed'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
-  BEGIN UPDATE orders SET unit_price=10; RAISE EXCEPTION 'Price-bearing update allowed'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
-  BEGIN UPDATE orders SET status='delivered'; RAISE EXCEPTION 'Supervisor delivered an order'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
-  DELETE FROM orders WHERE id='aaaaaaaa-6666-4666-8666-666666666666';
-  IF FOUND THEN RAISE EXCEPTION 'Supervisor deleted an order'; END IF;
+  BEGIN PERFORM 1 FROM orders; RAISE EXCEPTION 'Supervisor read orders'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN PERFORM manager_set_order_status(gen_random_uuid(),'delivered'); RAISE EXCEPTION 'Sales RPC executed'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $$;
 SELECT set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
 DO $$ BEGIN
-  IF (SELECT count(*) FROM orders) <> 1 THEN RAISE EXCEPTION 'Admin saw foreign/null-company orders'; END IF;
-  UPDATE orders SET status='delivered' WHERE id='aaaaaaaa-6666-4666-8666-666666666666';
-  IF NOT FOUND THEN RAISE EXCEPTION 'Admin could not update own company'; END IF;
-  UPDATE orders SET status='delivered' WHERE id='bbbbbbbb-6666-4666-8666-666666666666';
-  IF FOUND THEN RAISE EXCEPTION 'Admin updated foreign company'; END IF;
+  BEGIN PERFORM 1 FROM orders; RAISE EXCEPTION 'Admin read orders'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN DELETE FROM supervisors WHERE id='11111111-1111-4111-8111-111111111111'; RAISE EXCEPTION 'Direct profile deletion allowed'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $$;
+SELECT set_config('request.jwt.claim.sub','44444444-4444-4444-8444-444444444444',false);
+DO $$ BEGIN
+  BEGIN PERFORM delete_supervisor_cascade('22222222-2222-4222-8222-222222222222'); RAISE EXCEPTION 'Branch manager deleted admin'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $$;
 RESET ROLE;
-SELECT 'orders cross-tenant read/write tests passed' AS result;
+SELECT 'sales denial and cascade-delete ceiling tests passed' AS result;
+
+-- Unknown administrator roles must fail closed even through direct RPC calls.
+SELECT set_config('request.jwt.claim.sub','',false);
+UPDATE supervisors SET role=NULL WHERE id='44444444-4444-4444-8444-444444444444';
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','44444444-4444-4444-8444-444444444444',false);
+DO $$ BEGIN
+ BEGIN PERFORM admin_update_supervisor('11111111-1111-4111-8111-111111111111',p_phone=>'forged'); RAISE EXCEPTION 'Null role RPC allowed'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $$;
+RESET ROLE;

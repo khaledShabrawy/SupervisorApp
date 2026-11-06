@@ -52,6 +52,12 @@ export async function verifyServerContract(env, config, request = fetch) {
     and to_regprocedure('public.admin_update_supervisor(uuid,text,uuid,text,text,boolean,text,boolean,boolean)') is not null
     and exists (select 1 from pg_trigger where tgname = 'mydan_password_changed'
       and tgrelid = 'auth.users'::regclass and not tgisinternal and tgenabled = 'O')
+    and not has_table_privilege('authenticated','public.orders','SELECT')
+    and not has_table_privilege('anon','public.orders','SELECT')
+    and not has_function_privilege('authenticated','public.manager_set_order_status(uuid,text)','EXECUTE')
+    and not has_column_privilege('authenticated','public.supervisors','branch_id','UPDATE')
+    and not has_column_privilege('authenticated','public.supervisors','device_id','UPDATE')
+    and not has_table_privilege('authenticated','public.supervisors','DELETE')
     and not exists (select 1 from pg_policies where schemaname = 'public'
       and tablename = 'orders' and policyname = 'orders_company_all')
   ) as ready`;
