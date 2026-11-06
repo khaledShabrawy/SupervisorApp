@@ -17,7 +17,7 @@ export function deploymentPlan(config) {
     ['corepack', ['pnpm', 'run', 'typecheck']],
     ['corepack', ['pnpm', 'test']],
     ['corepack', ['pnpm', 'run', 'build']],
-    ['npx', ['--yes', '--package=supabase@3.0.0', 'supabase', 'functions', 'deploy', 'invite-supervisor', `--remote=${config.projectRef}`, '--use-api', '--yes']],
+    ['npx', ['--yes', '--package=supabase@3.0.0', 'supabase', 'functions', 'deploy', 'invite-supervisor', 'analyze-shelf', 'discover-customers', `--remote=${config.projectRef}`, '--use-api', '--yes']],
     ['npx', ['--yes', '--package=wrangler@4.158.0', 'wrangler', 'pages', 'deploy', 'artifacts/mydan/dist/public', '--project-name', config.pagesProject, '--branch', config.branch]],
   ];
 }

@@ -14,6 +14,7 @@ export default function SetPasswordScreen() {
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
   const [busy, setBusy] = useState(false);
+  const [passwordSaved, setPasswordSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,40 +48,59 @@ export default function SetPasswordScreen() {
     };
   }, []);
 
-  const submit = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      setError(null);
-      if (pw.length < 8) {
-        setError(t('كلمة المرور يجب ألا تقل عن 8 أحرف.'));
-        return;
-      }
-      if (pw !== pw2) {
-        setError(t('كلمتا المرور غير متطابقتين.'));
-        return;
-      }
-      setBusy(true);
-      try {
-        const { error: failure } = await supabase.auth.updateUser({ password: pw });
-        if (failure) throw failure;
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError || !user) throw userError ?? new Error(t('تعذر التحقق من الحساب'));
-        const { data: profile, error: profileError } = await supabase.from('supervisors')
-          .select('id,force_password_change,password_changed_at').eq('user_id', user.id).single();
-        if (profileError || !profile || profile.force_password_change || !profile.password_changed_at) {
-          throw profileError ?? new Error('Password change was not confirmed by the server');
-        }
-        await retryProfile();
-      } catch {
-        setError(t('تعذر إكمال تحديث الحساب. أعد المحاولة قبل المتابعة.'));
-        return;
-      } finally {
-        setBusy(false);
-      }
-      nav('/', { replace: true });
-    },
-    [pw, pw2, nav, retryProfile]
-  );
+  const confirmProfile = useCallback(async () => {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) throw userError ?? new Error('Account verification unavailable');
+    const { data: profile, error: profileError } = await supabase.from('supervisors')
+      .select('id,force_password_change,password_changed_at').eq('user_id', user.id).single();
+    if (profileError || !profile || profile.force_password_change || !profile.password_changed_at) {
+      throw profileError ?? new Error('Password change was not confirmed by the server');
+    }
+    await retryProfile();
+    nav('/', { replace: true });
+  }, [retryProfile, nav]);
+
+  const recheck = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await confirmProfile();
+    } catch {
+      setError(t('لم يتأكد تحديث الحساب من الخادم بعد. أعد التحقق أو تواصل مع مدير النظام.'));
+    } finally {
+      setBusy(false);
+    }
+  }, [confirmProfile]);
+
+  const submit = useCallback(async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (pw.length < 8) {
+      setError(t('كلمة المرور يجب ألا تقل عن 8 أحرف.'));
+      return;
+    }
+    if (pw !== pw2) {
+      setError(t('كلمتا المرور غير متطابقتين.'));
+      return;
+    }
+    setBusy(true);
+    let updated = false;
+    try {
+      const { error: failure } = await supabase.auth.updateUser({ password: pw });
+      if (failure) throw failure;
+      updated = true;
+      setPasswordSaved(true);
+      setPw('');
+      setPw2('');
+      await confirmProfile();
+    } catch {
+      setError(t(updated
+        ? 'لم يتأكد تحديث الحساب من الخادم بعد. أعد التحقق أو تواصل مع مدير النظام.'
+        : 'تعذر إكمال تحديث الحساب. أعد المحاولة قبل المتابعة.'));
+    } finally {
+      setBusy(false);
+    }
+  }, [pw, pw2, confirmProfile]);
 
   return (
     <main className="login">
@@ -99,6 +119,14 @@ export default function SetPasswordScreen() {
             </div>
             <button className="btn block" onClick={() => nav('/login', { replace: true })}>
               {t('العودة لتسجيل الدخول')}
+            </button>
+          </div>
+        ) : passwordSaved ? (
+          <div className="col" style={{ gap: 12 }}>
+            <div className="alert ok" role="status">{t('تم تحديث كلمة المرور. نتحقق من جاهزية حسابك قبل المتابعة.')}</div>
+            {error && <div className="alert err" role="alert">{error}</div>}
+            <button className="btn block" disabled={busy} onClick={recheck}>
+              {busy ? t('جاري الحفظ...') : t('إعادة التحقق من الحساب')}
             </button>
           </div>
         ) : (

@@ -27,11 +27,11 @@ const session={access_token:jwt,refresh_token:'synthetic-refresh',expires_at:Mat
    if(u.origin===new URL(base).origin)return route.continue();
    if(u.hostname!=='review.invalid')return route.abort();
    requests.push({path:u.pathname,select:u.searchParams.get('select'),method:req.method()});
-   let data=[],status=200;const headers={'content-type':'application/json','content-range':'0-0/0'};
+   let data=[],status=200;const headers={'content-type':'application/json','content-range':'0-0/0','access-control-allow-origin':'*','access-control-expose-headers':'Content-Range'};
    const profile={id:sid,user_id:uid,company_id:cid,full_name:'مستخدم المراجعة',role:state.role||'supervisor',is_active:true,device_id:state.deviceUnbound?null:'review-device',force_password_change:state.forceChange,password_changed_at:state.passwordChangedAt??null};
    if(!['GET','HEAD'].includes(req.method()))writes.push({path:u.pathname,body:req.postDataJSON()});
    if(u.pathname.includes('/auth/v1/token')) {if(state.invalidLogin){status=400;data={code:'invalid_credentials',msg:'Invalid login credentials'};}else data=session;}
-   else if(u.pathname.includes('/auth/v1/user')){data=user;if(req.method()==='PUT'&&req.postDataJSON()?.password){state.forceChange=false;state.passwordChangedAt=new Date().toISOString();}}
+   else if(u.pathname.includes('/auth/v1/user')){data=user;if(req.method()==='PUT'&&req.postDataJSON()?.password&&!state.passwordNoAck){state.forceChange=false;state.passwordChangedAt=new Date().toISOString();}}
    else if(u.pathname.includes('/auth/v1/'))data={};
    else if(u.pathname.includes('/rpc/mdn_bind_device_v1')){status=state.bindError?403:200;data=state.bindError?{message:'binding denied'}:null;if(!state.bindError)state.deviceUnbound=false;}
    else if(u.pathname.includes('/supervisors')) {if(req.method()==='PATCH')state.forceChange=false;data={...profile,device_id:state.deviceUnbound?null:'review-device',force_password_change:state.forceChange,password_changed_at:state.passwordChangedAt??null};}
@@ -45,11 +45,13 @@ const session={access_token:jwt,refresh_token:'synthetic-refresh',expires_at:Mat
    else if(state.seeded && u.pathname.includes('/rest/v1/customers'))data=req.headers()['accept']?.includes('object')?customer:[customer];
    else if(state.seeded && u.pathname.includes('/rest/v1/products'))data=[{id:productId,name:'منتج اختبار صناعي',company_id:cid,price:25,is_active:true,unit:'قطعة'}];
    else if(state.seeded && u.pathname.includes('/rest/v1/visit_tasks')){state.visit.visit_tasks[0].is_completed=true;data=[{id:'task-test'}];}
+   else if(state.dashboardError && u.pathname.includes('/rest/v1/visits')) {status=403;data={code:'42501',message:'synthetic count/read denied'};}
    else if(state.seeded && u.pathname.includes('/rest/v1/visits')) {
     if(req.method()==='POST')state.visit={...req.postDataJSON(),id:req.postDataJSON().id || visitId,customers:customer,visit_tasks:[{id:'task-test',task_type:'other',title_ar:'مراجعة العرض',is_completed:false,is_mandatory:true,order_num:1}]};
     if(req.method()==='PATCH')state.visit={...state.visit,...req.postDataJSON()};
     headers['content-range']=state.visit?'0-0/1':'0-0/0';
     data=req.headers()['accept']?.includes('object')?state.visit??null:state.visit?[state.visit]:[];
+    const after=u.searchParams.get('id');if(Array.isArray(data)&&after?.startsWith('gt.'))data=data.filter(row=>row.id>after.slice(3));
    }
    else if(state.seeded && u.pathname.includes('/rest/v1/orders')) {
     if(req.method()==='POST')state.orders.push({...req.postDataJSON(),id:req.postDataJSON().id || 'order-test',customers:customer});
@@ -63,7 +65,11 @@ const session={access_token:jwt,refresh_token:'synthetic-refresh',expires_at:Mat
   const p=await c.newPage();p.setDefaultTimeout(12000);const errors=[];p.on('pageerror',e=>errors.push(e.message));
   return {c,p,state,writes,requests,errors};
  }
- async function run(name,fn){await fn();results.push(name);console.log('PASS '+name);}
+ async function run(name,fn){
+  if(process.env.REVIEW_CASE_FILTER&&!new RegExp(process.env.REVIEW_CASE_FILTER).test(name))return;
+  try{await fn();results.push(name);console.log('PASS '+name);}
+  catch(error){const p=browser.contexts().at(-1)?.pages().at(-1);if(p){await p.screenshot({path:path.join(output,'failed-scenario.png'),fullPage:true});console.log('Synthetic failure page: '+(await p.locator('body').innerText()).slice(0,1200));}throw error;}
+ }
  try {
   await run('anonymous login, validation, password toggle, labels, recovery form and mobile/desktop layout',async()=>{
    const f=await fixture({authenticated:false,invalidLogin:true});const {p,c}=f;
@@ -177,9 +183,31 @@ const session={access_token:jwt,refresh_token:'synthetic-refresh',expires_at:Mat
    await f.c.route('**/functions/v1/analyze-shelf',route=>{calls++;return route.fulfill({status:503,contentType:'application/json',body:'{}'});});
    await f.p.goto(base+'/shelf-audit?visit='+visitId+'&audit='+auditId);await f.p.getByRole('button',{name:'إعادة المحاولة',exact:true}).click();await f.p.getByText('تعذر إرسال طلب التحليل.',{exact:true}).waitFor();assert.equal(calls,1);assert.equal(patches,0);await f.c.close();
   });
+  await run('password acknowledgement retry never resubmits the password',async()=>{
+   const f=await fixture({forceChange:true,passwordNoAck:true});const p=f.p;await p.goto(base+'/set-password');await p.getByRole('button',{name:'حفظ ومتابعة'}).waitFor();
+   await p.getByLabel('كلمة المرور الجديدة',{exact:true}).fill('synthetic-new123');await p.getByLabel('تأكيد كلمة المرور',{exact:true}).fill('synthetic-new123');await p.getByRole('button',{name:'حفظ ومتابعة'}).click();
+   await p.getByText('لم يتأكد تحديث الحساب من الخادم بعد. أعد التحقق أو تواصل مع مدير النظام.',{exact:true}).waitFor();
+   assert.equal(await p.locator('input[type=password]').count(),0);assert.equal(f.requests.filter(r=>r.path==='/auth/v1/user'&&r.method==='PUT').length,1);
+   f.state.forceChange=false;f.state.passwordChangedAt=new Date().toISOString();await p.getByRole('button',{name:'إعادة التحقق من الحساب'}).click();await p.getByTestId('button-new-visit').waitFor();
+   assert.equal(f.requests.filter(r=>r.path==='/auth/v1/user'&&r.method==='PUT').length,1);await f.c.close();
+  });
+  await run('dashboard read errors show unavailable data and recover without fabricated zeroes',async()=>{
+   const f=await fixture({dashboardError:true});await f.p.goto(base+'/');await f.p.getByText('تعذر التحميل',{exact:true}).waitFor();assert.equal(await f.p.getByText('لا توجد زيارات بعد',{exact:true}).count(),0);
+   f.state.dashboardError=false;await f.p.getByRole('button',{name:'إعادة المحاولة',exact:true}).click();await f.p.getByTestId('button-new-visit').waitFor();await f.c.close();
+  });
+  await run('recent visit opens its selected detail rather than the visit list',async()=>{
+   const f=await fixture({seeded:true});f.state.visit={id:visitId,company_id:cid,supervisor_id:sid,customer_id:customerId,status:'in_progress',visit_date:new Date().toISOString(),check_in_time:new Date().toISOString(),visit_tasks:[],customers:{id:customerId,name:'زيارة اختبار صناعية'}};
+   await f.p.goto(base+'/');await f.p.getByTestId('row-recent-'+visitId).click();await f.p.waitForURL(base+'/visits/'+visitId);await f.c.close();
+  });
+  await run('queued visit stays on a truthful local confirmation until upload',async()=>{
+   const f=await fixture({seeded:true,permissions:[{screen_key:'new_visit',is_enabled:true}]});await f.c.route('**/rest/v1/visits*',route=>route.fulfill({status:503,contentType:'application/json',body:'{"message":"synthetic offline"}'}));
+   await f.p.goto(base+'/visits/new?customer='+customerId);await f.p.getByTestId('button-start-visit').click();await f.p.getByTestId('queued-visit-confirmation').waitFor({timeout:60000});assert.equal(new URL(f.p.url()).pathname,'/visits/new');
+   const pending=await f.p.evaluate(async({cid,sid})=>(await import('/src/lib/offline-sync.ts')).getOfflineQueue(cid,sid),{cid,sid});assert.equal(pending.filter(r=>r.type==='create_visit').length,1);await f.c.close();
+  });
   await run('admin empty states avoid unsupported performance claims',async()=>{
    const f=await fixture({role:'admin'});await f.p.setViewportSize({width:1440,height:1000});await f.p.goto(base+'/admin');await f.p.getByText('لم يُحدد مستهدف').waitFor();assert.equal(await f.p.getByText('الميدان منضبط بالكامل · لا تنبيهات طارئة').count(),0);await f.p.screenshot({path:path.join(output,'admin-1440.png'),fullPage:true});await f.c.close();
   });
  } finally {fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(results,null,2));await browser.close();}
+ if(!results.length)throw new Error('No browser scenarios selected');
  console.log(`${results.length} browser scenarios passed`);
 })().catch(error=>{console.error(error);process.exitCode=1});

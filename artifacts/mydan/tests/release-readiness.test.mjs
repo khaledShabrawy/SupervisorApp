@@ -4,13 +4,20 @@ import { publicProjectConfig, releaseConfig } from '../../../scripts/lib/release
 import { checkStaging } from '../../../scripts/testing/staging-readiness.mjs';
 const ref = 'abcdefghijklmnopqrst';
 const env = { STAGING_SUPABASE_PROJECT_REF: ref, STAGING_SUPABASE_URL: `https://${ref}.supabase.co`, STAGING_SUPABASE_ANON_KEY: 'sb_publishable_synthetic', STAGING_SUPERVISOR_ACCESS_TOKEN: 'supervisor', STAGING_ADMIN_ACCESS_TOKEN: 'admin', STAGING_OTHER_TENANT_ACCESS_TOKEN: 'other' };
-function api({ leak = false, empty = false } = {}) {
+function api({ leak = false, empty = false, ordersResponse, invalidIdentity = false, calls = [] } = {}) {
   return async (url, options) => {
     assert.equal(options.method, 'GET');
-    const u = new URL(url); const token = options.headers.Authorization.slice(7);
+    const u = new URL(url); const token = options.headers.Authorization?.slice(7);
+    assert.equal(options.headers.apikey, env.STAGING_SUPABASE_ANON_KEY);
+    calls.push({ path: u.pathname, token, headers: options.headers });
+    if (u.pathname === '/rest/v1/orders') {
+      const result = (typeof ordersResponse === 'function' ? ordersResponse(token) : ordersResponse)
+        ?? { status: token ? 403 : 401, body: { code: '42501', message: 'permission denied for table orders' } };
+      return new Response(JSON.stringify(result.body), { status: result.status, headers: { 'Content-Type': 'application/json' } });
+    }
     let body;
     if (u.pathname === '/auth/v1/settings') body = {};
-    else if (u.pathname === '/auth/v1/user') body = { id: token };
+    else if (u.pathname === '/auth/v1/user') body = invalidIdentity ? {} : { id: token };
     else if (u.searchParams.has('user_id')) body = [{ id: token, user_id: token, company_id: token === 'other' ? 'company-b' : 'company-a', role: token === 'admin' ? 'admin' : 'supervisor', is_active: true }];
     else if (u.searchParams.get('limit') === '0') body = [];
     else if (u.searchParams.has('supervisor_id')) body = [{ screen_key: 'new_visit', is_enabled: true }];
@@ -30,24 +37,70 @@ test('release config rejects mismatched projects, server keys, missing credentia
 test('staging readiness exercises existing rows with only GET requests', async () => {
   const result = await checkStaging(env, api());
   assert.equal(result.status, 'passed');
-  assert.equal(result.checks.filter(c => c.name.includes('cross-tenant')).length, 6);
+  assert.equal(result.checks.filter(c => c.name.includes('cross-tenant')).length, 5);
 });
 test('empty fixtures are incomplete rather than falsely passing isolation checks', async () => {
   const result = await checkStaging(env, api({ empty: true }));
   assert.equal(result.status, 'incomplete');
-  assert.equal(result.checks.filter(c => c.status === 'skipped').length, 6);
+  assert.equal(result.checks.filter(c => c.status === 'skipped').length, 5);
 });
 test('staging readiness detects a cross-tenant row and fails on unavailable identities', async () => {
   await assert.rejects(checkStaging(env, api({ leak: true })), /Cross-tenant/);
   await assert.rejects(checkStaging({ ...env, STAGING_ADMIN_ACCESS_TOKEN: '' }, api()), /STAGING_ADMIN_ACCESS_TOKEN/);
 });
 
-test('release plan deploys only the reviewed function without schema changes or disabled verification', async () => {
+test('retired sales are denied for verified identities and the valid anonymous public key', async () => {
+  const calls = [];
+  const result = await checkStaging(env, api({ calls }));
+  const denials = result.checks.filter(c => c.name.endsWith('retired sales read denied'));
+  assert.equal(denials.length, 4);
+  const salesCalls = calls.filter(call => call.path === '/rest/v1/orders');
+  assert.deepEqual(salesCalls.map(call => call.token), ['supervisor', 'admin', 'other', undefined]);
+  assert.equal(salesCalls.at(-1).headers.Authorization, undefined, 'publishable keys must not be sent as bearer JWTs');
+  assert.equal(salesCalls.at(-1).headers.apikey, env.STAGING_SUPABASE_ANON_KEY);
+  for (const token of ['supervisor', 'admin', 'other']) {
+    assert.ok(calls.findIndex(call => call.path === '/auth/v1/user' && call.token === token)
+      < calls.findIndex(call => call.path === '/rest/v1/orders' && call.token === token));
+  }
+});
+
+test('retired sales checks reject successful empty responses, missing tables and unrelated access errors', async () => {
+  for (const ordersResponse of [
+    { status: 200, body: [] },
+    { status: 404, body: { code: 'PGRST205' } },
+    { status: 403, body: { code: 'FORBIDDEN' } },
+    { status: 401, body: { code: 'PGRST301' } },
+    { status: 401, body: { code: '42501' } },
+  ]) {
+    await assert.rejects(checkStaging(env, api({ ordersResponse })), /Retired sales access denial was not verified/);
+  }
+});
+
+test('anonymous JWT/key failures cannot be mislabeled as expected SQL permission denial', async () => {
+  await assert.rejects(checkStaging(env, api({ ordersResponse: token => token
+    ? { status: 403, body: { code: '42501' } }
+    : { status: 401, body: { code: 'PGRST301' } }
+  })), /not verified for anonymous/);
+  const valid = api();
+  await assert.rejects(checkStaging(env, (url, options) => new URL(url).pathname === '/auth/v1/settings'
+    ? Promise.resolve(new Response('{"code":"invalid_api_key"}', { status: 401 }))
+    : valid(url, options)), /Staging request failed \(401\)/);
+});
+
+test('invalid test identities cannot satisfy retired sales permission checks', async () => {
+  const calls = [];
+  await assert.rejects(checkStaging(env, api({ invalidIdentity: true, calls })), /Invalid SUPERVISOR test identity/);
+  assert.equal(calls.filter(call => call.path === '/rest/v1/orders').length, 0);
+});
+
+test('release plan deploys only the three reviewed functions without schema changes or disabled verification', async () => {
   const { deploymentPlan, verifyPublicConnection } = await import('../../../scripts/deploy/release.mjs');
   const config = { url: `https://${ref}.supabase.co`, key: 'sb_publishable_synthetic', projectRef: ref, pagesProject: 'mydan-staging', branch: 'staging' };
   const plan = deploymentPlan(config);
   const commands = JSON.stringify(plan);
-  assert.match(commands, /invite-supervisor/);
+  const edge = plan.find(([,args]) => args.includes('supabase') && args.includes('deploy'))[1];
+  const start = edge.indexOf('deploy') + 1;
+  assert.deepEqual(edge.slice(start, edge.findIndex((arg,index) => index >= start && arg.startsWith('--'))), ['invite-supervisor','analyze-shelf','discover-customers']);
   assert.match(commands, /--remote=/);
   assert.doesNotMatch(commands, /--no-verify-jwt|--prune|db push|migration|secrets set/);
   await verifyPublicConnection(config, async () => new Response('{}', { status: 200 }));

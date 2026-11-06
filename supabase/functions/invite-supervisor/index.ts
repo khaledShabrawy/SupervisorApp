@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
   if (!auth.user) return err(401, "يلزم تسجيل الدخول.");
   const { data: caller } = await admin.from("supervisors")
     .select("id,company_id,role,is_active").eq("user_id", auth.user.id).maybeSingle();
-  if (!caller?.is_active || !["admin", "super_admin"].includes(caller.role)) return err(403, "هذه العمليات للمدراء فقط.");
+  if (!caller?.is_active || !["admin", "super_admin"].includes(caller.role) || !caller.company_id) return err(403, "هذه العمليات للمدراء فقط.");
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return err(400, "طلب غير صالح."); }
@@ -51,8 +51,11 @@ Deno.serve(async (req) => {
 
     if (!supervisorId) return err(400, "معرّف المستخدم مطلوب.");
     const { data: targetSup, error: supErr } = await admin.from("supervisors")
-      .select("id,user_id,full_name").eq("id", supervisorId).eq("company_id", companyId).maybeSingle();
+      .select("id,user_id,full_name,role").eq("id", supervisorId).eq("company_id", companyId).maybeSingle();
     if (supErr || !targetSup) return err(404, "المستخدم غير موجود.");
+    // Match the administrative RPC ceiling: no privileged lifecycle operation
+    // may target a system super-admin or an unknown role, even in this company.
+    if (!ROLES.includes(targetSup.role)) return err(403, "لا يمكنك إدارة بيانات الدخول لهذا الحساب.");
 
     const { data: authUser } = await admin.auth.admin.getUserById(targetSup.user_id);
     const targetEmail = authUser?.user?.email;
@@ -89,8 +92,11 @@ Deno.serve(async (req) => {
     if (!newPassword || newPassword.length < 8) return err(400, "كلمة المرور يجب أن تكون 8 أحرف على الأقل.");
 
     const { data: targetSup, error: supErr } = await admin.from("supervisors")
-      .select("id,user_id").eq("id", supervisorId).eq("company_id", companyId).maybeSingle();
+      .select("id,user_id,role").eq("id", supervisorId).eq("company_id", companyId).maybeSingle();
     if (supErr || !targetSup) return err(404, "المستخدم غير موجود.");
+    // Match the administrative RPC ceiling: no privileged lifecycle operation
+    // may target a system super-admin or an unknown role, even in this company.
+    if (!ROLES.includes(targetSup.role)) return err(403, "لا يمكنك إدارة بيانات الدخول لهذا الحساب.");
 
     const { error: pwErr } = await admin.auth.admin.updateUserById(targetSup.user_id, { password: newPassword });
     if (pwErr) return err(500, "تعذر تعيين كلمة المرور: " + pwErr.message);

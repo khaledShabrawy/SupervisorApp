@@ -71,7 +71,7 @@ export function useScreenDashboard() {
   return useQuery({
     queryKey: [...sc.base, 'dashboard', 'task-execution', day.start], retry: 1, gcTime: 300_000,
     queryFn: async ({ signal }) => {
-      const [visitsRes, auditsRes, actualVisitsRes, targetsRes, recentRes] = await Promise.allSettled([
+      const [visits, audits, actualVisits, targets, recentRes] = await Promise.all([
         countRows(sc, 'visits', signal, q => q.gte('visit_date', day.start).lt('visit_date', day.end)),
         countRows(sc, 'shelf_audit', signal, q => q.gte('created_at', day.startIso).lt('created_at', day.endIso)),
         countRows(sc, 'visits', signal, q => q.eq('status', 'completed').gte('visit_date', mr.start).lt('visit_date', mr.end)),
@@ -79,11 +79,8 @@ export function useScreenDashboard() {
         sc.scope(supabase.from('visits').select(VISIT_JOIN)).order('visit_date', { ascending: false })
           .order('check_in_time', { ascending: false, nullsFirst: false }).order('id').limit(5).abortSignal(signal),
       ]);
-      const visits = visitsRes.status === 'fulfilled' ? visitsRes.value : 0;
-      const audits = auditsRes.status === 'fulfilled' ? auditsRes.value : 0;
-      const actualVisits = actualVisitsRes.status === 'fulfilled' ? actualVisitsRes.value : 0;
-      const targets = targetsRes.status === 'fulfilled' ? targetsRes.value : [];
-      const recent = recentRes.status === 'fulfilled' && !recentRes.value.error ? (recentRes.value.data as VisitRow[]) : [];
+      if (recentRes.error || !Array.isArray(recentRes.data)) throw new Error('تعذر تحميل الزيارات.');
+      const recent = recentRes.data as VisitRow[];
 
       return {
         visits,
