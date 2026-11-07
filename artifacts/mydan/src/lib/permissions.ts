@@ -15,7 +15,7 @@ export const SCREENS = [
 export type ScreenKey = typeof SCREENS[number]['key'];
 
 export { isScreenAllowed } from './screen-permissions';
-import { isScreenAllowed } from './screen-permissions';
+import { isScreenAvailable } from './screen-permissions';
 
 export function useMyPermissions() {
   const sc = useScope();
@@ -24,7 +24,9 @@ export function useMyPermissions() {
     queryFn: async ({ signal }) => {
       const { data, error } = await supabase.from('supervisor_permissions').select('screen_key,is_enabled')
         .eq('supervisor_id', sc.supervisorId).eq('company_id', sc.companyId).abortSignal(signal);
-      if (error) throw new Error('تعذر تحميل صلاحيات الشاشات.');
+      if (error || !Array.isArray(data) || data.some(row => !row || typeof row.screen_key !== 'string' || typeof row.is_enabled !== 'boolean')) {
+        throw new Error('تعذر تحميل صلاحيات الشاشات.');
+      }
       return data as { screen_key: string; is_enabled: boolean }[];
     },
   });
@@ -33,7 +35,5 @@ export function useMyPermissions() {
 /** Returns true only when permissions are confirmed. Fails closed on load/error (security guardrail #2). */
 export function useScreenAllowed(key: ScreenKey): boolean {
   const sc = useScope(); const q = useMyPermissions();
-  if (sc.isAdmin) return true;
-  if (!q.data) return false;
-  return isScreenAllowed(q.data, key);
+  return isScreenAvailable(q.data, sc.supervisor.role, key, !q.isPending && !q.isError);
 }

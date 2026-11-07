@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useMyPermissions, isScreenAllowed, type ScreenKey } from '@/lib/permissions';
 import { useScope } from '@/lib/data';
+import { canBypassScreenGrant, isScreenRoleSupported } from '@/lib/screen-permissions';
 import EmptyState from './EmptyState';
 import LoadingSpinner from './LoadingSpinner';
 import { ShieldAlert } from './Icons';
@@ -11,22 +12,22 @@ export function RequireScreen({ screen, children }: { screen: ScreenKey; childre
   const sc = useScope();
   const q = useMyPermissions();
 
-  if (sc.isAdmin || sc.supervisor?.role === 'branch_manager' || sc.supervisor?.role === 'manager') return <>{children}</>;
-  if (screen === 'beat_plan' && ['admin', 'super_admin', 'branch_manager', 'manager'].includes(sc.supervisor?.role ?? '')) return <>{children}</>;
+  if (canBypassScreenGrant(sc.supervisor.role, screen)) return <>{children}</>;
 
-  if (q.isPending) return <LoadingSpinner />;
+  if (isScreenRoleSupported(sc.supervisor.role, screen) && q.isPending) return <LoadingSpinner />;
 
-  if (q.isError) return (
-    <div className="page">
+  if (isScreenRoleSupported(sc.supervisor.role, screen) && q.isError) return (
+    <div className="page" role="alert">
       <EmptyState
         icon={<ShieldAlert />}
         title={t('تعذر التحقق من الصلاحيات')}
         text={t('لا يمكن عرض هذه الشاشة. تحقق من الاتصال وأعد المحاولة.')}
+        action={{ label: t('إعادة المحاولة'), onClick: () => void q.refetch() }}
       />
     </div>
   );
 
-  if (!isScreenAllowed(q.data, screen)) return (
+  if (!isScreenRoleSupported(sc.supervisor.role, screen) || !q.data || !isScreenAllowed(q.data, screen)) return (
     <div className="page">
       <EmptyState
         icon={<ShieldAlert />}

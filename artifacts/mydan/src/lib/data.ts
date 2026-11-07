@@ -1,5 +1,7 @@
 import { newMutationId, isRetryableMutationError } from './mutation-receipt';
 import { insertScopedOnce, finishAttendanceOnce } from './persistent-mutation';
+import { finishVisitOnce } from './visit-task-completion';
+import { getOfflineQueue } from './offline-sync';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import { useMemo } from 'react';
@@ -290,77 +292,28 @@ export function useVisitOptions() {
 }
 
 export function useUpdateVisitStatus() {
-
   const sc = useScope(); const qc = useQueryClient();
-
   return useMutation({
-
-    mutationFn: async ({ id, status }: { id: string; status: 'completed' | 'skipped' }) => {
-
-      const checkOut = status === 'completed' ? nowIso() : null;
-
-      if (!navigator.onLine) {
-
-        enqueueOfflineAction({
-
-          type: 'update_visit_status',
-
-          companyId: sc.companyId,
-
-          supervisorId: sc.supervisorId,
-
-          payload: { id, status, check_out_time: checkOut },
-
-        });
-
-        return;
-
+    mutationFn: async ({id,status}:{id:string;status:'completed'|'skipped'}) => {
+      const existing=getOfflineQueue(sc.companyId,sc.supervisorId).find(row=>row.type==='update_visit_status'&&row.payload.id===id&&row.payload.status===status);
+      if(existing)return {queued:true};
+      const checkOut=status==='completed'?nowIso():null;
+      try {
+        if(!navigator.onLine)throw new Error('Offline');
+        await finishVisitOnce(supabase,{companyId:sc.companyId,supervisorId:sc.supervisorId},id,status,checkOut);
+        return {queued:false};
+      } catch(error) {
+        if(!isRetryableMutationError(error))throw error;
+        enqueueOfflineAction({type:'update_visit_status',companyId:sc.companyId,supervisorId:sc.supervisorId,payload:{id,status,check_out_time:checkOut}});
+        return {queued:true};
       }
-
-      const patch: Partial<Visit> = { status };
-
-      if (checkOut) patch.check_out_time = checkOut;
-
-      const { data, error } = await sc.scope(supabase.from('visits').update(patch).eq('id', id)).select('id');
-
-      if (error) {
-
-        // Fallback to offline queue on unexpected network drop
-
-        enqueueOfflineAction({
-
-          type: 'update_visit_status',
-
-          companyId: sc.companyId,
-
-          supervisorId: sc.supervisorId,
-
-          payload: { id, status, check_out_time: checkOut },
-
-        });
-
-        return;
-
-      }
-
-      if (!data?.length) throw new Error('لم يتم تحديث الزيارة. قد لا تملك الصلاحية.');
-
     },
-
-    onSuccess: () => {
-
-      const msg = navigator.onLine ? t('تم تحديث حالة الزيارة') : t('📶 تم حفظ حالة الزيارة دون اتصال. اضغط "رفع البيانات" عند توفر الشبكة');
-
-      notify(msg, 'success');
-
-      void inv(qc, sc, 'visits', 'visit-options', 'customers', 'dashboard', 'targets');
-
+    onSuccess: result => {
+      notify(t(result.queued?'📶 تم حفظ حالة الزيارة دون اتصال. اضغط "رفع البيانات" عند توفر الشبكة':'تم تحديث حالة الزيارة'),'success');
+      void inv(qc,sc,'visits','visit-options','customers','dashboard','targets');
     },
-
-    onError: (e: Error) => notify(e.message, 'error'),
-
+    onError:(error:Error)=>notify(error.message,'error'),
   });
-
 }
 
 export function useCreateVisit() {

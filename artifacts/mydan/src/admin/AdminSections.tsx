@@ -1414,8 +1414,10 @@ export function AdminProspects() {
 /* ---------- Field Survey History ---------- */
 const FS_STATUS: Record<string, { label: string; cls: string }> = {
   pending:    { label: 'في الانتظار',   cls: 'b-gray'  },
+  in_progress:{ label: 'قيد المعالجة', cls: 'b-blue'  },
   processing: { label: 'قيد المعالجة', cls: 'b-blue'  },
   completed:  { label: 'مكتمل',        cls: 'b-green' },
+  rejected:   { label: 'فشل',          cls: 'b-red'   },
   failed:     { label: 'فشل',          cls: 'b-red'   },
 };
 export function AdminFieldSurveys() {

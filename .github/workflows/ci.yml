@@ -104,6 +104,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test proposed authorization on synthetic data
         run: bash scripts/testing/database/run.sh --full-schema
+      - name: Test scaling authorization, concurrency and rollbacks
+        run: bash scripts/testing/database/run-scaling.sh
       - name: Set up Python for authenticated backup tests
         uses: actions/setup-python@v5
         with:

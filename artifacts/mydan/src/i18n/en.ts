@@ -1,6 +1,22 @@
 // English UI strings, keyed by the Arabic source text used in t('...').
 // Keep `{placeholders}` identical to the Arabic key.
 export const EN: Record<string, string> = {
+  'أنجز المهام الإلزامية قبل إنهاء الزيارة.': 'Complete mandatory tasks before finishing the visit.',
+  'استبيان': 'Survey',
+  "تعذر تأكيد حفظ مهمة الزيارة. تحقق من جاهزية الخادم ثم أعد المحاولة.": "The visit task could not be confirmed. Check server readiness and try again.",
+  "تم حفظ مهمة الزيارة": "Visit task saved",
+  "تعديل خطة المهمة": "Edit task plan",
+  "تخطيط مهام الزيارة": "Plan visit tasks",
+  "إضافة مهمة للزيارة": "Add visit task",
+  "يمكن تعديل الخطة قبل بدء الزيارة فقط. المهام المكتملة لا تتغير.": "The plan can be edited only before the visit starts. Completed tasks stay unchanged.",
+  "عنوان المهمة": "Task title",
+  "نوع المهمة": "Task type",
+  "مهمة متابعة": "Follow-up task",
+  "مهمة إلزامية": "Mandatory task",
+  "حفظ خطة المهمة": "Save task plan",
+  "تم حفظ إنجاز المهمة محلياً وتنتظر الرفع": "Task completion saved locally and waiting to upload",
+  "ارفع مهام الزيارة المعلقة قبل تسجيل الخروج.": "Upload pending visit tasks before checkout.",
+
   "تاريخ عرض النتيجة:": "Date viewed:",
   "تم تحديث كلمة المرور. نتحقق من جاهزية حسابك قبل المتابعة.": "Your password was updated. We are checking your account before continuing.",
   "لم يتأكد تحديث الحساب من الخادم بعد. أعد التحقق أو تواصل مع مدير النظام.": "The server has not confirmed your account update yet. Check again or contact your administrator.",

@@ -1,6 +1,7 @@
 import { newMutationId, isRecordId, sameInstant, withMutationReceipt } from './mutation-receipt';
 import { insertScopedOnce, finishAttendanceOnce } from './persistent-mutation';
 import { supabase } from './supabase';
+import { completeVisitTaskOnce, finishVisitOnce } from './visit-task-completion';
 import { t } from '@/i18n';
 import type { QueryClient } from '@tanstack/react-query';
 
@@ -10,7 +11,8 @@ export type OfflineActionType =
   | 'set_visit_outcome'
   | 'save_order'
   | 'attendance_action'
-  | 'submit_survey';
+  | 'submit_survey'
+  | 'complete_task';
 
 export interface OfflineAction {
   id: string;
@@ -204,14 +206,13 @@ async function uploadQueue(companyId?: string, supervisorId?: string): Promise<{
         }
       } else if (item.type === 'update_visit_status') {
         const { id, status, check_out_time } = item.payload;
-        const patch: Record<string, any> = { status };
-        if (status === 'completed') patch.check_out_time = check_out_time || item.createdAt;
-        const { error } = await supabase.from('visits').update(patch).eq('id', id).eq('company_id', companyId).eq('supervisor_id', supervisorId).select('id').single();
-        if (error) throw error;
+        await finishVisitOnce(supabase,{companyId,supervisorId},id,status,check_out_time || (status==='completed'?item.createdAt:null));
       } else if (item.type === 'set_visit_outcome') {
         const { id, outcome } = item.payload;
         const { error } = await supabase.from('visits').update({ visit_outcome: outcome }).eq('id', id).eq('company_id', companyId).eq('supervisor_id', supervisorId).select('id').single();
         if (error) throw error;
+      } else if (item.type === 'complete_task') {
+        await completeVisitTaskOnce(supabase,{companyId,supervisorId},item.payload.taskId,item.payload.visitId);
       } else if (item.type === 'save_order') {
         // Keep historical queue entries for reconciliation; never submit out-of-scope sales.
         throw new Error('عملية قديمة خارج نطاق التطبيق؛ احتُفظ بها دون إرسال.');

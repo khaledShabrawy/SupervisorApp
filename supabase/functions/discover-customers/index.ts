@@ -16,6 +16,7 @@ import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 import Anthropic from "npm:@anthropic-ai/sdk";
 import { zodOutputFormat } from "npm:@anthropic-ai/sdk/helpers/zod";
 import { z } from "npm:zod@3";
+import { createAiBudget, AiBudgetError, AI_PROVIDER_TIMEOUT_MS, type AiBudget } from "../_shared/ai-budget.ts";
 
 const SURVEY_BUCKET = "survey-photos";
 const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-2.5-flash";
@@ -60,7 +61,7 @@ const SYSTEM = `أنت خبير في تحليل الشوارع التجارية 
 - إذا لم تظهر أي محلات في الصورة، أعطِ stores_found = 0 ومصفوفة فارغة.`;
 
 /** Call Google Gemini Flash API */
-async function callGemini(apiKey: string, base64Data: string, mediaType: string): Promise<SurveyResult> {
+async function callGemini(apiKey: string, base64Data: string, mediaType: string, budget: AiBudget): Promise<SurveyResult> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
   const prompt = `${SYSTEM}
@@ -81,57 +82,62 @@ async function callGemini(apiKey: string, base64Data: string, mediaType: string)
   ]
 }`;
 
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{
-        parts: [
-          { inline_data: { mime_type: mediaType, data: base64Data } },
-          { text: prompt }
-        ]
-      }],
-      generationConfig: {
-        response_mime_type: "application/json",
-        temperature: 0.1
-      }
-    })
+  return budget.run("google-gemini", async () => {
+    const resp = await fetch(url, {
+      method: "POST",
+      signal: AbortSignal.timeout(AI_PROVIDER_TIMEOUT_MS),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: mediaType, data: base64Data } },
+            { text: prompt }
+          ]
+        }],
+        generationConfig: {
+          response_mime_type: "application/json",
+          temperature: 0.1
+        }
+      })
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`Gemini API HTTP ${resp.status}: ${errText}`);
+    }
+
+    const jsonResp = await resp.json();
+    const rawText = jsonResp?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawText) throw new Error("Gemini returned empty or blocked output");
+
+    const cleanJson = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '');
+    const parsed = JSON.parse(cleanJson);
+    return SurveySchema.parse(parsed);
   });
-
-  if (!resp.ok) {
-    const errText = await resp.text();
-    throw new Error(`Gemini API HTTP ${resp.status}: ${errText}`);
-  }
-
-  const jsonResp = await resp.json();
-  const rawText = jsonResp?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!rawText) throw new Error("Gemini returned empty or blocked output");
-
-  const cleanJson = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '');
-  const parsed = JSON.parse(cleanJson);
-  return SurveySchema.parse(parsed);
 }
 
 /** Fallback to Anthropic Claude Vision */
-async function callAnthropic(apiKey: string, base64Data: string, mediaType: MediaType): Promise<SurveyResult> {
-  const client = new Anthropic({ apiKey });
-  const response = await client.messages.parse({
-    model: CLAUDE_MODEL,
-    max_tokens: 4000,
-    system: SYSTEM,
-    messages: [{
-      role: "user",
-      content: [
-        { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
-        { type: "text", text: "حلل الصورة واكتشف جميع المحلات التجارية المرئية." },
-      ],
-    }],
-    output_config: { format: zodOutputFormat(SurveySchema) },
-  });
+async function callAnthropic(apiKey: string, base64Data: string, mediaType: MediaType, budget: AiBudget): Promise<SurveyResult> {
+  return budget.run("anthropic", async () => {
+    const client = new Anthropic({ apiKey, maxRetries: 0, timeout: AI_PROVIDER_TIMEOUT_MS });
+    const response = await client.messages.parse({
+      model: CLAUDE_MODEL,
+      max_tokens: 4000,
+      system: SYSTEM,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
+          { type: "text", text: "حلل الصورة واكتشف جميع المحلات التجارية المرئية." },
+        ],
+      }],
+      output_config: { format: zodOutputFormat(SurveySchema) },
+    });
 
-  if (response.stop_reason === "refusal") throw new Error("model declined to analyze this photo");
-  if (!response.parsed_output) throw new Error("model returned unparseable output");
-  return response.parsed_output;
+    if (response.stop_reason === "refusal") throw new Error("model declined to analyze this photo");
+    if (!response.parsed_output) throw new Error("model returned unparseable output");
+    return response.parsed_output;
+  });
 }
 
 function safeSurveyPhotoPath(value: unknown, companyId: string): value is string {
@@ -195,19 +201,26 @@ Deno.serve(async (req) => {
   if (!safeSurveyPhotoPath(survey.photo_url, caller.company_id)) {
     return json(403, { error: "photo path does not belong to your company" });
   }
-  if (survey.status === "processing") return json(409, { error: "analysis already running" });
+  if (survey.status === "in_progress") return json(409, { error: "analysis already running" });
   if (survey.status === "completed") return json(409, { error: "survey already completed" });
 
+  let budget: AiBudget;
+  try {
+    budget = createAiBudget(admin, { companyId: caller.company_id, supervisorId: caller.id, operation: "discover-customers", recordId: survey.id });
+  } catch (error) {
+    return json(503, { error: error instanceof AiBudgetError ? error.message : "تعذر التحقق من حدود التحليل." });
+  }
+
   const fail = async (status: number, error: string) => {
-    await admin.from("field_surveys").update({ status: "failed" })
-      .eq("id", survey.id).eq("company_id", caller.company_id).eq("status", "processing");
+    await admin.from("field_surveys").update({ status: "rejected" })
+      .eq("id", survey.id).eq("company_id", caller.company_id).eq("status", "in_progress");
     return json(status, { error });
   };
   // The row state is the atomic claim. Two requests may read pending, but only
-  // one can move pending/failed to processing and incur provider work.
+  // one can move pending/rejected to in_progress and incur provider work.
   const { data: claimed, error: claimError } = await admin.from("field_surveys")
-    .update({ status: "processing" }).eq("id", survey.id).eq("company_id", caller.company_id)
-    .in("status", ["pending", "failed"]).select("id").maybeSingle();
+    .update({ status: "in_progress" }).eq("id", survey.id).eq("company_id", caller.company_id)
+    .in("status", ["pending", "rejected"]).select("id").maybeSingle();
   if (claimError) return json(503, { error: "تعذر بدء التحليل. أعد المحاولة لاحقًا." });
   if (!claimed || claimed.id !== survey.id) return json(409, { error: "survey state changed or analysis already running" });
 
@@ -222,30 +235,35 @@ Deno.serve(async (req) => {
     // 4) Execute AI Discovery: Primary is Gemini Flash, Fallback is Anthropic
     let result: SurveyResult;
     let modelUsed: string;
+    let engineUsed: string;
 
     if (geminiKey) {
       try {
-        result = await callGemini(geminiKey, base64Data, mediaType);
+        result = await callGemini(geminiKey, base64Data, mediaType, budget);
         modelUsed = GEMINI_MODEL;
+        engineUsed = "google-gemini";
       } catch (geminiErr) {
-        console.warn("Gemini Flash survey failed, trying fallback:", geminiErr);
+        if (geminiErr instanceof AiBudgetError) throw geminiErr;
+        console.warn("Gemini survey failed; considering a separately budgeted fallback");
         if (anthropicKey) {
-          result = await callAnthropic(anthropicKey, base64Data, mediaType);
+          result = await callAnthropic(anthropicKey, base64Data, mediaType, budget);
           modelUsed = CLAUDE_MODEL;
+          engineUsed = "anthropic";
         } else {
           throw geminiErr;
         }
       }
     } else {
-      result = await callAnthropic(anthropicKey!, base64Data, mediaType);
+      result = await callAnthropic(anthropicKey!, base64Data, mediaType, budget);
       modelUsed = CLAUDE_MODEL;
+      engineUsed = "anthropic";
     }
 
     const { data: saved, error: saveError } = await admin.from("field_surveys").update({
       stores_found: result.stores_found,
-      ai_raw_result: { ...result, model: modelUsed, engine: geminiKey ? "google-gemini" : "anthropic" },
+      ai_raw_result: { ...result, model: modelUsed, engine: engineUsed },
       status: "completed",
-    }).eq("id", survey.id).eq("company_id", caller.company_id).eq("status", "processing")
+    }).eq("id", survey.id).eq("company_id", caller.company_id).eq("status", "in_progress")
       .select("id").maybeSingle();
     if (saveError || !saved || saved.id !== survey.id) {
       return await fail(500, "تعذر تأكيد حفظ نتيجة المسح. حدّث الصفحة للتحقق قبل إعادة المحاولة.");
@@ -260,7 +278,8 @@ Deno.serve(async (req) => {
       model: modelUsed,
     });
   } catch (err: any) {
-    console.error("discover-customers error:", err);
-    return await fail(500, err?.message || "internal error");
+    if (err instanceof AiBudgetError) return await fail(err.status, err.message);
+    console.error("discover-customers provider or processing failure");
+    return await fail(500, "تعذر تحليل الصورة. أعد المحاولة لاحقًا.");
   }
 });
