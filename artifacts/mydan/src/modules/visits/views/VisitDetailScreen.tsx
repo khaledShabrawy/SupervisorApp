@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle, Camera, CheckCheck, ClipboardList, Compass, Plus, ScanSearch, ShieldCheck, ShoppingCart } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +18,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Customer, Visit } from '@/types/database';
 import { t } from '@/i18n';
 import { confirm } from '@/lib/confirm';
+import { useSaveManagerTask } from '@/lib/manager-tasks';
+import { newMutationId, isRetryableMutationError } from '@/lib/mutation-receipt';
+import { completeVisitTaskOnce } from '@/lib/visit-task-completion';
+import { enqueueOfflineAction, getOfflineQueue, subscribeToQueueChanges } from '@/lib/offline-sync';
+import type { ManagerTaskDraft } from '@/lib/manager-task-input';
 
 interface VisitTask {
   id: string;
@@ -64,32 +69,34 @@ function useVisitDetail(id: string) {
 }
 
 function useCompleteTask() {
-  const qc = useQueryClient();
+  const qc = useQueryClient(), sc = useScope();
   return useMutation({
-    mutationFn: async ({ taskId, visitId }: { taskId: string; visitId: string }) => {
-      const { data, error } = await supabase
-        .from('visit_tasks')
-        .update({ is_completed: true, completed_at: new Date().toISOString() })
-        .eq('id', taskId)
-        .eq('visit_id', visitId)
-        .select('id');
-      if (error) throw new Error(t('تعذر تحديث المهمة.'));
-      if (!data?.length) throw new Error(t('لم يتم تحديث المهمة. قد لا تملك الصلاحية.'));
+    mutationFn: async ({taskId,visitId}:{taskId:string;visitId:string}) => {
+      try {
+        await completeVisitTaskOnce(supabase,{companyId:sc.companyId,supervisorId:sc.supervisorId},taskId,visitId);
+        return {queued:false};
+      } catch(error) {
+        if(!isRetryableMutationError(error)) throw error;
+        const alreadyQueued=getOfflineQueue(sc.companyId,sc.supervisorId)
+          .some(row=>row.type==='complete_task'&&row.payload.taskId===taskId&&row.payload.visitId===visitId);
+        if(!alreadyQueued) enqueueOfflineAction({type:'complete_task',companyId:sc.companyId,supervisorId:sc.supervisorId,payload:{taskId,visitId}});
+        return {queued:true};
+      }
     },
-    onSuccess: () => {
-      notify(t('✅ تم إنجاز المهمة'), 'success');
-      qc.invalidateQueries({ predicate: (q) => q.queryKey.includes('visit-detail') });
+    onSuccess: result => {
+      notify(t(result.queued?'تم حفظ إنجاز المهمة محلياً وتنتظر الرفع':'✅ تم إنجاز المهمة'), 'success');
+      void qc.invalidateQueries({predicate:query=>query.queryKey.includes('visit-detail')});
     },
-    onError: (e: Error) => notify(e.message, 'error'),
+    onError:(error:Error)=>notify(error.message,'error'),
   });
 }
 
 const TaskItem = memo(function TaskItem({
-  task, visitId, customerName, customerPhone, visitDate, onComplete, onAction,
+  task, visitId, customerName, customerPhone, visitDate, onComplete, onAction, canComplete, onEdit,
 }: {
   task: VisitTask; visitId: string; customerName?: string; customerPhone?: string | null; visitDate?: string;
   onComplete: (taskId: string, visitId: string) => void;
-  onAction: (task: VisitTask) => void;
+  onAction: (task: VisitTask) => void; canComplete: boolean; onEdit?: (task: VisitTask) => void;
 }) {
   const complete = useCallback(() => onComplete(task.id, visitId), [onComplete, task.id, visitId]);
   const action = useCallback(() => onAction(task), [onAction, task]);
@@ -132,7 +139,8 @@ const TaskItem = memo(function TaskItem({
       >
         <span>💬</span>
       </button>
-      {!task.is_completed && (
+      {onEdit && !task.is_completed && <button type="button" className="btn sm ghost" onClick={() => onEdit(task)} data-testid={`button-edit-task-${task.id}`}>{t('تعديل خطة المهمة')}</button>}
+      {!task.is_completed && canComplete && (
         <div className="row" style={{ gap: 6, flexShrink: 0 }}>
           {['shelf_audit', 'competitor_check'].includes(task.task_type) && (
             <button className="btn sm ghost" style={{ fontSize: 13, padding: '0 10px' }} onClick={action}>{t('فتح')}</button>
@@ -242,7 +250,30 @@ export default function VisitDetailScreen() {
   const settings = useAppSettings();
   const fieldSurveyAllowed = useScreenAllowed('field_survey');
   const detail = useVisitDetail(id ?? '');
+  const saveManagerTask = useSaveManagerTask();
+  const [taskDraft, setTaskDraft] = useState<Omit<ManagerTaskDraft, 'visitId'> | null>(null);
+  const canPlan = !!supervisor?.is_active && ['admin','super_admin','branch_manager'].includes(supervisor.role)
+    && detail.data?.status === 'pending' && !detail.data.check_in_time && !detail.data.check_out_time;
+  const addTask = useCallback(() => setTaskDraft({ taskId:newMutationId(), title:'', kind:'other', mandatory:false }), []);
+  const editTask = useCallback((task:VisitTask) => {
+    if (['shelf_audit','competitor_check','survey','other'].includes(task.task_type)) {
+      setTaskDraft({ taskId:task.id,title:task.title_ar,kind:task.task_type as ManagerTaskDraft['kind'],mandatory:task.is_mandatory });
+    }
+  }, []);
+  const submitTask = useCallback((event:FormEvent) => {
+    event.preventDefault();
+    if (!id || !taskDraft || !canPlan) return;
+    saveManagerTask.mutate({ ...taskDraft, visitId:id }, {onSuccess:()=>setTaskDraft(null)});
+  }, [id,taskDraft,canPlan,saveManagerTask]);
   const completeTask = useCompleteTask();
+  const [pendingTaskIds,setPendingTaskIds]=useState<string[]>([]);
+  useEffect(()=>{
+    if(!supervisor || !id)return;
+    const refresh=()=>setPendingTaskIds(getOfflineQueue(supervisor.company_id,supervisor.id)
+      .filter(row=>row.type==='complete_task'&&row.payload.visitId===id).map(row=>row.payload.taskId));
+    refresh();
+    return subscribeToQueueChanges(refresh,supervisor.company_id,supervisor.id);
+  },[supervisor,id]);
   const checkOut = useUpdateVisitStatus();
   const setOutcome = useSetVisitOutcome();
   const pickOutcome = useCallback((outcome: VisitOutcome) => { if (id) setOutcome.mutate({ id, outcome }); }, [id, setOutcome]);
@@ -260,14 +291,15 @@ export default function VisitDetailScreen() {
 
   const handleCheckOut = useCallback(async () => {
     if (!id || !detail.data) return;
+    if(pendingTaskIds.length){notify(t('ارفع مهام الزيارة المعلقة قبل تسجيل الخروج.'),'error');return;}
     if (!isVisitOutcome(detail.data.visit_outcome)) { notify(t('اختر نتيجة الزيارة أولاً: متعامل / غير متعامل / غير موجود'), 'error'); return; }
     // Mandatory tasks only apply when the outlet is trading with us.
     const open = detail.data.visit_outcome === 'متعامل'
       ? detail.data.visit_tasks.filter((t) => t.is_mandatory && !t.is_completed).length : 0;
-    const msg = open ? `توجد ${open} مهام إلزامية غير منجزة. إنهاء الزيارة على أي حال؟` : 'إنهاء الزيارة وتسجيل الخروج؟';
-    if (!await confirm(msg)) return;
+    if(open){notify(t('أنجز المهام الإلزامية قبل إنهاء الزيارة.'),'error');return;}
+    if (!await confirm('إنهاء الزيارة وتسجيل الخروج؟')) return;
     checkOut.mutate({ id, status: 'completed' }, { onSuccess: () => nav('/visits', { replace: true }) });
-  }, [checkOut, id, nav, detail.data]);
+  }, [checkOut, id, nav, detail.data, pendingTaskIds]);
 
   const goShelfAudit = useCallback(() => {
     const c = detail.data?.customers;
@@ -312,6 +344,23 @@ export default function VisitDetailScreen() {
             {detail.data.notes && <div style={{ fontSize: 14 }}>{detail.data.notes}</div>}
           </div>
 
+          {canPlan && <section className="card col" aria-label={t('تخطيط مهام الزيارة')} data-testid="manager-task-planning">
+            <div className="row between">
+              <div className="title">{t('تخطيط مهام الزيارة')}</div>
+              <button type="button" className="btn sm" onClick={addTask} disabled={saveManagerTask.isPending} data-testid="button-add-manager-task">{t('إضافة مهمة للزيارة')}</button>
+            </div>
+            <p className="muted" style={{margin:0}}>{t('يمكن تعديل الخطة قبل بدء الزيارة فقط. المهام المكتملة لا تتغير.')}</p>
+            {taskDraft && <form onSubmit={submitTask} className="col" style={{gap:10}}>
+              <label className="f">{t('عنوان المهمة')}<input className="input" required maxLength={200} value={taskDraft.title} onChange={event=>setTaskDraft({...taskDraft,title:event.target.value})} data-testid="input-manager-task-title" /></label>
+              <label className="f">{t('نوع المهمة')}<select className="input" value={taskDraft.kind} onChange={event=>setTaskDraft({...taskDraft,kind:event.target.value as ManagerTaskDraft['kind']})}>
+                <option value="other">{t('مهمة متابعة')}</option><option value="shelf_audit">{t('مراجعة الرف')}</option><option value="competitor_check">{t('منتجات المنافسين')}</option><option value="survey">{t('استبيان')}</option>
+              </select></label>
+              <label className="row" style={{minHeight:44}}><input type="checkbox" checked={taskDraft.mandatory} onChange={event=>setTaskDraft({...taskDraft,mandatory:event.target.checked})} />{t('مهمة إلزامية')}</label>
+              <div className="row"><button className="btn grow" disabled={saveManagerTask.isPending || !taskDraft.title.trim()} data-testid="button-save-manager-task">{saveManagerTask.isPending?t('جاري الحفظ...'):t('حفظ خطة المهمة')}</button><button type="button" className="btn ghost" disabled={saveManagerTask.isPending} onClick={()=>setTaskDraft(null)}>{t('إلغاء')}</button></div>
+              {saveManagerTask.isError && <div role="alert" className="alert err">{saveManagerTask.error.message}</div>}
+            </form>}
+          </section>}
+
           <OutcomePicker value={detail.data.visit_outcome} disabled={detail.data.status !== 'in_progress' || setOutcome.isPending} onPick={pickOutcome} />
           <GeoStatus v={detail.data} radius={settings.geofence_radius_m} />
 
@@ -331,6 +380,8 @@ export default function VisitDetailScreen() {
                   visitDate={detail.data.visit_date}
                   onComplete={handleComplete}
                   onAction={handleAction}
+                  canComplete={detail.data.status==='in_progress' && detail.data.supervisor_id===supervisor?.id && !pendingTaskIds.includes(task.id)}
+                  onEdit={canPlan ? editTask : undefined}
                 />
               ))}
             </div>
@@ -348,7 +399,7 @@ export default function VisitDetailScreen() {
           )}
 
           {detail.data.status === 'in_progress' && (
-            <button className="btn success block" disabled={checkOut.isPending || !detail.data.visit_outcome} onClick={handleCheckOut} data-testid="button-check-out">
+            <button className="btn success block" disabled={checkOut.isPending || !detail.data.visit_outcome || pendingTaskIds.length>0} onClick={handleCheckOut} data-testid="button-check-out">
               <CheckCheck size={20} />
               {checkOut.isPending ? t('جاري الحفظ...') : t('إنهاء الزيارة وتسجيل الخروج')}
             </button>

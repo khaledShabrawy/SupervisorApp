@@ -16,14 +16,15 @@ import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 import Anthropic from "npm:@anthropic-ai/sdk";
 import { zodOutputFormat } from "npm:@anthropic-ai/sdk/helpers/zod";
 import { z } from "npm:zod@3";
+import { createAiBudget, AiBudgetError, AI_PROVIDER_TIMEOUT_MS, type AiBudget } from "../_shared/ai-budget.ts";
 
 const PHOTO_BUCKET = "shelf-photos";
-const CANDIDATE_GEMINI_MODELS = [
+const CANDIDATE_GEMINI_MODELS = [...new Set([
   Deno.env.get("GEMINI_MODEL"),
   "gemini-2.5-flash",
   "gemini-2.0-flash",
   "gemini-1.5-flash",
-].filter(Boolean) as string[];
+].filter(Boolean) as string[])];
 
 const CLAUDE_MODEL = Deno.env.get("CLAUDE_MODEL") ?? "claude-sonnet-4-6";
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB limit
@@ -100,7 +101,7 @@ function storagePath(photoUrl: unknown): string | null {
 }
 
 /** Analyze shelf using Google Gemini Flash API with automatic multi-model fallback */
-async function callGemini(apiKey: string, base64Data: string, mediaType: string, brand: string, competitors: string): Promise<{ result: AuditResult; model: string }> {
+async function callGemini(apiKey: string, base64Data: string, mediaType: string, brand: string, competitors: string, budget: AiBudget): Promise<{ result: AuditResult; model: string }> {
   const prompt = `${SYSTEM}
 
 العلامة المستهدفة: ${brand}
@@ -138,38 +139,42 @@ async function callGemini(apiKey: string, base64Data: string, mediaType: string,
   let lastError: Error | null = null;
   for (const model of CANDIDATE_GEMINI_MODELS) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: mediaType, data: base64Data } },
-              { text: prompt }
-            ]
-          }],
-          generationConfig: {
-            response_mime_type: "application/json",
-            temperature: 0.1
-          }
-        })
+      return await budget.run("google-gemini", async () => {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const resp = await fetch(url, {
+          method: "POST",
+          signal: AbortSignal.timeout(AI_PROVIDER_TIMEOUT_MS),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { inline_data: { mime_type: mediaType, data: base64Data } },
+                { text: prompt }
+              ]
+            }],
+            generationConfig: {
+              response_mime_type: "application/json",
+              temperature: 0.1
+            }
+          })
+        });
+
+        if (!resp.ok) {
+          const errText = await resp.text();
+          throw new Error(`Gemini ${model} HTTP ${resp.status}: ${errText}`);
+        }
+
+        const jsonResp = await resp.json();
+        const rawText = jsonResp?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!rawText) throw new Error(`Gemini ${model} returned empty or blocked output`);
+
+        const cleanJson = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '');
+        const parsed = JSON.parse(cleanJson);
+        return { result: AuditSchema.parse(parsed), model };
       });
-
-      if (!resp.ok) {
-        const errText = await resp.text();
-        throw new Error(`Gemini ${model} HTTP ${resp.status}: ${errText}`);
-      }
-
-      const jsonResp = await resp.json();
-      const rawText = jsonResp?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawText) throw new Error(`Gemini ${model} returned empty or blocked output`);
-
-      const cleanJson = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '');
-      const parsed = JSON.parse(cleanJson);
-      return { result: AuditSchema.parse(parsed), model };
     } catch (err: any) {
-      console.warn(`[analyze-shelf] Gemini model ${model} attempt failed:`, err?.message ?? err);
+      if (err instanceof AiBudgetError) throw err;
+      console.warn(`[analyze-shelf] Gemini model ${model} attempt failed`);
       lastError = err;
     }
   }
@@ -178,25 +183,27 @@ async function callGemini(apiKey: string, base64Data: string, mediaType: string,
 }
 
 /** Fallback to Anthropic Claude Vision if ANTHROPIC_API_KEY is configured */
-async function callAnthropic(apiKey: string, base64Data: string, mediaType: MediaType, brand: string, competitors: string): Promise<AuditResult> {
-  const client = new Anthropic({ apiKey });
-  const response = await client.messages.parse({
-    model: CLAUDE_MODEL,
-    max_tokens: 4000,
-    system: SYSTEM,
-    messages: [{
-      role: "user",
-      content: [
-        { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
-        { type: "text", text: `العلامة المستهدفة: ${brand}\nالمنافسون المتوقعون: ${competitors}\nحلل الرف.` },
-      ],
-    }],
-    output_config: { format: zodOutputFormat(AuditSchema) },
-  });
+async function callAnthropic(apiKey: string, base64Data: string, mediaType: MediaType, brand: string, competitors: string, budget: AiBudget): Promise<AuditResult> {
+  return budget.run("anthropic", async () => {
+    const client = new Anthropic({ apiKey, maxRetries: 0, timeout: AI_PROVIDER_TIMEOUT_MS });
+    const response = await client.messages.parse({
+      model: CLAUDE_MODEL,
+      max_tokens: 4000,
+      system: SYSTEM,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
+          { type: "text", text: `العلامة المستهدفة: ${brand}\nالمنافسون المتوقعون: ${competitors}\nحلل الرف.` },
+        ],
+      }],
+      output_config: { format: zodOutputFormat(AuditSchema) },
+    });
 
-  if (response.stop_reason === "refusal") throw new Error("model declined to analyze this photo");
-  if (!response.parsed_output) throw new Error("model returned unparseable output");
-  return response.parsed_output;
+    if (response.stop_reason === "refusal") throw new Error("model declined to analyze this photo");
+    if (!response.parsed_output) throw new Error("model returned unparseable output");
+    return response.parsed_output;
+  });
 }
 
 Deno.serve(async (req) => {
@@ -244,68 +251,27 @@ Deno.serve(async (req) => {
   const brand = settings.target_brand_name || "العلامة المستهدفة";
   const competitors = (settings.competitor_brands ?? []).join("، ") || "المنافسون";
 
-  // Rate limiting: daily cap + concurrent cap per company + hourly cap per supervisor.
-  const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0);
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const rawLimits = [
-    Deno.env.get("MAX_AUDITS_PER_DAY") ?? "100",
-    Deno.env.get("MAX_CONCURRENT_AUDITS") ?? "5",
-    Deno.env.get("MAX_AUDITS_PER_HOUR_USER") ?? "20",
-  ];
-  if (rawLimits.some(value => !/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)))) {
-    return json(503, { error: "تعذر التحقق من حدود التحليل. أعد المحاولة لاحقًا." });
-  }
-  const [maxPerDay, maxConcurrent, maxPerHour] = rawLimits.map(Number);
-  let quotaResults: { count: number | null; error: unknown }[];
+  let budget: AiBudget;
   try {
-    quotaResults = await Promise.all([
-      admin.from("shelf_audit")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", caller.company_id)
-        .eq("status", "completed")
-        .gte("audited_at", todayStart.toISOString()),
-      admin.from("shelf_audit")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", caller.company_id)
-        .eq("status", "processing"),
-      admin.from("shelf_audit")
-        .select("id", { count: "exact", head: true })
-        .eq("supervisor_id", caller.id)
-        .or(`audited_at.gte.${oneHourAgo},status.eq.processing`),
-    ]);
-  } catch {
-    return json(503, { error: "تعذر التحقق من حدود التحليل. أعد المحاولة لاحقًا." });
+    budget = createAiBudget(admin, { companyId: caller.company_id, supervisorId: caller.id, operation: "analyze-shelf", recordId: audit.id });
+  } catch (error) {
+    return json(503, { error: error instanceof AiBudgetError ? error.message : "تعذر التحقق من حدود التحليل." });
   }
-  if (quotaResults.some(({ error, count }) => error || !Number.isSafeInteger(count) || count === null || count < 0)) {
-    return json(503, { error: "تعذر التحقق من حدود التحليل. أعد المحاولة لاحقًا." });
-  }
-  const [{ count: todayCompleted }, { count: inFlight }, { count: userHourly }] = quotaResults;
-  if (userHourly! >= maxPerHour)
-    return json(429, { error: `تجاوزت الحد المسموح به لتحليلات الذكاء الاصطناعي (${maxPerHour} تحليل/ساعة). يرجى الانتظار قليلاً.` });
-  if (todayCompleted! >= maxPerDay)
-    return json(429, { error: `تم تجاوز الحد اليومي لتحليلات الذكاء الاصطناعي (${maxPerDay} تحليل/يوم). يُجدَّد عند منتصف الليل.` });
-  if (inFlight! >= maxConcurrent)
-    return json(429, { error: `يوجد ${inFlight} تحليلات قيد المعالجة حالياً. يرجى الانتظار قليلاً.` });
 
   const path = storagePath(audit.photo_url);
   if (!path || !path.startsWith(`${audit.company_id}/`)) return json(400, { error: "photo outside company folder" });
 
   const fail = async (status: number, error: string) => {
-    await admin.from("shelf_audit").update({ status: "failed" }).eq("id", audit.id);
+    await admin.from("shelf_audit").update({ status: "failed" })
+      .eq("id", audit.id).eq("company_id", caller.company_id).eq("status", "processing");
     return json(status, { error });
   };
 
-  // Atomic claim: UPDATE only succeeds when status is not already 'processing' or 'completed'.
-  const { count: claimedCount } = await admin.from("shelf_audit")
-    .update({ status: "processing" })
-    .eq("id", audit.id)
-    .not("status", "in", "(processing,completed)")
-    .select("id", { count: "exact", head: true });
-  if (!claimedCount) {
-    const { data: cur } = await admin.from("shelf_audit").select("status").eq("id", audit.id).maybeSingle();
-    const msg = cur?.status === "completed" ? "audit already analyzed" : "analysis already running";
-    return json(409, { error: msg });
-  }
+  const { data: claimed, error: claimError } = await admin.from("shelf_audit")
+    .update({ status: "processing" }).eq("id", audit.id).eq("company_id", caller.company_id)
+    .in("status", ["pending", "failed"]).select("id").maybeSingle();
+  if (claimError) return json(503, { error: "تعذر بدء التحليل. أعد المحاولة لاحقًا." });
+  if (!claimed || claimed.id !== audit.id) return json(409, { error: "audit state changed or analysis already running" });
 
   try {
     // 4) Download photo from private storage
@@ -318,36 +284,41 @@ Deno.serve(async (req) => {
     // 5) Execute analysis: Primary is Gemini Flash Vision, fallback is Anthropic
     let result: AuditResult;
     let modelUsed: string;
+    let engineUsed: string;
 
     if (geminiKey) {
       try {
-        const geminiRes = await callGemini(geminiKey, base64Data, mediaType, brand, competitors);
+        const geminiRes = await callGemini(geminiKey, base64Data, mediaType, brand, competitors, budget);
         result = geminiRes.result;
         modelUsed = geminiRes.model;
+        engineUsed = "google-gemini";
       } catch (geminiErr) {
-        console.warn("Gemini Flash failed, attempting fallback if available:", geminiErr);
+        if (geminiErr instanceof AiBudgetError) throw geminiErr;
+        console.warn("Gemini Flash failed; considering a separately budgeted fallback");
         if (anthropicKey) {
-          result = await callAnthropic(anthropicKey, base64Data, mediaType, brand, competitors);
+          result = await callAnthropic(anthropicKey, base64Data, mediaType, brand, competitors, budget);
           modelUsed = CLAUDE_MODEL;
+          engineUsed = "anthropic";
         } else {
           throw geminiErr;
         }
       }
     } else {
-      result = await callAnthropic(anthropicKey!, base64Data, mediaType, brand, competitors);
+      result = await callAnthropic(anthropicKey!, base64Data, mediaType, brand, competitors, budget);
       modelUsed = CLAUDE_MODEL;
+      engineUsed = "anthropic";
     }
 
     const score = Math.max(0, Math.min(100, Math.round(result.score)));
-    const { error: updateError } = await admin.from("shelf_audit").update({
+    const { data: saved, error: updateError } = await admin.from("shelf_audit").update({
       audit_summary_ar: result.audit_summary_ar,
       audit_score: score,
-      ai_detailed_report: { ...result, score, model: modelUsed, engine: geminiKey ? "google-gemini" : "anthropic" },
+      ai_detailed_report: { ...result, score, model: modelUsed, engine: engineUsed },
       status: "completed",
       audited_at: new Date().toISOString(),
-    }).eq("id", audit.id);
+    }).eq("id", audit.id).eq("company_id", caller.company_id).eq("status", "processing").select("id").maybeSingle();
 
-    if (updateError) return await fail(500, "could not save result to database");
+    if (updateError || !saved || saved.id !== audit.id) return await fail(500, "could not save result to database");
 
     if (result.target_brand_metrics?.out_of_stock || (result.target_brand_metrics?.oos_items && result.target_brand_metrics.oos_items.length > 0)) {
       const oosList = (result.target_brand_metrics.oos_items ?? []).join('، ') || brand;
@@ -369,7 +340,8 @@ Deno.serve(async (req) => {
       model: modelUsed
     });
   } catch (err: any) {
-    console.error("[analyze-shelf] error:", err);
+    if (err instanceof AiBudgetError) return await fail(err.status, err.message);
+    console.error("[analyze-shelf] provider or processing failure");
     return await fail(500, "فشل تحليل الرف — يرجى المحاولة مرة أخرى");
   }
 });

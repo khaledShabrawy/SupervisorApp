@@ -17,7 +17,7 @@ export function deploymentPlan(config) {
     ['corepack', ['pnpm', 'run', 'typecheck']],
     ['corepack', ['pnpm', 'test']],
     ['corepack', ['pnpm', 'run', 'build']],
-    ['npx', ['--yes', '--package=supabase@3.0.0', 'supabase', 'functions', 'deploy', 'invite-supervisor', 'analyze-shelf', 'discover-customers', `--remote=${config.projectRef}`, '--use-api', '--yes']],
+    ['npx', ['--yes', '--package=supabase@3.0.0', 'supabase', 'functions', 'deploy', 'invite-supervisor', 'analyze-shelf', 'discover-customers', 'push-notify', `--remote=${config.projectRef}`, '--use-api', '--yes']],
     ['npx', ['--yes', '--package=wrangler@4.158.0', 'wrangler', 'pages', 'deploy', 'artifacts/mydan/dist/public', '--project-name', config.pagesProject, '--branch', config.branch]],
   ];
 }
@@ -41,8 +41,33 @@ export async function verifyCloudflareProject(env, config, request = fetch) {
   if (!body.success || body.result?.name !== config.pagesProject || typeof branch !== 'string' || !branch || /[\r\n]/.test(branch)) {
     throw new Error('Cloudflare returned an unexpected project configuration.');
   }
+  if (config.target === 'production' && body.result.source?.type === 'github' && body.result.source.config?.production_deployments_enabled !== false) throw new Error('Disable automatic production Git deployments before using the gated release path.');
   if (config.target === 'staging' && branch === config.branch) throw new Error('The staging branch is configured as production in this Pages project.');
   return config.target === 'production' ? branch : config.branch;
+}
+
+export async function verifyAuthOrigin(env, config, request = fetch) {
+  const raw = env.APP_ORIGIN || (config.target === 'production' ? 'https://mydan.digityoucan.com' : '');
+  let origin;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || url.pathname !== '/' || /(^|\.)netlify\.(app|com)$/i.test(url.hostname)) throw new Error();
+    origin = url.origin;
+  } catch { throw new Error('Configure an explicit HTTPS APP_ORIGIN on the current hosting platform.'); }
+  const response = await request(`https://api.supabase.com/v1/projects/${config.projectRef}/config/auth`, {
+    headers: { Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}` }, redirect: 'error', signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) throw new Error(`Auth origin verification failed (HTTP ${response.status}).`);
+  const body = await response.json();
+  const allowed = typeof body.uri_allow_list === 'string' ? body.uri_allow_list.split(',').map(value => value.trim()).filter(Boolean) : [];
+  let siteOrigin;
+  try {
+    const site = new URL(body.site_url);
+    if (site.pathname !== '/' || site.search || site.hash || site.username || site.password) throw new Error();
+    siteOrigin = site.origin;
+    for (const value of allowed) if (/(^|\.)netlify\.(app|com)$/i.test(new URL(value).hostname)) throw new Error();
+  } catch { throw new Error('Auth still references a retired or invalid origin.'); }
+  if (siteOrigin !== origin || !allowed.some(value => [origin+'/**',origin+'/set-password'].includes(value))) throw new Error('Auth Site URL or recovery redirects do not match APP_ORIGIN.');
 }
 
 export async function verifyServerContract(env, config, request = fetch) {
@@ -52,6 +77,23 @@ export async function verifyServerContract(env, config, request = fetch) {
     and to_regprocedure('public.admin_update_supervisor(uuid,text,uuid,text,text,boolean,text,boolean,boolean)') is not null
     and exists (select 1 from pg_trigger where tgname = 'mydan_password_changed'
       and tgrelid = 'auth.users'::regclass and not tgisinternal and tgenabled = 'O')
+    and to_regprocedure('public.mdn_save_visit_task_v1(uuid,uuid,text,text,boolean)') is not null
+    and to_regprocedure('public.mdn_claim_ai_attempt_v1(uuid,uuid,text,uuid,text,integer,integer,integer)') is not null
+    and to_regprocedure('public.mdn_finish_ai_attempt_v1(uuid,text,uuid,uuid)') is not null
+    and has_function_privilege('authenticated',to_regprocedure('public.mdn_claim_ai_attempt_v1(uuid,uuid,text,uuid,text,integer,integer,integer)'),'EXECUTE') is false
+    and has_function_privilege('authenticated',to_regprocedure('public.mdn_finish_ai_attempt_v1(uuid,text,uuid,uuid)'),'EXECUTE') is false
+    and has_function_privilege('service_role',to_regprocedure('public.mdn_claim_ai_attempt_v1(uuid,uuid,text,uuid,text,integer,integer,integer)'),'EXECUTE') is true
+    and has_table_privilege('authenticated',to_regclass('public.mdn_ai_attempts_v1'),'SELECT') is false
+    and not has_table_privilege('authenticated','public.visit_tasks','INSERT')
+    and not has_table_privilege('authenticated','public.visit_tasks','DELETE')
+    and not has_column_privilege('authenticated','public.visit_tasks','visit_id','UPDATE')
+    and exists (select 1 from pg_trigger where tgname='mdn_visit_client_transition' and tgrelid='public.visits'::regclass and not tgisinternal and tgenabled='O')
+    and not exists (select 1 from pg_policies where schemaname='public'
+      and (tablename='field_surveys' and policyname='field_surveys_tenant'
+        or tablename='survey_responses' and policyname='survey_responses_own'
+        or tablename='visits' and policyname='visits_own'))
+    and exists (select 1 from pg_policies where schemaname='public' and tablename='field_surveys' and policyname='mdn_field_surveys_update_v1')
+    and exists (select 1 from pg_policies where schemaname='public' and tablename='survey_responses' and policyname='mdn_survey_responses_update_v1')
     and not has_table_privilege('authenticated','public.orders','SELECT')
     and not has_table_privilege('anon','public.orders','SELECT')
     and not has_function_privilege('authenticated','public.manager_set_order_status(uuid,text)','EXECUTE')
@@ -87,6 +129,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     } else {
       // Check endpoint/key pairing before compiling or changing a hosted service.
       await verifyPublicConnection(config);
+      await verifyAuthOrigin(env, config);
       await verifyServerContract(env, config);
       config.branch = await verifyCloudflareProject(env, config);
       for (const [command, args] of deploymentPlan(config)) {

@@ -10,7 +10,7 @@ fs.mkdirSync(output, { recursive: true });
 const uid='11111111-1111-4111-8111-111111111111', sid='22222222-2222-4222-8222-222222222222', cid='33333333-3333-4333-8333-333333333333';
 const user={id:uid,aud:'authenticated',role:'authenticated',email:'review@example.invalid',app_metadata:{},user_metadata:{}};
 const jwt='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.'+Buffer.from(JSON.stringify({sub:uid,exp:Math.floor(Date.now()/1000)+3600,aud:'authenticated',role:'authenticated'})).toString('base64url')+'.synthetic';
-const customerId='44444444-4444-4444-8444-444444444444', productId='55555555-5555-4555-8555-555555555555', visitId='66666666-6666-4666-8666-666666666666';
+const customerId='44444444-4444-4444-8444-444444444444', productId='55555555-5555-4555-8555-555555555555', visitId='66666666-6666-4666-8666-666666666666', taskId='77777777-7777-4777-8777-777777777777';
 const session={access_token:jwt,refresh_token:'synthetic-refresh',expires_at:Math.floor(Date.now()/1000)+3600,expires_in:3600,token_type:'bearer',user};
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH || '/usr/bin/chromium',headless:true,args:['--no-sandbox']});
@@ -44,10 +44,15 @@ const session={access_token:jwt,refresh_token:'synthetic-refresh',expires_at:Mat
    }
    else if(state.seeded && u.pathname.includes('/rest/v1/customers'))data=req.headers()['accept']?.includes('object')?customer:[customer];
    else if(state.seeded && u.pathname.includes('/rest/v1/products'))data=[{id:productId,name:'منتج اختبار صناعي',company_id:cid,price:25,is_active:true,unit:'قطعة'}];
-   else if(state.seeded && u.pathname.includes('/rest/v1/visit_tasks')){state.visit.visit_tasks[0].is_completed=true;data=[{id:'task-test'}];}
+   else if(state.seeded && u.pathname.includes('/rest/v1/visit_tasks')){
+    const task=state.visit?.visit_tasks?.[0];
+    if(req.method()==='PATCH' && task){task.is_completed=true;task.completed_at=new Date().toISOString();}
+    const row=task?{...task,visit_id:state.visit.id,company_id:cid}:null;
+    data=req.headers()['accept']?.includes('object')?row:row?[row]:[];
+   }
    else if(state.dashboardError && u.pathname.includes('/rest/v1/visits')) {status=403;data={code:'42501',message:'synthetic count/read denied'};}
    else if(state.seeded && u.pathname.includes('/rest/v1/visits')) {
-    if(req.method()==='POST')state.visit={...req.postDataJSON(),id:req.postDataJSON().id || visitId,customers:customer,visit_tasks:[{id:'task-test',task_type:'other',title_ar:'مراجعة العرض',is_completed:false,is_mandatory:true,order_num:1}]};
+    if(req.method()==='POST')state.visit={...req.postDataJSON(),id:req.postDataJSON().id || visitId,customers:customer,visit_tasks:[{id:taskId,task_type:'other',title_ar:'مراجعة العرض',is_completed:false,is_mandatory:true,order_num:1}]};
     if(req.method()==='PATCH')state.visit={...state.visit,...req.postDataJSON()};
     headers['content-range']=state.visit?'0-0/1':'0-0/0';
     data=req.headers()['accept']?.includes('object')?state.visit??null:state.visit?[state.visit]:[];
@@ -106,13 +111,13 @@ const session={access_token:jwt,refresh_token:'synthetic-refresh',expires_at:Mat
   });
   await run('concurrent upload keeps new actions, coalesces calls and preserves other tenants',async()=>{
    const f=await fixture();await f.p.goto(base+'/customers');await f.p.getByTestId('sync-action-bar').waitFor();
-   let visits=0;await f.p.route('**/rest/v1/visits*',async r=>{visits++;await new Promise(resolve=>setTimeout(resolve,250));await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({id:'confirmed'})});});
+   let visits=0;await f.p.route('**/rest/v1/visits*',async r=>{const req=r.request();const id=new URL(req.url()).searchParams.get('id')?.replace(/^eq\./,'');let row={id,company_id:cid,supervisor_id:sid,status:'in_progress',check_out_time:null};if(req.method()==='PATCH'){visits++;await new Promise(resolve=>setTimeout(resolve,250));row={...row,...req.postDataJSON()};}await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(row)});});
    const r=await f.p.evaluate(async({cid,sid})=>{const m=await import('/src/lib/offline-sync.ts');m.clearOfflineQueue(cid,sid);const action=id=>({type:'update_visit_status',companyId:cid,supervisorId:sid,payload:{id,status:'completed'}});m.enqueueOfflineAction(action('original'));m.enqueueOfflineAction({...action('foreign'),companyId:'other-company'});const a=m.uploadPendingOfflineActions(cid,sid);const b=m.uploadPendingOfflineActions(cid,sid);await new Promise(r=>setTimeout(r,90));m.enqueueOfflineAction(action('new-during-upload'));const result=await a;await b;return{result,same:a===b,pending:m.getOfflineQueue(cid,sid).map(x=>x.payload.id),foreign:m.getOfflineQueue('other-company',sid).length};},{cid,sid});
    assert.equal(r.same,true);assert.equal(r.result.syncedCount,1);assert.deepEqual(r.pending,['new-during-upload']);assert.equal(r.foreign,1);assert.equal(visits,1);await f.c.close();
   });
   await run('cross-tab enqueues survive an upload in another tab',async()=>{
    const f=await fixture();await f.p.goto(base+'/customers');await f.p.getByTestId('sync-action-bar').waitFor();const second=await f.c.newPage();await second.goto(base+'/customers');await second.getByTestId('sync-action-bar').waitFor();
-   await f.p.route('**/rest/v1/visits*',async r=>{await new Promise(resolve=>setTimeout(resolve,300));await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({id:'confirmed'})});});
+   await f.p.route('**/rest/v1/visits*',async r=>{const req=r.request();const id=new URL(req.url()).searchParams.get('id')?.replace(/^eq\./,'');let row={id,company_id:cid,supervisor_id:sid,status:'in_progress',check_out_time:null};if(req.method()==='PATCH'){await new Promise(resolve=>setTimeout(resolve,300));row={...row,...req.postDataJSON()};}await r.fulfill({status:200,contentType:'application/json',body:JSON.stringify(row)});});
    await f.p.evaluate(async({cid,sid})=>{const m=await import('/src/lib/offline-sync.ts');m.clearOfflineQueue(cid,sid);m.enqueueOfflineAction({type:'update_visit_status',companyId:cid,supervisorId:sid,payload:{id:'old',company_id:cid,status:'completed'}});},{cid,sid});
    const uploading=f.p.evaluate(async({cid,sid})=>(await import('/src/lib/offline-sync.ts')).uploadPendingOfflineActions(cid,sid),{cid,sid});await new Promise(r=>setTimeout(r,90));
    await second.evaluate(async({cid,sid})=>(await import('/src/lib/offline-sync.ts')).enqueueOfflineAction({type:'update_visit_status',companyId:cid,supervisorId:sid,payload:{id:'second-tab',company_id:cid,status:'completed'}}),{cid,sid});await uploading;
@@ -188,12 +193,12 @@ const session={access_token:jwt,refresh_token:'synthetic-refresh',expires_at:Mat
    await p.getByLabel('كلمة المرور الجديدة',{exact:true}).fill('synthetic-new123');await p.getByLabel('تأكيد كلمة المرور',{exact:true}).fill('synthetic-new123');await p.getByRole('button',{name:'حفظ ومتابعة'}).click();
    await p.getByText('لم يتأكد تحديث الحساب من الخادم بعد. أعد التحقق أو تواصل مع مدير النظام.',{exact:true}).waitFor();
    assert.equal(await p.locator('input[type=password]').count(),0);assert.equal(f.requests.filter(r=>r.path==='/auth/v1/user'&&r.method==='PUT').length,1);
-   f.state.forceChange=false;f.state.passwordChangedAt=new Date().toISOString();await p.getByRole('button',{name:'إعادة التحقق من الحساب'}).click();await p.getByTestId('button-new-visit').waitFor();
+   f.state.forceChange=false;f.state.passwordChangedAt=new Date().toISOString();await p.getByRole('button',{name:'إعادة التحقق من الحساب'}).click();await p.waitForURL(base+'/');await p.getByTestId('sync-action-bar').waitFor();
    assert.equal(f.requests.filter(r=>r.path==='/auth/v1/user'&&r.method==='PUT').length,1);await f.c.close();
   });
   await run('dashboard read errors show unavailable data and recover without fabricated zeroes',async()=>{
    const f=await fixture({dashboardError:true});await f.p.goto(base+'/');await f.p.getByText('تعذر التحميل',{exact:true}).waitFor();assert.equal(await f.p.getByText('لا توجد زيارات بعد',{exact:true}).count(),0);
-   f.state.dashboardError=false;await f.p.getByRole('button',{name:'إعادة المحاولة',exact:true}).click();await f.p.getByTestId('button-new-visit').waitFor();await f.c.close();
+   f.state.dashboardError=false;await f.p.getByRole('button',{name:'إعادة المحاولة',exact:true}).click();await f.p.getByText('تعذر التحميل',{exact:true}).waitFor({state:'hidden'});await f.p.getByTestId('sync-action-bar').waitFor();await f.c.close();
   });
   await run('recent visit opens its selected detail rather than the visit list',async()=>{
    const f=await fixture({seeded:true});f.state.visit={id:visitId,company_id:cid,supervisor_id:sid,customer_id:customerId,status:'in_progress',visit_date:new Date().toISOString(),check_in_time:new Date().toISOString(),visit_tasks:[],customers:{id:customerId,name:'زيارة اختبار صناعية'}};

@@ -175,7 +175,7 @@ export default function FieldSurveyScreen() {
   const survey = result.data;
   const status = survey?.status;
   const busy = upload.isPending || request.isPending;
-  const inFlight = !!surveyId && (status === 'pending' || status === 'processing') && !requestFailed;
+  const inFlight = !!surveyId && (status === 'pending' || status === 'in_progress' || status === 'processing') && !requestFailed;
   const step = saved ? 4 : status === 'completed' ? 3 : surveyId || file ? 2 : 1;
 
   const StepBar = () => (
@@ -246,7 +246,7 @@ export default function FieldSurveyScreen() {
           {result.isError && (
             <div className="alert err">{t('تعذر تحميل نتيجة المسح.')}</div>
           )}
-          {status === 'failed' || requestFailed ? (
+          {status === 'rejected' || status === 'failed' || requestFailed ? (
             <>
               <div className="alert err">{t('فشل تحليل الصورة.')}</div>
               <button className="btn" disabled={request.isPending} onClick={retry}>

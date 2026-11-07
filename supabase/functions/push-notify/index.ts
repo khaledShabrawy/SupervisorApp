@@ -1,191 +1,119 @@
-// Supabase Edge Function — Web Push Notifications (VAPID)
-// Env secrets required (Settings → Edge Functions → Secrets):
-//   VAPID_PRIVATE_KEY   — base64url-encoded 32-byte P-256 scalar
-//   SUPABASE_URL        — auto-injected
-//   SUPABASE_SERVICE_ROLE_KEY — auto-injected
-
+// Web Push with VAPID ES256 and RFC 8291 aes128gcm payload encryption.
+// Required server configuration: VAPID_PRIVATE_KEY (base64url P-256 scalar),
+// VAPID_PUBLIC_KEY (matching uncompressed public key), VAPID_SUBJECT (real contact).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { encryptWebPush, MAX_WEB_PUSH_PAYLOAD_BYTES, safePushEndpoint, validateSubscriptionKeys, vapidSigner } from './web-push.ts';
 
-const VAPID_SUBJECT  = 'mailto:admin@mydan.app';
-const VAPID_PUBLIC   = Deno.env.get("VAPID_PUBLIC_KEY") ?? 'BPXw8FvbaqXnGgBAKe3YWGqopPU2F80WBzWxq3en1qALgRWpjNwn7CBFuJyphseJv8A4t5_3ttkKUxbiTSJu1XE';
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "*";
+const MAX_RECIPIENTS = 100;
+const MAX_SUBSCRIPTIONS = 200;
+const SEND_CONCURRENCY = 4;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// ── Utility: base64url helpers ─────────────────────────────────────────────
-function b64urlToUint8(s: string): Uint8Array {
-  const b64 = s.replace(/-/g, '+').replace(/_/g, '/').padEnd(s.length + (4 - s.length % 4) % 4, '=');
-  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-}
-function uint8ToB64url(buf: Uint8Array): string {
-  return btoa(String.fromCharCode(...buf)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-// ── VAPID JWT ──────────────────────────────────────────────────────────────
-async function buildVapidJwt(audience: string, privateKeyB64: string): Promise<string> {
-  const header  = uint8ToB64url(new TextEncoder().encode(JSON.stringify({ typ: 'JWT', alg: 'ES256' })));
-  const payload = uint8ToB64url(new TextEncoder().encode(JSON.stringify({
-    aud: audience, exp: Math.floor(Date.now() / 1000) + 43200, sub: VAPID_SUBJECT,
-  })));
-  const sigInput = `${header}.${payload}`;
-  const privKey = await crypto.subtle.importKey(
-    'raw', b64urlToUint8(privateKeyB64),
-    { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign'],
-  );
-  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' },
-    privKey, new TextEncoder().encode(sigInput));
-  return `${sigInput}.${uint8ToB64url(new Uint8Array(sig))}`;
-}
-
-// ── Encrypt payload for Web Push (ECDH + AES-128-GCM) ─────────────────────
-async function encryptPayload(
-  body: string, p256dhB64: string, authB64: string,
-): Promise<{ ciphertext: Uint8Array; salt: Uint8Array; localPub: Uint8Array }> {
-  const serverKeyPair = await crypto.subtle.generateKey(
-    { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits'],
-  );
-  const localPubRaw = new Uint8Array(
-    await crypto.subtle.exportKey('raw', serverKeyPair.publicKey),
-  );
-  const remotePub = await crypto.subtle.importKey(
-    'raw', b64urlToUint8(p256dhB64), { name: 'ECDH', namedCurve: 'P-256' }, false, [],
-  );
-  const sharedSecret = await crypto.subtle.deriveBits(
-    { name: 'ECDH', public: remotePub }, serverKeyPair.privateKey, 256,
-  );
-  const authSecret = b64urlToUint8(authB64);
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-
-  // HKDF expand
-  const hkdf = async (ikm: ArrayBuffer, salt2: Uint8Array, info: Uint8Array, len: number) => {
-    const k = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
-    return new Uint8Array(await crypto.subtle.deriveBits(
-      { name: 'HKDF', hash: 'SHA-256', salt: salt2, info }, k, len * 8,
-    ));
-  };
-  const prk = await hkdf(sharedSecret, authSecret,
-    new TextEncoder().encode('Content-Encoding: auth\0'), 32);
-  const context = new Uint8Array([
-    ...new TextEncoder().encode('P-256\0'),
-    0, 65, ...b64urlToUint8(p256dhB64),
-    0, 65, ...localPubRaw,
-  ]);
-  const cek = await hkdf(prk, salt,
-    new Uint8Array([...new TextEncoder().encode('Content-Encoding: aesgcm\0'), ...context]), 16);
-  const nonce = await hkdf(prk, salt,
-    new Uint8Array([...new TextEncoder().encode('Content-Encoding: nonce\0'), ...context]), 12);
-
-  const key = await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']);
-  const plaintext = new TextEncoder().encode(body);
-  const padded = new Uint8Array(2 + plaintext.length);
-  padded.set(plaintext, 2);
-  const ciphertext = new Uint8Array(
-    await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, padded),
-  );
-  return { ciphertext, salt, localPub: localPubRaw };
-}
-
-// ── Send one push ──────────────────────────────────────────────────────────
-async function sendOne(
-  endpoint: string, p256dh: string, auth: string,
-  title: string, body: string, privateKey: string,
-): Promise<{ ok: boolean; status: number }> {
-  const origin = new URL(endpoint).origin;
-  const jwt = await buildVapidJwt(origin, privateKey);
-  const { ciphertext, salt, localPub } = await encryptPayload(
-    JSON.stringify({ title, body }), p256dh, auth,
-  );
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization:     `vapid t=${jwt},k=${VAPID_PUBLIC}`,
-      'Content-Type':    'application/octet-stream',
-      'Content-Encoding':'aesgcm',
-      Encryption:        `salt=${uint8ToB64url(salt)}`,
-      'Crypto-Key':      `dh=${uint8ToB64url(localPub)};p256ecdsa=${VAPID_PUBLIC}`,
-      TTL:               '86400',
-    },
-    body: ciphertext,
-  });
-  return { ok: res.ok, status: res.status };
-}
-
-// ── Handler ────────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: { 'Access-Control-Allow-Origin': ALLOWED_ORIGIN, 'Access-Control-Allow-Headers': 'authorization,content-type,apikey' },
-    });
-  }
+  const allowedOrigins = (Deno.env.get('ALLOWED_ORIGIN') ?? 'https://mydan.digityoucan.com').split(',').map(value => value.trim());
+  const origin = req.headers.get('Origin');
+  const headers = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : allowedOrigins[0],
+    'Access-Control-Allow-Headers': 'authorization,content-type,apikey,x-client-info',
+    'Access-Control-Allow-Methods': 'POST,OPTIONS',
+    'Vary': 'Origin',
+  };
+  const reply = (status: number, body: Record<string, unknown>) => new Response(JSON.stringify(body), { status, headers });
+  if (origin && !allowedOrigins.includes(origin)) return reply(403, { error: 'Origin is not allowed' });
+  if (req.method === 'OPTIONS') return new Response(null, { headers });
+  if (req.method !== 'POST') return reply(405, { error: 'Method not allowed' });
 
-  const privateKey = Deno.env.get('VAPID_PRIVATE_KEY');
-  if (!privateKey) {
-    console.error('VAPID_PRIVATE_KEY is not configured');
-    return new Response(JSON.stringify({ error: 'Push service not configured' }), { status: 500 });
-  }
-
-
-  // ── Step 1: Verify caller JWT via Supabase Auth ───────────────────────────
-  // SUPABASE_ANON_KEY is auto-injected alongside SUPABASE_URL.
   const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return new Response('unauthorized', { status: 401 });
+  if (!authHeader?.startsWith('Bearer ')) return reply(401, { error: 'Unauthorized' });
+  const verify = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } });
+  const { data: auth, error: authError } = await verify.auth.getUser();
+  if (authError || !auth?.user) return reply(401, { error: 'Unauthorized' });
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const { data: caller, error: callerError } = await admin.from('supervisors').select('role,company_id,is_active').eq('user_id', auth.user.id).maybeSingle();
+  if (callerError || !caller?.is_active || !caller.company_id || !['admin', 'super_admin'].includes(caller.role)) return reply(403, { error: 'Forbidden' });
 
-  const sbVerify = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } },
-  );
-  const { data: { user }, error: authErr } = await sbVerify.auth.getUser();
-  if (authErr || !user) return new Response('unauthorized', { status: 401 });
-
-  // ── Step 2: Verify caller is an active admin in their company ─────────────
-  const sb = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
-  const { data: caller } = await sb
-    .from('supervisors')
-    .select('role, company_id, is_active')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (!caller?.is_active || !['admin', 'super_admin'].includes(caller.role as string)) {
-    return new Response('forbidden', { status: 403 });
-  }
-
-  // ── Step 3: Parse and validate request body (after auth) ──────────────────
-  let supervisorIds: string[], title: string, body: string;
+  let input: unknown;
   try {
-    ({ supervisorIds, title, body } = await req.json() as {
-      supervisorIds: string[]; title: string; body: string;
-    });
-  } catch {
-    return new Response('bad request', { status: 400 });
+    const reader = req.body?.getReader();
+    if (!reader) return reply(400, { error: 'Invalid request' });
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > 16_384) { await reader.cancel(); return reply(413, { error: 'Request too large' }); }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+    input = JSON.parse(new TextDecoder().decode(bytes));
+  } catch { return reply(400, { error: 'Invalid request' }); }
+  const body = input as { supervisorIds?: unknown; title?: unknown; body?: unknown } | null;
+  if (!body || !Array.isArray(body.supervisorIds) || !body.supervisorIds.length || body.supervisorIds.length > MAX_RECIPIENTS
+    || body.supervisorIds.some(value => typeof value !== 'string' || !UUID.test(value))
+    || typeof body.title !== 'string' || !body.title.trim() || body.title.length > 160
+    || typeof body.body !== 'string' || !body.body.trim() || body.body.length > 2000) {
+    return reply(400, { error: 'Invalid notification or recipients' });
   }
-  if (!Array.isArray(supervisorIds) || !supervisorIds.length || !title || !body) {
-    return new Response('bad request', { status: 400 });
-  }
+  const ids = [...new Set(body.supervisorIds as string[])];
+  const payload = new TextEncoder().encode(JSON.stringify({ title: body.title.trim(), body: body.body.trim() }));
+  if (payload.length > MAX_WEB_PUSH_PAYLOAD_BYTES) return reply(413, { error: 'Notification too large' });
 
-  // ── Step 4: Query subscriptions scoped strictly to caller's company ────────
-  // The .eq('company_id', ...) prevents a cross-company notification even if
-  // supervisorIds contains UUIDs from a different tenant.
-  const { data: subs } = await sb
-    .from('push_subscriptions')
-    .select('endpoint,p256dh,auth')
-    .in('supervisor_id', supervisorIds)
-    .eq('company_id', caller.company_id);
+  // Membership is independently verified. A forged subscription company_id cannot
+  // turn a foreign/inactive supervisor ID into a valid recipient.
+  const { data: recipients, error: recipientError } = await admin.from('supervisors').select('id').in('id', ids).eq('company_id', caller.company_id).eq('is_active', true);
+  if (recipientError || !Array.isArray(recipients)) return reply(503, { error: 'Could not verify recipients' });
+  const known = new Set(recipients.map(value => value.id));
+  if (ids.some(id => !known.has(id))) return reply(403, { error: 'Recipients are outside the permitted scope' });
+  const { data: subscriptions, error: subscriptionError } = await admin.from('push_subscriptions').select('id,supervisor_id,endpoint,p256dh,auth')
+    .in('supervisor_id', ids).eq('company_id', caller.company_id).order('id').limit(MAX_SUBSCRIPTIONS + 1);
+  if (subscriptionError || !Array.isArray(subscriptions)) return reply(503, { error: 'Could not read subscriptions' });
+  if (subscriptions.length > MAX_SUBSCRIPTIONS) return reply(413, { error: 'Choose a smaller recipient group' });
+  if (!subscriptions.length) return reply(200, { sent: 0, accepted: 0, total: 0, failed: 0, expired: 0 });
 
-  if (!subs?.length) {
-    return new Response(JSON.stringify({ sent: 0 }), {
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
-    });
-  }
+  const publicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+  const privateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+  const subject = Deno.env.get('VAPID_SUBJECT');
+  if (!publicKey || !privateKey || !subject) return reply(503, { error: 'Push service is not configured' });
+  let sign: (audience: string) => Promise<string>;
+  try { sign = await vapidSigner(publicKey, privateKey, subject); }
+  catch { return reply(503, { error: 'Push service configuration is invalid' }); }
 
-  const results = await Promise.allSettled(
-    subs.map((s: { endpoint: string; p256dh: string; auth: string }) =>
-      sendOne(s.endpoint, s.p256dh, s.auth, title, body, privateKey)),
-  );
-  const sent = results.filter((r) => r.status === 'fulfilled' && (r.value as { ok: boolean }).ok).length;
-
-  return new Response(JSON.stringify({ sent, total: subs.length }), {
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': ALLOWED_ORIGIN },
+  let cursor = 0, accepted = 0, failed = 0, expired = 0;
+  const endpoints = new Set<string>();
+  const unique = subscriptions.filter(subscription => {
+    if (endpoints.has(subscription.endpoint)) return false;
+    endpoints.add(subscription.endpoint);
+    return true;
   });
+  async function worker() {
+    while (cursor < unique.length) {
+      const subscription = unique[cursor++];
+      try {
+        if (!ids.includes(subscription.supervisor_id)) throw new Error('Invalid subscription scope');
+        const endpoint = safePushEndpoint(subscription.endpoint);
+        validateSubscriptionKeys(subscription);
+        const encrypted = await encryptWebPush(payload, subscription);
+        const jwt = await sign(endpoint.origin);
+        const response = await fetch(endpoint.href, {
+          method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10_000),
+          headers: { Authorization: `vapid t=${jwt},k=${publicKey}`, 'Content-Type': 'application/octet-stream', 'Content-Encoding': 'aes128gcm', TTL: '86400' },
+          body: encrypted as BodyInit,
+        });
+        if (response.ok) accepted++;
+        else {
+          failed++;
+          if (response.status === 404 || response.status === 410) expired++;
+        }
+        try { await response.body?.cancel(); } catch { /* Response acceptance is already known. */ }
+      } catch { failed++; } // Never log endpoint tokens, subscription keys or VAPID material.
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(SEND_CONCURRENCY, unique.length) }, () => worker()));
+  // "sent" is kept for API compatibility; both counters mean provider acceptance,
+  // not proof that a phone received/displayed the notification.
+  return reply(failed ? (accepted ? 207 : 502) : 200, { sent: accepted, accepted, total: unique.length, failed, expired });
 });

@@ -23,7 +23,7 @@ export type FieldSurvey = {
   longitude: number | null;
   stores_found: number;
   ai_raw_result: { stores: DiscoveredStore[]; summary_ar?: string } | null;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'in_progress' | 'completed' | 'rejected' | 'processing' | 'failed';
   created_at: string;
 };
 
@@ -124,7 +124,7 @@ export function useSurveyResult(id: string | null) {
       return data as FieldSurvey;
     },
     refetchInterval: q =>
-      q.state.data && ['pending', 'processing'].includes(q.state.data.status) ? 4000 : false,
+      q.state.data && ['pending', 'in_progress', 'processing'].includes(q.state.data.status) ? 4000 : false,
   });
 }
 
@@ -194,7 +194,7 @@ export function useAdminProspects() {
 
 export type FieldSurveyRecord = {
   id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'in_progress' | 'completed' | 'rejected' | 'processing' | 'failed';
   stores_found: number;
   created_at: string;
   latitude: number | null;

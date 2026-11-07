@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { memo, useCallback, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Key, Plus, RefreshCw, ShieldCheck, X, Pencil, Trash2, UserCheck, UserX } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupervisors, useUpdateSupervisor } from '@/lib/data';
@@ -16,6 +16,7 @@ import type { Supervisor } from '@/types/database';
 import { useResetDeviceBinding } from '@/lib/device-binding';
 import { t } from '@/i18n';
 import { confirm } from '@/lib/confirm';
+import { useDialogFocus } from '@/hooks/useDialogFocus';
 
 type SortKey = 'full_name' | 'role' | 'is_active';
 const INVITE_ROLES: InviteRole[] = ['supervisor', 'senior_supervisor', 'branch_manager', 'admin'];
@@ -26,6 +27,18 @@ function Toggles({ values, onChange }: { values: Record<ScreenKey, boolean>; onC
     <span>{t(s.label)}</span>
     <input type="checkbox" checked={values[s.key]} onChange={(e) => onChange(s.key, e.target.checked)} data-testid={`perm-${s.key}`} />
   </label>)}</div>;
+}
+
+function UserModal({ title, onClose, onSubmit, children }: {
+  title: string; onClose: () => void; onSubmit: (event: FormEvent) => void; children: ReactNode;
+}) {
+  const dialog = useDialogFocus(true, onClose);
+  return <div className="adm-modal-bg" onClick={onClose}>
+    <div ref={dialog} tabIndex={-1} className="adm-modal col" role="dialog" aria-modal="true" aria-label={title}
+      onClick={(event) => event.stopPropagation()}>
+      <form className="col" onSubmit={onSubmit}>{children}</form>
+    </div>
+  </div>;
 }
 
 function InviteModal({ onClose }: { onClose: () => void }) {
@@ -39,8 +52,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     m.mutate({ email, full_name: name, phone, role, branch_id: branch, permissions: perms }, { onSuccess: onClose });
   }, [m, email, name, phone, role, branch, perms, onClose]);
-  return <div className="adm-modal-bg" onClick={onClose}>
-    <form className="adm-modal col" role="dialog" aria-modal="true" aria-label={t('دعوة مستخدم جديد')} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+  return <UserModal title={t('دعوة مستخدم جديد')} onClose={onClose} onSubmit={submit}>
       <div className="row between"><h2 style={{ margin: 0, fontSize: 18 }}>{t('دعوة مستخدم جديد')}</h2>
         <button type="button" className="icon-btn" aria-label={t('إغلاق')} onClick={onClose}><X /></button></div>
       <label className="f">{t('البريد الإلكتروني *')}
@@ -61,8 +73,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
       <Toggles values={perms} onChange={toggle} />
       <div className="muted" style={{ fontSize: 13 }}>{t('سيصل للمستخدم بريد دعوة لتعيين كلمة المرور.')}</div>
       <button className="btn" disabled={m.isPending} data-testid="button-send-invite">{m.isPending ? t('جاري الإرسال...') : t('إرسال الدعوة')}</button>
-    </form>
-  </div>;
+  </UserModal>;
 }
 
 function SetPasswordModal({ s, onClose }: { s: Supervisor; onClose: () => void }) {
@@ -74,8 +85,7 @@ function SetPasswordModal({ s, onClose }: { s: Supervisor; onClose: () => void }
     if (pw.length < 8) return;
     m.mutate({ supervisorId: s.id, newPassword: pw, forceChange: force }, { onSuccess: onClose });
   }, [m, s.id, pw, force, onClose]);
-  return <div className="adm-modal-bg" onClick={onClose}>
-    <form className="adm-modal col" role="dialog" aria-modal="true" aria-label={t('تعيين كلمة المرور')} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+  return <UserModal title={t('تعيين كلمة المرور')} onClose={onClose} onSubmit={submit}>
       <div className="row between">
         <h2 style={{ margin: 0, fontSize: 18 }}>{t('تعيين كلمة المرور: {name}', { name: s.full_name })}</h2>
         <button type="button" className="icon-btn" aria-label={t('إغلاق')} onClick={onClose}><X /></button>
@@ -90,8 +100,7 @@ function SetPasswordModal({ s, onClose }: { s: Supervisor; onClose: () => void }
       <button className="btn" disabled={pw.length < 8 || m.isPending}>
         {m.isPending ? t('جاري الحفظ...') : t('حفظ كلمة المرور')}
       </button>
-    </form>
-  </div>;
+  </UserModal>;
 }
 
 function EditSupervisorModal({ s, onClose }: { s: Supervisor; onClose: () => void }) {
@@ -104,8 +113,7 @@ function EditSupervisorModal({ s, onClose }: { s: Supervisor; onClose: () => voi
     e.preventDefault();
     m.mutate({ id: s.id, full_name: name, phone, role, branch_id: branch, supervisor_code: code }, { onSuccess: onClose });
   }, [m, s.id, name, phone, role, branch, code, onClose]);
-  return <div className="adm-modal-bg" onClick={onClose}>
-    <form className="adm-modal col" role="dialog" aria-modal="true" aria-label={t('تعديل بيانات المستخدم')} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+  return <UserModal title={t('تعديل بيانات المستخدم')} onClose={onClose} onSubmit={submit}>
       <div className="row between"><h2 style={{ margin: 0, fontSize: 18 }}>{t('تعديل بيانات المستخدم')}</h2>
         <button type="button" className="icon-btn" aria-label={t('إغلاق')} onClick={onClose}><X /></button></div>
       <label className="f">{t('الاسم بالكامل *')}<input className="input" required value={name} onChange={useInput(setName)} /></label>
@@ -120,8 +128,7 @@ function EditSupervisorModal({ s, onClose }: { s: Supervisor; onClose: () => voi
           <option value="">{t('بدون فرع')}</option>{branches.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
       </div>
       <button className="btn" disabled={m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ')}</button>
-    </form>
-  </div>;
+  </UserModal>;
 }
 
 function PermissionsDrawer({ s, onClose }: { s: Supervisor; onClose: () => void }) {
@@ -134,24 +141,24 @@ function PermissionsDrawer({ s, onClose }: { s: Supervisor; onClose: () => void 
   const values = useMemo(() => (initialValues ? { ...initialValues, ...overrides } : null), [initialValues, overrides]);
   const toggle = useCallback((k: ScreenKey, v: boolean) => setOverrides((p) => ({ ...p, [k]: v })), []);
   const save = useCallback(() => { if (values) m.mutate({ supervisorId: s.id, values }, { onSuccess: onClose }); }, [m, s.id, values, onClose]);
-  useEffect(() => { const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
+  const dialog = useDialogFocus(true, onClose);
   return <>
     <div className="adm-modal-bg" onClick={onClose} />
-    <aside className="adm-drawer col" role="dialog" aria-modal="true" aria-label={t('صلاحيات {name}', { name: s.full_name })}>
+    <div ref={dialog} tabIndex={-1} className="adm-drawer col" role="dialog" aria-modal="true" aria-label={t('صلاحيات {name}', { name: s.full_name })}>
       <div className="row between"><h2 style={{ margin: 0, fontSize: 18 }}>{t('صلاحيات {name}', { name: s.full_name })}</h2>
         <button className="icon-btn" aria-label={t('إغلاق')} onClick={onClose}><X /></button></div>
       {q.isPending || !values ? q.isError ? <ErrorState error={q.error} onRetry={retry} /> : <SkeletonList n={3} />
         : <><Toggles values={values} onChange={toggle} />
           <button className="btn" disabled={m.isPending} onClick={save} data-testid="button-save-permissions">{m.isPending ? t('جاري الحفظ...') : t('حفظ الصلاحيات')}</button></>}
-    </aside>
+    </div>
   </>;
 }
 
 const Row = memo(function Row({
-  s, self, branch, onPatch, onPerms, onEdit, onSetPw, onResend, resending,
+  s, self, branch, canManageCredentials, onPatch, onPerms, onEdit, onSetPw, onResend, resending,
   onResetDevice, resettingDevice, onDelete, deleting
 }: {
-  s: Supervisor; self: boolean; branch: string;
+  s: Supervisor; self: boolean; branch: string; canManageCredentials: boolean;
   onPatch: (s: Supervisor, p: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => void;
   onPerms: (s: Supervisor) => void; onEdit: (s: Supervisor) => void;
   onSetPw: (s: Supervisor) => void; onResend: (s: Supervisor) => void; resending: boolean;
@@ -159,6 +166,8 @@ const Row = memo(function Row({
   onDelete: (s: Supervisor) => void; deleting: boolean;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const closeDelete = useCallback(() => setConfirmDelete(false), []);
+  const deleteDialog = useDialogFocus(confirmDelete, closeDelete);
   const locked = self || s.role === 'super_admin';
   const toggle = useCallback(async () => {
     if (!s.is_active || await confirm(`تعطيل حساب ${s.full_name}؟`)) onPatch(s, { is_active: !s.is_active });
@@ -204,6 +213,7 @@ const Row = memo(function Row({
     <td><span className={`badge ${s.is_active ? 'b-green' : 'b-red'}`}>{s.is_active ? t('نشط') : t('معطل')}</span></td>
     <td>
       <div className="row items-center" style={{ gap: 6, flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
+        {canManageCredentials && s.role !== 'super_admin' && <>
         <button
           type="button"
           className="btn sm ghost"
@@ -225,6 +235,7 @@ const Row = memo(function Row({
         >
           <RefreshCw size={14} />
         </button>
+        </>}
         {!locked && (
           <button
             type="button"
@@ -277,14 +288,15 @@ const Row = memo(function Row({
       </div>
 
       {confirmDelete && (
-        <div className="adm-modal-bg" onClick={() => setConfirmDelete(false)}>
-          <div className="adm-modal col" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+        <div className="adm-modal-bg" onClick={closeDelete}>
+          <div ref={deleteDialog} tabIndex={-1} className="adm-modal col" role="alertdialog" aria-modal="true"
+            aria-label={t('تأكيد حذف المستخدم')} style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ margin: 0, color: '#ef4444' }}>{t('تأكيد حذف المستخدم')}</h3>
             <p style={{ margin: '8px 0', lineHeight: 1.5 }}>
               {t('هل أنت متأكد من حذف حساب "{name}" نهائياً من النظام؟ هذا الإجراء لا يمكن التراجع عنه.', { name: s.full_name })}
             </p>
             <div className="row end gap-2" style={{ marginTop: 14 }}>
-              <button type="button" className="btn ghost" onClick={() => setConfirmDelete(false)}>
+              <button type="button" className="btn ghost" onClick={closeDelete}>
                 {t('إلغاء')}
               </button>
               <button
@@ -308,6 +320,7 @@ const Row = memo(function Row({
 
 export default function AdminUsers() {
   const { supervisor } = useAuth();
+  const canManageCredentials = ['admin', 'super_admin'].includes(supervisor?.role ?? '');
   const q = useSupervisors();
   const branches = useBranches();
   const m = useUpdateSupervisor();
@@ -389,9 +402,9 @@ export default function AdminUsers() {
           {t('إدارة حسابات المشرفين والمدراء، الفروع، الصلاحيات، وتعيين كلمات المرور.')}
         </p>
       </div>
-      <button className="btn" onClick={() => setInvite(true)} data-testid="button-invite">
+      {canManageCredentials && <button className="btn" onClick={() => setInvite(true)} data-testid="button-invite">
         <Plus size={18} /> {t('دعوة مستخدم جديد')}
-      </button>
+      </button>}
     </div>
 
     {/* Filters Toolbar */}
@@ -453,6 +466,7 @@ export default function AdminUsers() {
                   key={s.id}
                   s={s}
                   self={s.id === supervisor?.id}
+                  canManageCredentials={canManageCredentials}
                   branch={(s.branch_id && branchName.get(s.branch_id)) || '—'}
                   onPatch={onPatch}
                   onPerms={setPerms}

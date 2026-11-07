@@ -33,6 +33,13 @@ Arabic FMCG field-supervisor app. React 18 + Vite Web PWA, using Supabase.
 - Use synthetic fixtures and intercepted requests for authentication tests; no live test accounts, production writes, or AI requests.
 - See `docs/mydan-data-contract.md` for the reviewed local contract and remaining verification gates.
 
+## Current deployment platform
+
+- The user confirmed on 2026-11-06 that Netlify is discontinued.
+- Production hosting is Cloudflare Pages, project `mydan`, at `https://mydan.digityoucan.com`.
+- Do not restore Netlify build configuration, use a Netlify site for Auth redirects, or deploy the application there. Historical review documents may mention earlier observations.
+- Supabase Auth Site URL and retired Netlify redirect entries were corrected to the Cloudflare domain on 2026-11-06 and read back successfully. This configuration change does not apply pending database SQL or publish Edge Functions.
+
 ## Run & Operate
 
 - `pnpm --filter @workspace/mydan run dev` — standard Vite web server, managed by the artifact workflow

@@ -93,14 +93,14 @@ test('invalid test identities cannot satisfy retired sales permission checks', a
   assert.equal(calls.filter(call => call.path === '/rest/v1/orders').length, 0);
 });
 
-test('release plan deploys only the three reviewed functions without schema changes or disabled verification', async () => {
+test('release plan deploys only the four reviewed functions without schema changes or disabled verification', async () => {
   const { deploymentPlan, verifyPublicConnection } = await import('../../../scripts/deploy/release.mjs');
   const config = { url: `https://${ref}.supabase.co`, key: 'sb_publishable_synthetic', projectRef: ref, pagesProject: 'mydan-staging', branch: 'staging' };
   const plan = deploymentPlan(config);
   const commands = JSON.stringify(plan);
   const edge = plan.find(([,args]) => args.includes('supabase') && args.includes('deploy'))[1];
   const start = edge.indexOf('deploy') + 1;
-  assert.deepEqual(edge.slice(start, edge.findIndex((arg,index) => index >= start && arg.startsWith('--'))), ['invite-supervisor','analyze-shelf','discover-customers']);
+  assert.deepEqual(edge.slice(start, edge.findIndex((arg,index) => index >= start && arg.startsWith('--'))), ['invite-supervisor','analyze-shelf','discover-customers','push-notify']);
   assert.match(commands, /--remote=/);
   assert.doesNotMatch(commands, /--no-verify-jwt|--prune|db push|migration|secrets set/);
   await verifyPublicConnection(config, async () => new Response('{}', { status: 200 }));
@@ -131,4 +131,18 @@ test('deployment rejects an incomplete server contract and uses a read-only cata
   });
   await assert.rejects(verifyServerContract(credentials, config, async () => new Response('[{"ready":false}]')), /contract is incomplete/);
   await assert.rejects(verifyServerContract(credentials, config, async () => new Response('{}', { status: 403 })), /verification failed/);
+});
+
+
+test('release verifies Cloudflare origin and rejects retired Netlify auth redirects', async () => {
+ const {verifyAuthOrigin,verifyCloudflareProject}=await import('../../../scripts/deploy/release.mjs');
+ const config={target:'production',projectRef:ref,pagesProject:'mydan'};const origin='https://mydan.digityoucan.com';
+ const auth=(site,list)=>async()=>new Response(JSON.stringify({site_url:site,uri_allow_list:list}));
+ await verifyAuthOrigin({},config,auth(origin,origin+'/**'));
+ await assert.rejects(verifyAuthOrigin({},config,auth(origin,origin+'/**,https://retired.netlify.app/**')),/retired/);
+ await assert.rejects(verifyAuthOrigin({APP_ORIGIN:'https://retired.netlify.app'},config,auth(origin,origin+'/**')),/APP_ORIGIN/);
+ const cf=enabled=>async()=>new Response(JSON.stringify({success:true,result:{name:'mydan',production_branch:'main',source:{type:'github',config:{production_deployments_enabled:enabled}}}}));
+ const credentials={CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32),CLOUDFLARE_API_TOKEN:'synthetic'};
+ await assert.rejects(verifyCloudflareProject(credentials,config,cf(true)),/automatic production/);
+ assert.equal(await verifyCloudflareProject(credentials,config,cf(false)),'main');
 });

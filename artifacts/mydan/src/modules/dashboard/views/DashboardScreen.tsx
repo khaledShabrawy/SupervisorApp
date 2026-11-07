@@ -35,6 +35,9 @@ export default function DashboardScreen() {
   const L = q.isPending;
   const admin = canAdmin(supervisor);
   const fieldSurveyAllowed = useScreenAllowed('field_survey');
+  const newVisitAllowed = useScreenAllowed('new_visit');
+  const shelfAuditAllowed = useScreenAllowed('shelf_audit');
+  const beatPlanAllowed = useScreenAllowed('beat_plan');
   const retry = useRefetch(q.refetch);
 
   useRealtime(
@@ -86,18 +89,18 @@ export default function DashboardScreen() {
           </div>
 
           <div className="s-acts">
-            <Act id="/visits/new" onAct={go} className="s-act s-green" testId="button-new-visit">
+            {newVisitAllowed && <Act id="/visits/new" onAct={go} className="s-act s-green" testId="button-new-visit">
               <Plus /> {t('زيارة جديدة')}
-            </Act>
-            <Act id="/shelf-audit" onAct={go} className="s-act s-blue">
+            </Act>}
+            {shelfAuditAllowed && <Act id="/shelf-audit" onAct={go} className="s-act s-blue">
               <Camera /> {t('مراجعة الرف')}
-            </Act>
+            </Act>}
             <Act id="/training" onAct={go} className="s-act" style={{ background: 'var(--color-primary)', color: '#fff' }}>
               <GraduationCap /> {t('أكاديمية التدريب')}
             </Act>
-            <Act id="/beat-plan" onAct={go} className="s-act s-purple">
+            {beatPlanAllowed && <Act id="/beat-plan" onAct={go} className="s-act s-purple">
               <Route /> {t('خطة الزيارات')}
-            </Act>
+            </Act>}
             {fieldSurveyAllowed && (
               <Act id="/field-survey" onAct={go} className="s-act" style={{ background: 'var(--color-success)', color: '#fff' }}>
                 <ScanSearch /> {t('مسح ميداني')}
@@ -113,7 +116,7 @@ export default function DashboardScreen() {
               <EmptyState
                 icon={<ClipboardList />}
                 title={t('لا توجد زيارات بعد')}
-                action={{ label: t('بدء زيارة'), onClick: goNew }}
+                action={newVisitAllowed ? { label: t('بدء زيارة'), onClick: goNew } : undefined}
               />
             </div>
           ) : (
