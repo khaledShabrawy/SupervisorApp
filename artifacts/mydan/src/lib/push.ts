@@ -1,76 +1,71 @@
 // Web Push subscription management
 import { supabase } from './supabase';
+import { hasRegisteredPush, registerPush, unregisterPush } from './push-registration';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const VAPID_PUBLIC = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) ||
   'BPXw8FvbaqXnGgBAKe3YWGqopPU2F80WBzWxq3en1qALgRWpjNwn7CBFuJyphseJv8A4t5_3ttkKUxbiTSJu1XE';
 
 function urlB64ToUint8(base64: string): Uint8Array<ArrayBuffer> {
-  const b64 = base64.replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(b64);
-  const arr = Uint8Array.from(raw, (c) => c.charCodeAt(0));
-  return new Uint8Array(arr.buffer as ArrayBuffer);
+  const raw = atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
+  return new Uint8Array(Uint8Array.from(raw, c => c.charCodeAt(0)).buffer as ArrayBuffer);
 }
 
-async function getOrCreateSub(): Promise<PushSubscription | null> {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
-  const reg = await navigator.serviceWorker.ready;
-  const existing = await reg.pushManager.getSubscription();
-  if (existing) return existing;
-  return reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlB64ToUint8(VAPID_PUBLIC),
-  });
-}
+type PushState = 'checking' | 'idle' | 'loading' | 'subscribed' | 'denied' | 'error' | 'unsupported';
 
 export function usePushSubscription() {
   const { supervisor } = useAuth();
-  const [state, setState] = useState<'idle' | 'loading' | 'subscribed' | 'denied'>('idle');
+  const [state, setState] = useState<PushState>('checking');
+  const generation = useRef(0);
+  const supervisorId = supervisor?.id;
+  const companyId = supervisor?.company_id;
 
-  // check current state on mount
   useEffect(() => {
-    if (!('Notification' in window)) { setState('denied'); return; }
-    if (Notification.permission === 'denied') { setState('denied'); return; }
-    if (Notification.permission === 'granted') { setState('subscribed'); }
-  }, []);
+    const current = ++generation.current;
+    const setCurrent = (next: PushState) => { if (generation.current === current) setState(next); };
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window) || !VAPID_PUBLIC) {
+      setCurrent('unsupported');
+    } else if (Notification.permission === 'denied') {
+      setCurrent('denied');
+    } else if (!supervisorId || !companyId || Notification.permission !== 'granted') {
+      setCurrent('idle');
+    } else {
+      setCurrent('checking');
+      void navigator.serviceWorker.getRegistration().then(registration =>
+        hasRegisteredPush(supabase, registration, { supervisorId, companyId })
+      ).then(registered => setCurrent(registered ? 'subscribed' : 'idle')).catch(() => setCurrent('error'));
+    }
+    return () => { generation.current++; };
+  }, [supervisorId, companyId]);
 
   const subscribe = useCallback(async () => {
-    if (!supervisor?.id || !VAPID_PUBLIC) return;
+    if (!supervisorId || !companyId || !VAPID_PUBLIC) { setState('error'); return; }
     if (Notification.permission === 'denied') { setState('denied'); return; }
-    setState('loading');
+    const current = ++generation.current;
+    const setCurrent = (next: PushState) => { if (generation.current === current) setState(next); };
+    setCurrent('loading');
     try {
-      const perm = await Notification.requestPermission();
-      if (perm !== 'granted') { setState('denied'); return; }
-      const sub = await getOrCreateSub();
-      if (!sub) { setState('idle'); return; }
-      const json = sub.toJSON() as {
-        endpoint: string;
-        keys: { p256dh: string; auth: string };
-      };
-      await supabase.from('push_subscriptions').upsert({
-        supervisor_id: supervisor.id,
-        company_id: supervisor.company_id,
-        endpoint: json.endpoint,
-        p256dh: json.keys.p256dh,
-        auth: json.keys.auth,
-      }, { onConflict: 'supervisor_id,endpoint' });
-      setState('subscribed');
-    } catch {
-      setState('idle');
-    }
-  }, [supervisor]);
+      const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+      if (permission !== 'granted') { setCurrent(permission === 'denied' ? 'denied' : 'idle'); return; }
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (!registration?.active) throw new Error('Service worker is not ready');
+      await registerPush(supabase, registration, { supervisorId, companyId }, urlB64ToUint8(VAPID_PUBLIC));
+      setCurrent('subscribed');
+    } catch { setCurrent('error'); }
+  }, [supervisorId, companyId]);
 
   const unsubscribe = useCallback(async () => {
-    const reg = await navigator.serviceWorker?.ready;
-    const sub = await reg?.pushManager.getSubscription();
-    if (sub) {
-      await supabase.from('push_subscriptions')
-        .delete().eq('endpoint', sub.endpoint);
-      await sub.unsubscribe();
-    }
-    setState('idle');
-  }, []);
+    if (!supervisorId || !companyId) { setState('error'); return; }
+    const current = ++generation.current;
+    const setCurrent = (next: PushState) => { if (generation.current === current) setState(next); };
+    setCurrent('loading');
+    try {
+      const registration = await navigator.serviceWorker.getRegistration();
+      await unregisterPush(supabase, registration, { supervisorId, companyId });
+      setCurrent('idle');
+    } catch { setCurrent('error'); }
+  }, [supervisorId, companyId]);
 
   return { state, subscribe, unsubscribe };
 }

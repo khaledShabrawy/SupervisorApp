@@ -37,6 +37,13 @@ real device push delivery, or a tested production backup.
 
 ## Remaining release prerequisites
 
+The owner subsequently requested production deployment without taking a backup.
+No production backup has been created; a restore of production data cannot be
+promised. Production SQL application was rejected by automatic approval review
+because the authorization, policy and trigger changes need specific approval
+with their effects understood. The local synthetic checks still do not establish
+hosted staging acceptance.
+
 1. Create an actual encrypted production database backup using a secure
    PostgreSQL connection and verify a restore in isolation. The management API
    token is not a database password. No production backup has been created by

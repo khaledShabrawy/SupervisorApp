@@ -111,6 +111,18 @@ const Item = memo(function Item({
 function PushBanner() {
   const { state, subscribe, unsubscribe } = usePushSubscription();
   if (!('Notification' in window) || !VAPID_PUBLIC) return null;
+  if (state === 'unsupported') return null;
+  if (state === 'checking') return <div className="card" role="status">{t('جاري التحقق من إعداد الإشعارات...')}</div>;
+  if (state === 'denied') return <div className="card" role="status">{t('الإشعارات محظورة في إعدادات المتصفح. اسمح بها من إعدادات الجهاز لتفعيلها.')}</div>;
+  if (state === 'error') return (
+    <div className="card col" role="alert" style={{ gap: 8 }}>
+      <span>{t('تعذر تحديث إعداد الإشعارات. تحقق من الاتصال وأعد المحاولة.')}</span>
+      <div className="row" style={{ gap: 8 }}>
+        <button type="button" className="btn sm" onClick={() => void subscribe()}>{t('إعادة المحاولة')}</button>
+        <button type="button" className="btn sm ghost" onClick={() => void unsubscribe()}>{t('إيقاف الإشعارات')}</button>
+      </div>
+    </div>
+  );
   if (state === 'subscribed') {
     return (
       <div
@@ -124,14 +136,13 @@ function PushBanner() {
         }}
       >
         <Bell size={18} />
-        <span style={{ flex: 1 }}>{t('الإشعارات الفورية مفعّلة')}</span>
+        <span style={{ flex: 1 }}>{t('تم تسجيل الجهاز للإشعارات')}</span>
         <button className="btn sm ghost" style={{ fontSize: 12 }} onClick={() => void unsubscribe()}>
           {t('إلغاء')}
         </button>
       </div>
     );
   }
-  if (state === 'denied') return null;
   return (
     <button
       className="card row"

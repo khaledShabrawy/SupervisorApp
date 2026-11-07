@@ -757,6 +757,11 @@ export const EN: Record<string, string> = {
 
   // ---------- Push notification settings ----------
   'الإشعارات الفورية مفعّلة': 'Push notifications enabled',
+  'تم تسجيل الجهاز للإشعارات': 'This device is registered for notifications',
+  'جاري التحقق من إعداد الإشعارات...': 'Checking notification settings...',
+  'الإشعارات محظورة في إعدادات المتصفح. اسمح بها من إعدادات الجهاز لتفعيلها.': 'Notifications are blocked in your browser. Allow them in your device settings to enable them.',
+  'تعذر تحديث إعداد الإشعارات. تحقق من الاتصال وأعد المحاولة.': 'Could not update notification settings. Check your connection and try again.',
+  'إيقاف الإشعارات': 'Turn off notifications',
   'جاري التفعيل...': 'Enabling...',
   'فعّل إشعارات الجوال لتصلك الرسائل فوراً': 'Enable mobile notifications to receive messages instantly',
 
