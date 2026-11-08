@@ -135,7 +135,7 @@ export function useAdminKpis(filters?: AdminKpiFilters) {
         ? Math.round((visitsAchieved / visitsTarget) * 100)
         : (visitsAchieved > 0 ? 100 : 0);
 
-      // 5. Shelf audit PSS average in period
+      // 5. Shelf audit compliance rate average in period
       let avgPss: number | null = null;
       let auditsCount = 0;
       if (!hasEmptySupFilter) {

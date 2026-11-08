@@ -202,7 +202,7 @@ export default function VisitsScreen() {
         </div>
         {stats.compliance != null && (
           <span className={`badge ${stats.compliance >= 80 ? 'b-green' : 'b-amber'}`} style={{ fontWeight: 600 }}>
-            🎯 {t('نسبة الالتزام بالسياج: {n}%', { n: num(stats.compliance) })}
+            🎯 {t('الالتزام بالنطاق الميداني: {n}%', { n: num(stats.compliance) })}
           </span>
         )}
       </div>

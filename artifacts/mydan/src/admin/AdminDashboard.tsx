@@ -295,7 +295,7 @@ export default function AdminDashboard() {
             <div className="card col between" style={{ padding: 18, gap: 14, flex: '1 1 320px', minWidth: 280 }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <BarChart3 size={18} color="#2563EB" /> {t('تحليلات تدقيق الرفوف وحصة السوق')}
+                  <BarChart3 size={18} color="#2563EB" /> {t('تدقيق الحضور الرفي وحصة السوق')}
                 </h3>
                 <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
                   {t('مؤشرات أداء العرض الميداني والمتاجر النموذجية ورصد المنافسين')}
@@ -304,14 +304,14 @@ export default function AdminDashboard() {
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
                 <div className="card col" style={{ padding: 12, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8 }}>
-                  <span className="muted" style={{ fontSize: 11.5 }}>{t('متوسط PSS')}</span>
+                  <span className="muted" style={{ fontSize: 11.5 }}>{t('نسبة المطابقة')}</span>
                   <strong style={{ fontSize: 20, color: '#7C3AED', marginTop: 2 }}>
                     {d?.avgPss != null ? `${num(d.avgPss)}%` : '—'}
                   </strong>
                 </div>
 
                 <div className="card col" style={{ padding: 12, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8 }}>
-                  <span className="muted" style={{ fontSize: 11.5 }}>{t('الالتزام بالسياج')}</span>
+                  <span className="muted" style={{ fontSize: 11.5 }}>{t('الالتزام الجغرافي')}</span>
                   <strong style={{ fontSize: 20, color: '#059669', marginTop: 2 }}>
                     {d?.geofenceRate != null ? `${num(d.geofenceRate)}%` : '—'}
                   </strong>
@@ -334,10 +334,10 @@ export default function AdminDashboard() {
               <div className="row between items-center">
                 <div>
                   <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <ShieldAlert size={18} color="#D97706" /> {t('رادار التنبيهات الميدانية')}
+                    <ShieldAlert size={18} color="#D97706" /> {t('التنبيهات الميدانية')}
                   </h3>
                   <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
-                    {t('رصد فوري لخروج السياج ونواقص الرف')}
+                    {t('رصد فوري لخروج النطاق الميداني ونواقص الرف')}
                   </p>
                 </div>
                 {alerts.filter((a) => !a.is_read).length > 0 && (
@@ -381,14 +381,14 @@ export default function AdminDashboard() {
 
           {/* KPI Summary Cards */}
           <div className="adm-kpis" style={{ marginTop: 14 }}>
-            <KPICard icon={<Users />} title={t('المستخدمون النشطون')} value={d && num(d.supervisors)} loading={loading} />
-            <KPICard icon={<ClipboardList />} title={t('الزيارات في الفترة')} value={d && num(d.visitsToday)} loading={loading} color="var(--color-success)" />
-            <KPICard icon={<ShieldCheck />} title={t('الالتزام بالنطاق الجغرافي')} value={d ? (d.geofenceRate == null ? '—' : `${d.geofenceRate}%`) : undefined}
-              hint={d && d.totalGeoVisits ? t('{n} داخل النطاق · {oor} خارج النطاق', { n: num(d.onBeatVisits), oor: num(d.oorVisits) }) : undefined} loading={loading} color="#0D9488" />
-            <KPICard icon={<BarChart3 />} title={t('متوسط PSS')} value={d ? (d.avgPss == null ? '—' : `${d.avgPss}%`) : undefined}
-              hint={d ? t('{n} مراجعة مكتملة', { n: num(d.audits30d) }) : undefined} loading={loading} color="#6D3FC0" />
-            <KPICard icon={<Package />} title={t('الأصول النشطة')} value={d && num(d.assets)} loading={loading} color="#C2570C" />
-            <KPICard icon={<ShieldAlert />} title={t('تذاكر صيانة مفتوحة')} value={d && num(d.openTickets)} loading={loading} color="var(--color-danger)" />
+            <KPICard icon={<Users />} title={t('المستخدمون النشطون')} value={d && num(d.supervisors)} loading={loading} onClick={() => nav('/admin/users')} />
+            <KPICard icon={<ClipboardList />} title={t('الزيارات في الفترة')} value={d && num(d.visitsToday)} loading={loading} color="var(--color-success)" onClick={() => nav('/admin/reports')} />
+            <KPICard icon={<ShieldCheck />} title={t('الالتزام الجغرافي')} value={d ? (d.geofenceRate == null ? '—' : `${d.geofenceRate}%`) : undefined}
+              hint={d && d.totalGeoVisits ? t('{n} داخل النطاق · {oor} خارج النطاق', { n: num(d.onBeatVisits), oor: num(d.oorVisits) }) : undefined} loading={loading} color="#0D9488" onClick={() => nav('/admin/live-map')} />
+            <KPICard icon={<BarChart3 />} title={t('نسبة المطابقة')} value={d ? (d.avgPss == null ? '—' : `${d.avgPss}%`) : undefined}
+              hint={d ? t('{n} تدقيق رف مكتمل', { n: num(d.audits30d) }) : undefined} loading={loading} color="#6D3FC0" onClick={() => nav('/admin/shelf-share')} />
+            <KPICard icon={<Package />} title={t('الأصول النشطة')} value={d && num(d.assets)} loading={loading} color="#C2570C" onClick={() => nav('/admin/assets')} />
+            <KPICard icon={<ShieldAlert />} title={t('تذاكر صيانة مفتوحة')} value={d && num(d.openTickets)} loading={loading} color="var(--color-danger)" onClick={() => nav('/admin/assets')} />
           </div>
         </>
       )}

@@ -541,12 +541,12 @@ export const EN: Record<string, string> = {
   'التطبيق': 'App',
   'العودة للتطبيق': 'Back to app',
   'المشرفون النشطون': 'Active supervisors',
-  'متوسط PSS (30 يوم)': 'Avg PSS (30 days)',
+  'نسبة المطابقة (30 يوم)': 'Compliance Rate (30 days)',
   '{n} مراجعة مكتملة': '{n} completed audits',
   'الأصول النشطة': 'Active assets',
   'تذاكر صيانة مفتوحة': 'Open maintenance tickets',
   'تعذر حساب مؤشرات الإدارة.': 'Could not compute admin KPIs.',
-  'تعذر حساب متوسط PSS.': 'Could not compute average PSS.',
+  'تعذر حساب نسبة المطابقة.': 'Could not compute compliance rate.',
 
   // ---------- Admin: supervisors ----------
   'دعوة مشرف جديد': 'Invite new supervisor',
@@ -1028,7 +1028,7 @@ export const EN: Record<string, string> = {
   "كل المستخدمين": "All Users",
   "المستخدمون النشطون": "Active Users",
   "الزيارات في الفترة": "Visits in Period",
-  "متوسط PSS": "Average PSS",
+  "نسبة المطابقة": "Compliance Rate",
   "أكاديمية التدريب": "Training Academy",
   "المستخدمين": "Users",
   "سجل المسح الميداني": "Field Survey Log",
