@@ -3,9 +3,9 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "REPLACE_WITH_PWABUILDER_PACKAGE_NAME",
+      "package_name": "com.digityoucan.mydan",
       "sha256_cert_fingerprints": [
-        "REPLACE_WITH_SHA256_FROM_PWABUILDER"
+        "02:D4:40:23:69:97:A4:47:29:83:9A:8A:7F:DD:37:6A:C8:80:F8:39:67:96:3C:B9:AA:0B:2D:FB:4F:7B:71:4B"
       ]
     }
   }
