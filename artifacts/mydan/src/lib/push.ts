@@ -4,8 +4,7 @@ import { hasRegisteredPush, registerPush, unregisterPush } from './push-registra
 import { useAuth } from '@/contexts/AuthContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export const VAPID_PUBLIC = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string) ||
-  'BPXw8FvbaqXnGgBAKe3YWGqopPU2F80WBzWxq3en1qALgRWpjNwn7CBFuJyphseJv8A4t5_3ttkKUxbiTSJu1XE';
+export const VAPID_PUBLIC = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
 
 function urlB64ToUint8(base64: string): Uint8Array<ArrayBuffer> {
   const raw = atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
@@ -50,7 +49,7 @@ export function usePushSubscription() {
       if (permission !== 'granted') { setCurrent(permission === 'denied' ? 'denied' : 'idle'); return; }
       const registration = await navigator.serviceWorker.getRegistration();
       if (!registration?.active) throw new Error('Service worker is not ready');
-      await registerPush(supabase, registration, { supervisorId, companyId }, urlB64ToUint8(VAPID_PUBLIC));
+      await registerPush(supabase, registration, { supervisorId, companyId }, urlB64ToUint8(VAPID_PUBLIC!));
       setCurrent('subscribed');
     } catch { setCurrent('error'); }
   }, [supervisorId, companyId]);
