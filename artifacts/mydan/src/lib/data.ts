@@ -49,9 +49,13 @@ export function usePaged<T>(sc: Scope, name: string, params: unknown[],
     queryFn: ({ pageParam, signal }) => load(pageParam, pageParam + PAGE - 1, signal),
     getNextPageParam: (last, all) => last.length === PAGE ? all.length * PAGE : undefined,
     retry: 1,
-    refetchInterval: (query) => name === 'audits'
-      && query.state.data?.pages.some(page => page.some(row => (row as ShelfAudit).status === 'processing'))
-      ? 5000 : false,
+    refetchInterval: (query) => {
+      if (name === 'audits'
+        && query.state.data?.pages.some(page => page.some(row => (row as ShelfAudit).status === 'processing')))
+        return 5_000;
+      if (name === 'visits' || name === 'notifications') return 60_000;
+      return false;
+    },
   });
   const items = useMemo(() => (q.data?.pages.flat() ?? []) as T[], [q.data]);
   return { ...q, items };
@@ -68,7 +72,7 @@ async function exact(sc: Scope, table: string, signal: AbortSignal,
 export function useDashboard() {
   const sc = useScope(); const today = todayStr();
   return useQuery({
-    queryKey: [...sc.base, 'dashboard', today], retry: 1,
+    queryKey: [...sc.base, 'dashboard', today], retry: 1, refetchInterval: 60_000,
     queryFn: async ({ signal }) => {
       const byDate = (q: any) => q.eq('visit_date', today); // eslint-disable-line @typescript-eslint/no-explicit-any
       const [visits, completed, inProgress, pending, customers, att, live] = await Promise.all([
@@ -477,7 +481,7 @@ export function useBeatPlanDays() {
 export function useBeatPlan(day: number) {
   const sc = useScope();
   return useQuery({
-    queryKey: [...sc.base, 'beat', day], retry: 1,
+    queryKey: [...sc.base, 'beat', day], retry: 1, refetchInterval: 60_000,
     queryFn: async ({ signal }) => {
       const { data, error } = await sc.scope(supabase.from('beat_plans').select(`id,supervisor_id,day_of_week,customer_id,company_id,customers(${CUSTOMER_COLUMNS})`))
         .eq('day_of_week', day).limit(300).abortSignal(signal);
@@ -537,7 +541,7 @@ export function useSupervisors() {
 export function useAdminSummary() {
   const sc = useScope();
   return useQuery({
-    queryKey: [...sc.base, 'admin-summary'], enabled: sc.isAdmin, retry: 1,
+    queryKey: [...sc.base, 'admin-summary'], enabled: sc.isAdmin, retry: 1, refetchInterval: 120_000,
     queryFn: async ({ signal }) => {
       const c = async (onlyActive: boolean) => {
         return readExactCount(head => {
