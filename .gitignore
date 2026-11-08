@@ -73,3 +73,8 @@ supabase/.temp/
 *.enc.partial
 *.backup-key
 __pycache__/
+
+# Android signing — never commit keystores
+*.jks
+*.keystore
+*.p12
