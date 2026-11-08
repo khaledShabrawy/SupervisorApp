@@ -60,3 +60,8 @@ supabase/.temp/
 
 # Local session state and tokens
 /HOME/.claude-omniroute/sessions/
+
+# Android signing — keystore binaries must never be committed
+*.jks
+*.keystore
+*.p12
