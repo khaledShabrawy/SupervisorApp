@@ -36,6 +36,8 @@ Arabic FMCG field-supervisor app. React 18 + Vite Web PWA, using Supabase.
 ## Current deployment platform
 
 - The user confirmed on 2026-11-06 that Netlify is discontinued.
+- **2026-11-08: Netlify project `reliable-tarsier-09f753` permanently deleted by owner.** Netlify removal is complete on the Netlify dashboard side.
+- Remaining manual step: revoke Netlify GitHub App access from `khaledShabrawy/SupervisorApp` at https://github.com/settings/installations
 - Production hosting is Cloudflare Pages, project `mydan`, at `https://mydan.digityoucan.com`.
 - Do not restore Netlify build configuration, use a Netlify site for Auth redirects, or deploy the application there. Historical review documents may mention earlier observations.
 - Supabase Auth Site URL and retired Netlify redirect entries were corrected to the Cloudflare domain on 2026-11-06 and read back successfully. This configuration change does not apply pending database SQL or publish Edge Functions.
