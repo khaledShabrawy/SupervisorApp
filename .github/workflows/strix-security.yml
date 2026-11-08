@@ -1,0 +1,84 @@
+name: Strix Security Scan
+
+# Manual trigger only — requires owner approval before enabling on push/PR.
+# Cost: requires STRIX_LLM_API_KEY secret and consumes LLM tokens per scan.
+# Estimated: ~$0.50–$3.00 per quick scan depending on LLM provider.
+# DO NOT enable automatic triggers without:
+#   1. Setting STRIX_LLM_API_KEY in repo secrets
+#   2. Confirming isolated target scope (no production URLs)
+#   3. Owner sign-off on LLM data handling policy
+on:
+  workflow_dispatch:
+    inputs:
+      scan_mode:
+        description: 'Scan depth'
+        required: true
+        default: 'quick'
+        type: choice
+        options: [quick, deep]
+      max_budget:
+        description: 'Max LLM cost USD (stop if exceeded)'
+        required: true
+        default: '5'
+
+jobs:
+  strix-sast:
+    name: Static Security Analysis (SAST — code only, no network)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      STRIX_LLM: ${{ secrets.STRIX_LLM || 'anthropic/claude-haiku-4-5' }}
+      LLM_API_KEY: ${{ secrets.STRIX_LLM_API_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify LLM key is configured
+        run: |
+          if [ -z "$LLM_API_KEY" ]; then
+            echo "::error::STRIX_LLM_API_KEY secret is not set. Configure it in repo secrets before running this scan."
+            exit 1
+          fi
+
+      - name: Install Docker (pre-installed on ubuntu-latest)
+        run: docker info
+
+      - name: Install Strix CLI
+        run: curl -sSL https://strix.ai/install | bash
+
+      - name: Run SAST scan on source code (no network targets)
+        run: |
+          strix \
+            --non-interactive \
+            --target ./artifacts/mydan/src \
+            --scan-mode ${{ inputs.scan_mode }} \
+            --max-budget ${{ inputs.max_budget }} \
+            2>&1 | tee strix-output.txt
+        continue-on-error: true
+
+      - name: Upload SARIF findings
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: strix_runs/*/findings.sarif
+        continue-on-error: true
+
+      - name: Upload full report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: strix-report-${{ github.run_id }}
+          path: |
+            strix_runs/
+            strix-output.txt
+          retention-days: 30
+
+      - name: Check for critical vulnerabilities
+        run: |
+          if grep -q '"severity": "critical"' strix_runs/*/vulnerabilities.json 2>/dev/null; then
+            echo "::error::Critical vulnerabilities found. Review strix-report artifact."
+            exit 2
+          fi
+          echo "No critical vulnerabilities detected."
