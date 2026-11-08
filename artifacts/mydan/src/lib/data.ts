@@ -150,7 +150,7 @@ export function useDashboard() {
 
   return useQuery({
 
-    queryKey: [...sc.base, 'dashboard', today], retry: 1,
+    queryKey: [...sc.base, 'dashboard', today], retry: 1, refetchInterval: 60_000,
 
     queryFn: async ({ signal }) => {
 
@@ -860,7 +860,7 @@ export function useBeatPlan(day: number) {
 
   return useQuery({
 
-    queryKey: [...sc.base, 'beat', day], retry: 1,
+    queryKey: [...sc.base, 'beat', day], retry: 1, refetchInterval: 60_000,
 
     queryFn: async ({ signal }) => {
 
@@ -999,7 +999,7 @@ export function useAdminSummary() {
 
   return useQuery({
 
-    queryKey: [...sc.base, 'admin-summary'], enabled: sc.isAdmin, retry: 1,
+    queryKey: [...sc.base, 'admin-summary'], enabled: sc.isAdmin, retry: 1, refetchInterval: 120_000,
 
     queryFn: async ({ signal }) => {
 
