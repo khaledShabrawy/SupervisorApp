@@ -55,7 +55,7 @@ export default function NotificationsScreen() {
     <PushBanner />
     <div className="tabs"><Chip value="all" label={t('الكل')} active={!unread} onSelect={onTab} /><Chip value="unread" label={t('غير المقروءة')} active={unread} onSelect={onTab} /></div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
-      : q.items.length === 0 ? <EmptyState icon={<BellOff />} title={t('لا توجد إشعارات')} />
+      : q.items.length === 0 ? <EmptyState illustration="notifications" title={t('لا توجد إشعارات')} />
       : <>{q.items.map((n) => <Item key={n.id} n={n} fresh={fresh.has(n.id)} now={now} onRead={onRead} />)}<LoadMore q={q} /></>}
   </div>;
 }

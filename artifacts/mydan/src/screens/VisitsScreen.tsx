@@ -119,7 +119,7 @@ export default function VisitsScreen() {
     }>{t('الزيارات')}</PageTitle>
     <div className="tabs" role="tablist">{TABS.map(([k, l]) => <Chip key={k} role="tab" value={k} label={l} active={p === k} onSelect={onTab} testId={`tab-${k}`} />)}</div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={refresh} />
-      : q.items.length === 0 ? <EmptyState icon={<ClipboardList />} title={t('لا توجد زيارات')} text={t('لا زيارات في هذه الفترة.')} action={{ label: t('زيارة جديدة'), onClick: create }} />
+      : q.items.length === 0 ? <EmptyState illustration="visits" title={t('لا توجد زيارات')} text={t('لا زيارات في هذه الفترة.')} action={{ label: t('زيارة جديدة'), onClick: create }} />
       : <>{(q.items as Row[]).map((v) => <Item key={v.id} v={v} onStart={onStart} onStatus={onStatus} />)}<div ref={sentinel} /><LoadMore q={q} /></>}
     <button className="btn fab" aria-label={t('زيارة جديدة')} data-testid="button-fab-visit" onClick={create}><Plus /> {t('زيارة جديدة')}</button>
   </div>;

@@ -118,7 +118,7 @@ export default function CustomersScreen({ embedded = false }: { embedded?: boole
     </div>
     <div className="tabs">{CHIPS.map(([k, l]) => <Chip key={k} value={k} label={l} active={type === k} onSelect={onType} />)}</div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
-      : list.length === 0 ? <EmptyState icon={<Store />} title={filtered ? t('لا نتائج') : t('لا يوجد عملاء')} action={filtered ? undefined : { label: t('إضافة عميل'), onClick: newOne }} />
+      : list.length === 0 ? <EmptyState illustration="customers" title={filtered ? t('لا نتائج') : t('لا يوجد عملاء')} action={filtered ? undefined : { label: t('إضافة عميل'), onClick: newOne }} />
       : <>{list.map((c) => <Card key={c.id} c={c} now={now} onOpen={openDetail} />)}<LoadMore q={q} /></>}
     {detail && <Detail c={detail} onEdit={startEdit} onClose={closeDetail} />}
     {edit && <Form c={edit === 'new' ? null : edit} onClose={closeEdit} />}

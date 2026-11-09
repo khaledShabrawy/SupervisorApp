@@ -254,7 +254,7 @@ export default function OrdersScreen() {
         <ErrorState error={q.error} onRetry={retry} />
       ) : filteredOrders.length === 0 ? (
         <EmptyState
-          icon={<ShoppingCart />}
+          illustration="orders"
           title={search ? t('لا توجد نتائج بحث') : t('لا توجد أوردرات مسجلة')}
           text={
             search

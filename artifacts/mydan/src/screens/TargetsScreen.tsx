@@ -46,7 +46,7 @@ export default function TargetsScreen() {
   return <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
     <PageTitle>{t('الأهداف')}{cur ? <span className="muted" style={{ fontSize: 14, fontWeight: 400 }}> · {MONTHS[cur.month - 1]} {year(cur.year)}</span> : null}</PageTitle>
     {q.isPending ? <div className="skel" style={{ height: 200 }} /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
-      : !cur ? <div className="card"><EmptyState icon={<TargetIcon />} title={t('لا أهداف')} text={t('لم يتم تحديد أهداف بعد.')} /></div> : <>
+      : !cur ? <div className="card"><EmptyState illustration="targets" title={t('لا أهداف')} text={t('لم يتم تحديد أهداف بعد.')} /></div> : <>
         <Card label={t('الزيارات')} actual={cur.actual_visits} target={cur.visits_target} fmt={num} />
         <Card label={t('مراجعات الرف')} actual={cur.actual_audits} target={cur.audit_target} fmt={num} />
         <PageTitle>{t('الأشهر السابقة')}</PageTitle>
