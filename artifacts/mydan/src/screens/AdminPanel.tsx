@@ -254,6 +254,21 @@ export function TargetForm() {
   const onMonth = useCallback((e: ChangeEvent<HTMLSelectElement>) => setMonth(Number(e.target.value)), []);
   const onYear = useCallback((e: ChangeEvent<HTMLInputElement>) => setYear(Number(e.target.value)), []);
 
+  const filteredSupervisors = useMemo(() => {
+    if (!q.items) return [];
+    if (targetScope === 'specific_branch' && branchId) return q.items.filter((s) => s.branch_id === branchId);
+    return q.items;
+  }, [q.items, targetScope, branchId]);
+
+  const onBranchIdChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
+    const newBranch = e.target.value;
+    setBranchId(newBranch);
+    if (sid) {
+      const cur = q.items?.find((s) => s.id === sid);
+      if (cur && cur.branch_id !== newBranch) setSid('');
+    }
+  }, [sid, q.items]);
+
   const valid = (scopeType === 'general' || Boolean(sid)) &&
     (targetScope === 'all_branches' || Boolean(branchId)) &&
     (criteria === 'orders' ? (Number(targetAmount) > 0 || Number(v) > 0) : Number(v) >= 0);
@@ -312,7 +327,7 @@ export function TargetForm() {
       {targetScope === 'specific_branch' && (
         <label className="f">
           {t('اختر الفرع المستهدف *')}
-          <select className="input" value={branchId} onChange={useInput(setBranchId)} required>
+          <select className="input" value={branchId} onChange={onBranchIdChange} required>
             <option value="">{t('اختر الفرع')}</option>
             {branches.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
@@ -324,7 +339,7 @@ export function TargetForm() {
           {t('المستخدم / المشرف المستهدف *')}
           <select className="input" value={sid} onChange={onSid} disabled={q.isPending} required>
             <option value="">{q.isPending ? t('جاري التحميل...') : t('اختر المستخدم')}</option>
-            {q.items.map((s) => <SelectOption key={s.id} value={s.id} label={s.full_name} />)}
+            {filteredSupervisors.map((s) => <SelectOption key={s.id} value={s.id} label={s.full_name} />)}
           </select>
         </label>
       )}
