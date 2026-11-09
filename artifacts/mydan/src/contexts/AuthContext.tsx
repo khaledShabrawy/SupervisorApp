@@ -42,6 +42,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isAuthorizedSupervisor(data, next.user.id)) {
         throw new Error(t('حساب المشرف غير موجود أو غير نشط أو صلاحياته غير مكتملة.'));
       }
+      // Server-side license gate — cannot be bypassed client-side
+      if (data.role !== 'super_admin') {
+        const { data: lic } = await supabase.functions.invoke('validate-license');
+        if (lic?.valid === false) {
+          const reason = (lic as { reason?: string }).reason;
+          if (reason === 'company_inactive') {
+            throw new Error(t('تم إيقاف حساب الشركة مؤقتاً من قبل إدارة المنصة. يرجى التواصل مع الدعم الفني لإعادة التفعيل.'));
+          }
+          if (reason === 'license_expired') {
+            throw new Error(t('انتهت صلاحية باقة الاشتراك الخاصة بشركتكم. لتفادي انقطاع الخدمة، يرجى التواصل مع إدارة النظام لتجديد الترخيص.'));
+          }
+        }
+      }
       if (epoch === generation.current) setSupervisor(data);
     } catch (failure) {
       if (epoch === generation.current) setError(failure instanceof Error ? failure.message : t('تعذر تحميل الحساب.'));
