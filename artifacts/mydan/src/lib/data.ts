@@ -981,7 +981,7 @@ export function useSupervisors() {
 
   return usePaged<Supervisor>(sc, 'admin-supervisors', [], async (from, to, signal) => {
 
-    const { data, error } = await supabase.from('supervisors').select('id,user_id,full_name,phone,role,branch_id,company_id,is_active')
+    const { data, error } = await supabase.from('supervisors').select('id,user_id,full_name,phone,role,branch_id,company_id,is_active,supervisor_code')
 
       .eq('company_id', sc.companyId).order('full_name').order('id').range(from, to).abortSignal(signal);
 

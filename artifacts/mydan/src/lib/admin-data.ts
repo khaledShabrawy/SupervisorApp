@@ -1053,7 +1053,7 @@ export function useAdminShelfAudits(filters: { branchId?: string; supervisorId?:
           id, visit_id, supervisor_id, company_id, photo_url, audit_summary_ar,
           audit_score, ai_detailed_report, status, audited_at, created_at,
           supervisors(id, full_name, supervisor_code, branch_id, branches(id, name)),
-          visits(id, customer_id, customers(id, name, customer_code))
+          visits(id, customer_id, customers(id, name))
         `)
         .eq('company_id', sc.companyId)
         .order('audited_at', { ascending: false })

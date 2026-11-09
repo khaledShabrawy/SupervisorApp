@@ -199,7 +199,7 @@ export type FieldSurveyRecord = {
   created_at: string;
   latitude: number | null;
   longitude: number | null;
-  supervisors: { full_name: string } | null;
+  supervisors: { full_name: string; supervisor_code?: string | null } | null;
 };
 
 export function useAdminFieldSurveys() {
@@ -211,7 +211,7 @@ export function useAdminFieldSurveys() {
     queryFn: async ({ signal }) => {
       const { data, error } = await supabase
         .from('field_surveys')
-        .select('id,status,stores_found,created_at,latitude,longitude,supervisors(full_name)')
+        .select('id,status,stores_found,created_at,latitude,longitude,supervisors(full_name,supervisor_code)')
         .eq('company_id', sc.companyId)
         .order('created_at', { ascending: false })
         .limit(200)

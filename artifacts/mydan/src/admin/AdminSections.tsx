@@ -758,27 +758,47 @@ function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: 
 }
 export function AdminProducts() {
   const [availability, setAvailability] = useState<'all' | 'active' | 'inactive'>('all');
+  const [search, setSearch] = useState('');
   const q = useAdminProducts(availability);
   const retry = useRefetch(q.refetch);
   const toggleActive = useToggleActiveRecord('products', 'products');
   const deactivate = useDeactivateRecord('products', 'products');
   const [edit, setEdit] = useState<CatalogProduct | null | undefined>(undefined);
 
+  const filteredItems = useMemo(() => {
+    if (!search.trim()) return q.items;
+    const term = search.trim().toLowerCase();
+    return q.items.filter((p) =>
+      p.name?.toLowerCase().includes(term) ||
+      (p.sku || '').toLowerCase().includes(term) ||
+      (p.item_code || '').toLowerCase().includes(term) ||
+      (p.master_brand || '').toLowerCase().includes(term) ||
+      (p.sub_brand || '').toLowerCase().includes(term) ||
+      (p.category || '').toLowerCase().includes(term)
+    );
+  }, [q.items, search]);
+
   return <>
     <div className="row between">
       <h2>{t('المنتجات')}</h2>
       <button className="btn" onClick={() => setEdit(null)}><Plus size={18} /> {t('منتج جديد')}</button>
     </div>
-    <div className="row" style={{ gap: 10, alignItems: 'center', marginBottom: 12 }}>
-      <span className="muted" style={{ fontSize: 13 }}>{t('حالة الصنف:')}</span>
-      <select className="input" style={{ width: 170 }} value={availability} onChange={(e) => setAvailability(e.target.value as any)}>
-        <option value="all">{t('كل الأصناف')}</option>
-        <option value="active">{t('المتاحة فقط')}</option>
-        <option value="inactive">{t('غير المتاحة (المتوقفة)')}</option>
-      </select>
+    <div className="row" style={{ gap: 10, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+      <div className="row" style={{ gap: 6, flex: '1 1 240px', maxWidth: 320 }}>
+        <Search size={16} style={{ color: '#94A3B8', flexShrink: 0 }} />
+        <input className="input" style={{ flex: 1 }} placeholder={t('بحث بالاسم أو الكود أو الماركة...')} value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+      <div className="row" style={{ gap: 6 }}>
+        <span className="muted" style={{ fontSize: 13 }}>{t('الحالة:')}</span>
+        <select className="input" style={{ width: 170 }} value={availability} onChange={(e) => setAvailability(e.target.value as any)}>
+          <option value="all">{t('كل الأصناف')}</option>
+          <option value="active">{t('المتاحة فقط')}</option>
+          <option value="inactive">{t('غير المتاحة (المتوقفة)')}</option>
+        </select>
+      </div>
     </div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
-      : !q.items.length ? <EmptyState icon={<Package />} title={t('لا توجد منتجات')} />
+      : !filteredItems.length ? <EmptyState icon={<Package />} title={search ? t('لا توجد نتائج للبحث') : t('لا توجد منتجات')} />
       : <div className="adm-table-wrap"><table className="adm-table">
           <thead><tr>
             <th>{t('كود الصنف')}</th>
@@ -789,7 +809,7 @@ export function AdminProducts() {
             <th>{t('الحالة')}</th>
             <th />
           </tr></thead>
-          <tbody>{q.items.map((p) => <tr key={p.id}>
+          <tbody>{filteredItems.map((p) => <tr key={p.id}>
             <td dir="ltr" style={{ fontWeight: 600, color: 'var(--color-primary)' }}>{p.item_code || p.sku || '—'}</td>
             <td className="title">{p.name}</td>
             <td>{p.master_brand || '—'}</td>
@@ -1311,7 +1331,18 @@ function SurveyForm({ edit, onClose }: { edit: SurveyRow | null; onClose: () => 
   return <Modal title={edit ? t('تعديل الاستبيان') : t('استبيان جديد')} onClose={onClose} onSubmit={submit}>
     <label className="f">{t('عنوان الاستبيان *')}<input className="input" required value={title} onChange={useInput(setTitle)} /></label>
     <div className="row">
-      <label className="f grow">{t('نوع العميل المستهدف')}<input className="input" placeholder={t('الكل')} value={targetType} onChange={useInput(setTargetType)} /></label>
+      <label className="f grow">{t('نوع العميل المستهدف')}
+        <select className="input" value={targetType} onChange={(e) => setTargetType(e.target.value)}>
+          <option value="">{t('الكل (بدون تقييد)')}</option>
+          <option value="بقالة">{t('بقالة')}</option>
+          <option value="سوبر ماركت">{t('سوبر ماركت')}</option>
+          <option value="هايبر ماركت">{t('هايبر ماركت')}</option>
+          <option value="منظفات">{t('منظفات')}</option>
+          <option value="صيدليات">{t('صيدليات')}</option>
+          <option value="كافيه">{t('كافيه')}</option>
+          <option value="أخرى">{t('أخرى')}</option>
+        </select>
+      </label>
     </div>
     <div className="row">
       <label className="f grow">{t('من تاريخ')}<input className="input" type="date" value={validFrom} onChange={useInput(setValidFrom)} /></label>
@@ -1528,12 +1559,25 @@ export function AdminFieldSurveys() {
             <tbody>{q.data.map((r) => {
               const st = FS_STATUS[r.status] ?? { label: r.status, cls: 'b-gray' };
               return <tr key={r.id}>
-                <td className="title">{r.supervisors?.full_name ?? '—'}</td>
+                <td className="title">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    {r.supervisors?.supervisor_code && (
+                      <span className="badge b-blue" style={{ fontFamily: 'monospace', fontSize: 10.5, padding: '1px 5px' }}>
+                        {r.supervisors.supervisor_code}
+                      </span>
+                    )}
+                    {r.supervisors?.full_name ?? '—'}
+                  </div>
+                </td>
                 <td><span className={`badge ${st.cls}`}>{t(st.label)}</span></td>
                 <td>{r.status === 'completed' ? <strong style={{ color: 'var(--color-success)' }}>{r.stores_found}</strong> : '—'}</td>
                 <td className="muted" style={{ fontSize: 12 }}>{new Date(r.created_at).toLocaleDateString('ar-EG')}</td>
-                <td className="muted" style={{ fontSize: 12 }} dir="ltr">
-                  {r.latitude && r.longitude ? `${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}` : '—'}
+                <td style={{ fontSize: 12 }}>
+                  {r.latitude && r.longitude
+                    ? <a href={`https://www.google.com/maps?q=${r.latitude},${r.longitude}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }} dir="ltr">
+                        📍 {r.latitude.toFixed(4)}, {r.longitude.toFixed(4)}
+                      </a>
+                    : <span className="muted">—</span>}
                 </td>
               </tr>;
             })}</tbody>

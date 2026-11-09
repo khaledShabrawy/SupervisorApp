@@ -12,6 +12,7 @@ export interface SupervisorRoutePoint {
   visitId: string;
   customerId: string;
   customerName: string;
+  customerCode?: string | null;
   customerAddress?: string | null;
   latitude: number;
   longitude: number;
@@ -25,6 +26,7 @@ export interface SupervisorRoutePoint {
 export interface SupervisorLiveTrack {
   supervisorId: string;
   supervisorName: string;
+  supervisorCode?: string | null;
   phone?: string | null;
   role: string;
   branchId?: string | null;
@@ -33,6 +35,7 @@ export interface SupervisorLiveTrack {
   liveStatus: LiveStatusKind;
   currentLocation: { latitude: number; longitude: number } | null;
   currentCustomerName?: string | null;
+  currentCustomerCode?: string | null;
   currentCustomerAddress?: string | null;
   lastActiveTime?: string | null;
   route: SupervisorRoutePoint[];
@@ -76,7 +79,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
       // 1. Fetch active supervisors of the company
       let supQuery = supabase
         .from('supervisors')
-        .select('id, full_name, phone, role, branch_id, company_id, is_active')
+        .select('id, full_name, supervisor_code, phone, role, branch_id, company_id, is_active')
         .eq('company_id', sc.companyId)
         .eq('is_active', true);
 
@@ -161,6 +164,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
               visitId: v.id,
               customerId: v.customer_id,
               customerName: v.customers?.name ?? t('عميل غير معروف'),
+              customerCode: null,
               customerAddress: v.customers?.address,
               latitude: lat,
               longitude: lng,
@@ -180,6 +184,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
           return {
             supervisorId: s.id,
             supervisorName: s.full_name,
+            supervisorCode: s.supervisor_code || null,
             phone: s.phone,
             role: s.role,
             branchId: s.branch_id,
@@ -191,6 +196,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
               longitude: Number(inProgress.longitude),
             },
             currentCustomerName: inProgress.customers?.name,
+            currentCustomerCode: null,
             currentCustomerAddress: inProgress.customers?.address,
             lastActiveTime: inProgress.check_in_time,
             route,
@@ -206,6 +212,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
           return {
             supervisorId: s.id,
             supervisorName: s.full_name,
+            supervisorCode: s.supervisor_code || null,
             phone: s.phone,
             role: s.role,
             branchId: s.branch_id,
@@ -217,6 +224,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
               longitude: latest.longitude,
             },
             currentCustomerName: latest.customerName,
+            currentCustomerCode: latest.customerCode || null,
             currentCustomerAddress: latest.customerAddress,
             lastActiveTime: latest.checkOutTime || latest.checkInTime,
             route,
@@ -229,6 +237,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
         return {
           supervisorId: s.id,
           supervisorName: s.full_name,
+          supervisorCode: s.supervisor_code || null,
           phone: s.phone,
           role: s.role,
           branchId: s.branch_id,
@@ -237,6 +246,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
           liveStatus: 'idle',
           currentLocation: null,
           currentCustomerName: null,
+          currentCustomerCode: null,
           currentCustomerAddress: null,
           lastActiveTime: null,
           route,

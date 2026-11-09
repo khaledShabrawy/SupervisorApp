@@ -199,7 +199,7 @@ export default function AdminTraining() {
               <Video size={48} color="#94A3B8" style={{ marginBottom: 16 }} />
               <h3 style={{ margin: '0 0 8px' }}>{t('لم يتم إنشاء أي مسارات تدريبية بعد')}</h3>
               <p style={{ margin: '0 0 16px', color: '#64748B' }}>
-                {t('ابدأ بإنشاء أول مسار تدريبي للمشرفين وارفع الفيديوهات التعليمية الخاصة بشركة زينة.')}
+                {t('ابدأ بإنشاء أول مسار تدريبي للمشرفين وارفع الفيديوهات التعليمية الخاصة بفريقك.')}
               </p>
               <button onClick={openNewCourse} className="btn" style={{ background: '#4F46E5', color: '#fff' }}>
                 <Plus size={18} /> {t('إضافة أول مسار الآن')}

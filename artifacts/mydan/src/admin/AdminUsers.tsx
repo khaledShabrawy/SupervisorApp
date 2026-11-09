@@ -366,7 +366,11 @@ export default function AdminUsers() {
     }
     if (search.trim()) {
       const term = search.trim().toLowerCase();
-      list = list.filter((s) => s.full_name.toLowerCase().includes(term) || (s.phone && s.phone.includes(term)));
+      list = list.filter((s) =>
+        s.full_name.toLowerCase().includes(term) ||
+        (s.phone && s.phone.includes(term)) ||
+        (s.supervisor_code && s.supervisor_code.toLowerCase().includes(term))
+      );
     }
     return list.sort((a, b) => {
       const x = String(a[sort.key]), y = String(b[sort.key]);
@@ -434,7 +438,7 @@ export default function AdminUsers() {
 
       <input
         className="input grow"
-        placeholder={t('بحث بالاسم أو الهاتف...')}
+        placeholder={t('بحث بالاسم أو الكود أو الهاتف...')}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
