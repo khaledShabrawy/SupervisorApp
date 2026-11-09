@@ -261,9 +261,34 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
   const onSid = useInput(setSid);
   const onV = useInput(setV);
   const onA = useInput(setA);
-  const onBranchId = useInput(setBranchId);
   const onMonth = useCallback((e: ChangeEvent<HTMLSelectElement>) => setMonth(Number(e.target.value)), []);
   const onYear = useCallback((e: ChangeEvent<HTMLInputElement>) => setYear(Number(e.target.value)), []);
+
+  const onTargetScopeChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value as 'all_branches' | 'specific_branch';
+    setTargetScope(val);
+    if (val === 'all_branches') {
+      setBranchId('');
+    }
+  }, []);
+
+  const onBranchIdChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
+    const newBranchId = e.target.value;
+    setBranchId(newBranchId);
+    if (newBranchId && sid) {
+      const currentSup = q.items.find((s) => s.id === sid);
+      if (currentSup && currentSup.branch_id !== newBranchId) {
+        setSid('');
+      }
+    }
+  }, [q.items, sid]);
+
+  const filteredSupervisors = useMemo(() => {
+    if (targetScope === 'specific_branch' && branchId) {
+      return q.items.filter((s) => s.branch_id === branchId);
+    }
+    return q.items;
+  }, [q.items, targetScope, branchId]);
 
   const valid = (scopeType === 'general' || Boolean(sid)) &&
     (targetScope === 'all_branches' || Boolean(branchId)) &&
@@ -326,7 +351,7 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
 
         <label className="f grow">
           {t('نطاق الفروع')}
-          <select className="input" value={targetScope} onChange={(e) => setTargetScope(e.target.value as any)}>
+          <select className="input" value={targetScope} onChange={onTargetScopeChange}>
             <option value="all_branches">{t('كل الفروع')}</option>
             <option value="specific_branch">{t('فرع محدد')}</option>
           </select>
@@ -336,7 +361,7 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
       {targetScope === 'specific_branch' && (
         <label className="f">
           {t('اختر الفرع المستهدف *')}
-          <select className="input" value={branchId} onChange={onBranchId} required>
+          <select className="input" value={branchId} onChange={onBranchIdChange} required>
             <option value="">{t('اختر الفرع')}</option>
             {branches.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
@@ -347,8 +372,16 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
         <label className="f">
           {t('المستخدم / المشرف المستهدف *')}
           <select className="input" value={sid} onChange={onSid} disabled={q.isPending} required>
-            <option value="">{q.isPending ? t('جاري التحميل...') : t('اختر المستخدم')}</option>
-            {q.items.map((s) => <SelectOption key={s.id} value={s.id} label={s.supervisor_code ? `${s.full_name} (${s.supervisor_code})` : s.full_name} />)}
+            <option value="">
+              {q.isPending
+                ? t('جاري التحميل...')
+                : targetScope === 'specific_branch' && !branchId
+                ? t('يرجى اختيار الفرع أولاً')
+                : filteredSupervisors.length === 0
+                ? t('لا يوجد مستخدمين مرتبطين بهذا الفرع')
+                : t('اختر المستخدم')}
+            </option>
+            {filteredSupervisors.map((s) => <SelectOption key={s.id} value={s.id} label={s.supervisor_code ? `${s.full_name} (${s.supervisor_code})` : s.full_name} />)}
           </select>
         </label>
       )}

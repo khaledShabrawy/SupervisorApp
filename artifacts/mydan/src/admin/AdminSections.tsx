@@ -163,6 +163,7 @@ export function AdminBranches() {
 const CUST_TYPES = ['بقالة', 'سوبرماركت', 'هايبرماركت', 'كيوسك', 'محل جملة', 'منظفات', 'صيدليات', 'ضيافة', 'أخرى'];
 function CustomerForm({ edit, sups, onClose }: { edit: AdminCustomerRow | null; sups: Supervisor[]; onClose: () => void }) {
   const m = useSaveAdminCustomer();
+  const branches = useBranches();
   const [customerCode, setCustomerCode] = useState(edit?.customer_code ?? '');
   const [name, setName] = useState(edit?.name ?? ''); const [type, setType] = useState(edit?.type ?? CUST_TYPES[0]);
   const [ownerName, setOwnerName] = useState(edit?.owner_name ?? ''); const [phone, setPhone] = useState(edit?.phone ?? '');
@@ -170,6 +171,41 @@ function CustomerForm({ edit, sups, onClose }: { edit: AdminCustomerRow | null; 
   const [lat, setLat] = useState(edit?.latitude?.toString() ?? ''); const [lng, setLng] = useState(edit?.longitude?.toString() ?? '');
   const [supId, setSupId] = useState(edit?.supervisor_id ?? ''); const [active, setActive] = useState(edit?.is_active ?? true);
   const numOrNull = (v: string) => (v.trim() === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+
+  // Cascading supervisors based on selected branch
+  const filteredSups = useMemo(() => {
+    if (!branch) return sups;
+    const matchedBranch = branches.data?.find((b) => b.name === branch || b.id === branch);
+    if (!matchedBranch) return sups;
+    return sups.filter((s) => s.branch_id === matchedBranch.id);
+  }, [sups, branch, branches.data]);
+
+  const handleBranchChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
+    const newBranch = e.target.value;
+    setBranch(newBranch);
+    if (newBranch && supId) {
+      const matched = branches.data?.find((b) => b.name === newBranch || b.id === newBranch);
+      if (matched) {
+        const currentSup = sups.find((s) => s.id === supId);
+        if (currentSup && currentSup.branch_id && currentSup.branch_id !== matched.id) {
+          setSupId('');
+        }
+      }
+    }
+  }, [branches.data, sups, supId]);
+
+  const handleSupChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
+    const newSupId = e.target.value;
+    setSupId(newSupId);
+    if (newSupId && !branch) {
+      const selectedSup = sups.find((s) => s.id === newSupId);
+      if (selectedSup?.branch_id) {
+        const b = branches.data?.find((br) => br.id === selectedSup.branch_id);
+        if (b) setBranch(b.name);
+      }
+    }
+  }, [sups, branch, branches.data]);
+
   const submit = useCallback((e: FormEvent) => { e.preventDefault();
     m.mutate({ id: edit?.id, customer_code: customerCode, name, type, owner_name: ownerName, phone, address,
       latitude: numOrNull(lat), longitude: numOrNull(lng), branch, supervisor_id: supId, is_active: active },
@@ -187,15 +223,29 @@ function CustomerForm({ edit, sups, onClose }: { edit: AdminCustomerRow | null; 
     </div>
     <div className="row">
       <label className="f grow">{t('الهاتف')}<input className="input" dir="ltr" inputMode="tel" value={phone} onChange={useInput(setPhone)} /></label>
-      <label className="f grow">{t('الفرع')}<input className="input" value={branch} onChange={useInput(setBranch)} /></label>
+      <label className="f grow">{t('الفرع')}
+        <select className="input" value={branch} onChange={handleBranchChange}>
+          <option value="">{t('بدون فرع محدد')}</option>
+          {branches.data?.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
+          {branch && !branches.data?.some((b) => b.name === branch) && (
+            <option value={branch}>{branch}</option>
+          )}
+        </select>
+      </label>
     </div>
     <label className="f">{t('العنوان *')}<input className="input" required value={address} onChange={useInput(setAddress)} /></label>
     <div className="row">
       <label className="f grow">{t('خط العرض')}<input className="input" dir="ltr" inputMode="decimal" value={lat} onChange={useInput(setLat)} /></label>
       <label className="f grow">{t('خط الطول')}<input className="input" dir="ltr" inputMode="decimal" value={lng} onChange={useInput(setLng)} /></label>
     </div>
-    <label className="f">{t('المشرف المسؤول')}<select className="input" value={supId} onChange={useInput(setSupId)}>
-      <option value="">{t('بدون')}</option>{sups.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}</select></label>
+    <label className="f">{t('المشرف المسؤول')}
+      <select className="input" value={supId} onChange={handleSupChange}>
+        <option value="">
+          {filteredSups.length === 0 ? t('لا يوجد مشرفين مرتبطين بهذا الفرع') : t('بدون')}
+        </option>
+        {filteredSups.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+      </select>
+    </label>
     <label className="row" style={{ minHeight: 44 }}><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} style={{ width: 22, height: 22 }} /> {t('عميل نشط')}</label>
     <button className="btn" disabled={m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ')}</button>
   </Modal>;
@@ -203,9 +253,25 @@ function CustomerForm({ edit, sups, onClose }: { edit: AdminCustomerRow | null; 
 export function AdminCustomers() {
   const { supervisor } = useAuth();
   const [search, setSearch] = useState('');
+  const [branchFilter, setBranchFilter] = useState('all');
   const [supFilter, setSupFilter] = useState('all');
+  const branches = useBranches();
   const sups = useSupervisors();
-  const q = useAdminCustomers(useDebouncedValue(search, 300), supFilter);
+
+  // Cascading supervisors based on selected branch
+  const filteredSups = useMemo(() => {
+    if (branchFilter === 'all') return sups.items;
+    const matchedBranch = branches.data?.find((b) => b.name === branchFilter || b.id === branchFilter);
+    if (!matchedBranch) return sups.items;
+    return sups.items.filter((s) => s.branch_id === matchedBranch.id);
+  }, [sups.items, branchFilter, branches.data]);
+
+  const handleBranchFilterChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
+    setBranchFilter(e.target.value);
+    setSupFilter('all');
+  }, []);
+
+  const q = useAdminCustomers(useDebouncedValue(search, 300), supFilter, branchFilter);
   const retry = useRefetch(q.refetch);
   const toggleActive = useToggleActiveRecord('customers', 'admin-customers');
   const deactivate = useDeactivateRecord('customers', 'admin-customers');
@@ -254,24 +320,29 @@ export function AdminCustomers() {
       </div>
     </div>
     <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-      <input className="input grow" placeholder={t('ابحث بالاسم أو الكود أو الهاتف أو العنوان...')} value={search} onChange={useInput(setSearch)} style={{ maxWidth: 380 }} />
-      <select className="input" style={{ width: 200 }} value={supFilter} onChange={(e) => setSupFilter(e.target.value)}>
-        <option value="all">{t('كل المشرفين')}</option>
-        {sups.items.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+      <input className="input grow" placeholder={t('ابحث بالاسم أو الكود أو الهاتف أو العنوان...')} value={search} onChange={useInput(setSearch)} style={{ maxWidth: 320 }} />
+      <select className="input" style={{ width: 180 }} value={branchFilter} onChange={handleBranchFilterChange}>
+        <option value="all">{t('كل الفروع')}</option>
+        {branches.data?.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
       </select>
-      {(supFilter !== 'all' || search) && (
-        <button className="btn sm ghost" onClick={() => { setSearch(''); setSupFilter('all'); }}>{t('إعادة ضبط')}</button>
+      <select className="input" style={{ width: 180 }} value={supFilter} onChange={(e) => setSupFilter(e.target.value)}>
+        <option value="all">{t('كل المشرفين')}</option>
+        {filteredSups.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+      </select>
+      {(branchFilter !== 'all' || supFilter !== 'all' || search) && (
+        <button className="btn sm ghost" onClick={() => { setSearch(''); setBranchFilter('all'); setSupFilter('all'); }}>{t('إعادة ضبط')}</button>
       )}
     </div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
       : !q.items.length ? <EmptyState icon={<Store />} title={t('لا يوجد عملاء')} action={{ label: t('إضافة عميل'), onClick: () => setEdit(null) }} />
       : <div className="adm-table-wrap"><table className="adm-table">
-          <thead><tr><th>{t('الكود')}</th><th>{t('الاسم')}</th><th>{t('النوع')}</th><th>{t('الهاتف')}</th><th>{t('المشرف')}</th><th>{t('الحالة')}</th><th /></tr></thead>
+          <thead><tr><th>{t('الكود')}</th><th>{t('الاسم')}</th><th>{t('النوع')}</th><th>{t('الهاتف')}</th><th>{t('الفرع')}</th><th>{t('المشرف')}</th><th>{t('الحالة')}</th><th /></tr></thead>
           <tbody>{q.items.map((c) => <tr key={c.id}>
             <td dir="ltr" style={{ fontWeight: 600, color: 'var(--color-primary)', fontSize: 13, whiteSpace: 'nowrap' }}>{c.customer_code || '—'}</td>
             <td><div className="title">{c.name}</div><div className="muted" style={{ fontSize: 12 }}>{c.address}</div></td>
             <td>{c.type}</td>
             <td dir="ltr" style={{ textAlign: 'start' }}>{c.phone ?? '—'}</td>
+            <td>{c.branch ?? '—'}</td>
             <td>{c.supervisors?.full_name ?? '—'}</td>
             <td><span className={`badge ${c.is_active ? 'b-green' : 'b-gray'}`}>{c.is_active ? t('نشط') : t('متوقف')}</span></td>
             <td className="row gap-1">

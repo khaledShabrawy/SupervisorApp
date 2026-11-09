@@ -31,8 +31,9 @@ export default function AdminShelfShare() {
   const supervisors = useSupervisors();
 
   const allSupervisors = useMemo(() => {
+    if (supervisors.items && supervisors.items.length > 0) return supervisors.items;
     return (supervisors.data?.pages?.flatMap((p: any) => p) ?? []) as any[];
-  }, [supervisors.data]);
+  }, [supervisors.items, supervisors.data]);
 
   const filteredSupervisors = useMemo(() => {
     if (!selectedBranch) return allSupervisors;
