@@ -1215,8 +1215,8 @@ export function AdminNotifications() {
       {activeTab === 'broadcast' && (
         <form className="card col" style={{ maxWidth: 640 }} onSubmit={submit}>
           <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>{t('إرسال إشعار فوري وتنبيه للمشرفين')}</h3>
-          <label className="f">{t('العنوان *')}<input className="input" required maxLength={120} value={title} onChange={useInput(setTitle)} /></label>
-          <label className="f">{t('النص *')}<textarea className="input" required rows={4} maxLength={1000} value={body} onChange={useInput(setBody)} /></label>
+          <label className="f">{t('العنوان *')}<input className="input" required maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} /></label>
+          <label className="f">{t('النص *')}<textarea className="input" required rows={4} maxLength={1000} value={body} onChange={(e) => setBody(e.target.value)} /></label>
           <div className="row"><label className="row"><input type="radio" checked={all} onChange={() => setAll(true)} /> {t('كل المشرفين النشطين ({n})', { n: active.length })}</label>
             <label className="row"><input type="radio" checked={!all} onChange={() => setAll(false)} /> {t('مشرفون محددون')}</label></div>
           {!all && <div className="row" style={{ flexWrap: 'wrap' }}>{active.map((s) =>
