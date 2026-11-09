@@ -1,4 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { Calendar, ChevronDown, Compass, Eye, Filter, MapPin, Phone, RefreshCw, Search, Users, X } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
@@ -149,15 +151,6 @@ function injectMapStyles() {
     `;
     document.head.appendChild(style);
   }
-
-  // Inject Leaflet CSS
-  if (!document.getElementById('lf-css')) {
-    const lnk = document.createElement('link');
-    lnk.id = 'lf-css';
-    lnk.rel = 'stylesheet';
-    lnk.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    document.head.appendChild(lnk);
-  }
 }
 
 /** Sanitize dynamic data before embedding into Leaflet DOM/HTML popups */
@@ -204,8 +197,15 @@ export default function AdminLiveMap() {
       const term = search.trim().toLowerCase();
       return (
         t.supervisorName.toLowerCase().includes(term) ||
+        (t.supervisorCode && t.supervisorCode.toLowerCase().includes(term)) ||
         (t.branchName && t.branchName.toLowerCase().includes(term)) ||
-        (t.currentCustomerName && t.currentCustomerName.toLowerCase().includes(term))
+        (t.currentCustomerName && t.currentCustomerName.toLowerCase().includes(term)) ||
+        (t.currentCustomerCode && t.currentCustomerCode.toLowerCase().includes(term)) ||
+        t.route.some(
+          (r) =>
+            r.customerName.toLowerCase().includes(term) ||
+            (r.customerCode && r.customerCode.toLowerCase().includes(term))
+        )
       );
     });
   }, [tracks, statusFilter, search]);
@@ -228,42 +228,60 @@ export default function AdminLiveMap() {
     }
   }, []);
 
-  // Leaflet map setup & marker rendering
+  // Initialize Leaflet map once
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    let cancelled = false;
+    const container = mapContainerRef.current;
 
-    import('leaflet').then((mod) => {
-      if (cancelled || !mapContainerRef.current) return;
-      const L = (mod as any).default ?? mod;
+    if ((container as any)._leaflet_id) {
+      delete (container as any)._leaflet_id;
+    }
 
-      // Initialize map once
-      if (!leafletMapRef.current) {
-        const map = L.map(mapContainerRef.current, {
-          center: [30.0444, 31.2357], // Cairo, Egypt
-          zoom: 11,
-          zoomControl: true,
-        });
+    const map = L.map(container, {
+      center: [30.0444, 31.2357], // Cairo, Egypt
+      zoom: 11,
+      zoomControl: true,
+    });
 
-        // OpenStreetMap Tile Layer (100% Free - Street names in Arabic across Egypt)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          maxZoom: 19,
-        }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(map);
 
-        leafletLayerGroupRef.current = L.layerGroup().addTo(map);
-        leafletMapRef.current = map;
-      }
+    const layerGroup = L.layerGroup().addTo(map);
+    leafletMapRef.current = map;
+    leafletLayerGroupRef.current = layerGroup;
 
-      const map = leafletMapRef.current;
-      setTimeout(() => {
-        if (!cancelled && leafletMapRef.current) {
-          leafletMapRef.current.invalidateSize();
-        }
-      }, 250);
-      const layerGroup = leafletLayerGroupRef.current;
+    const tId = setTimeout(() => {
+      map.invalidateSize();
+    }, 250);
+
+    const handleResize = () => {
+      map.invalidateSize();
+    };
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      clearTimeout(tId);
+      window.removeEventListener('resize', handleResize);
       layerGroup.clearLayers();
-      markersRef.current.clear();
+      map.remove();
+      leafletMapRef.current = null;
+      leafletLayerGroupRef.current = null;
+      if ((container as any)._leaflet_id) {
+        delete (container as any)._leaflet_id;
+      }
+    };
+  }, []);
+
+  // Render Markers and Paths onto the Leaflet Map
+  useEffect(() => {
+    const map = leafletMapRef.current;
+    const layerGroup = leafletLayerGroupRef.current;
+    if (!map || !layerGroup) return;
+
+    layerGroup.clearLayers();
+    markersRef.current.clear();
 
       const allPoints: [number, number][] = [];
 
@@ -460,29 +478,7 @@ export default function AdminLiveMap() {
           map.setView([30.0444, 31.2357], 11);
         }
       }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [filteredTracks, selectedTrack, historyQuery.data]);
-
-  // Clean up Leaflet instance on unmount
-  useEffect(() => {
-    const handleResize = () => {
-      if (leafletMapRef.current) {
-        leafletMapRef.current.invalidateSize();
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (leafletMapRef.current) {
-        leafletMapRef.current.remove();
-        leafletMapRef.current = null;
-      }
-    };
-  }, []);
+    }, [filteredTracks, selectedTrack, historyQuery.data]);
 
   const handleSelectSupervisor = useCallback((supId: string) => {
     setSelectedSupId((prev) => (prev === supId ? null : supId));
@@ -592,6 +588,11 @@ export default function AdminLiveMap() {
               <div style={{ background: '#F8FAFC', padding: 10, borderRadius: 10, border: '1px solid var(--line)' }}>
                 <div style={{ fontWeight: 800, fontSize: 15, color: '#0F172A' }}>
                   {selectedTrack.supervisorName}
+                  {selectedTrack.supervisorCode && (
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#64748B', marginInlineStart: 6 }}>
+                      ({selectedTrack.supervisorCode})
+                    </span>
+                  )}
                 </div>
                 {selectedTrack.branchName && (
                   <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
@@ -660,6 +661,11 @@ export default function AdminLiveMap() {
                         <div className="row between" style={{ alignItems: 'flex-start' }}>
                           <div style={{ fontWeight: 700, fontSize: 13 }}>
                             #{pt.seq} {pt.customerName}
+                            {pt.customerCode && (
+                              <span style={{ fontSize: 11, fontWeight: 500, color: '#64748B', marginInlineStart: 4 }}>
+                                [{pt.customerCode}]
+                              </span>
+                            )}
                           </div>
                           <span
                             className={`badge ${pt.status === 'in_progress' ? 'b-green' : 'b-gray'}`}
@@ -839,7 +845,14 @@ export default function AdminLiveMap() {
                       >
                         <div className="row between" style={{ alignItems: 'flex-start' }}>
                           <div>
-                            <div style={{ fontWeight: 700, fontSize: 14 }}>{trk.supervisorName}</div>
+                            <div style={{ fontWeight: 700, fontSize: 14 }}>
+                              {trk.supervisorName}
+                              {trk.supervisorCode && (
+                                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--muted)', marginInlineStart: 6 }}>
+                                  ({trk.supervisorCode})
+                                </span>
+                              )}
+                            </div>
                             {trk.branchName && (
                               <div className="muted" style={{ fontSize: 12 }}>
                                 🏢 {trk.branchName}
@@ -859,6 +872,11 @@ export default function AdminLiveMap() {
                           <div style={{ fontSize: 12, color: 'var(--muted)', background: '#F8FAFC', padding: '4px 8px', borderRadius: 6 }}>
                             <div style={{ fontWeight: 600, color: '#334155' }}>
                               🏪 {trk.currentCustomerName}
+                              {trk.currentCustomerCode && (
+                                <span style={{ fontSize: 11, fontWeight: 500, color: '#64748B', marginInlineStart: 4 }}>
+                                  [{trk.currentCustomerCode}]
+                                </span>
+                              )}
                             </div>
                             {trk.currentCustomerAddress && (
                               <div style={{ fontSize: 11, color: '#64748B' }}>
@@ -949,8 +967,8 @@ export default function AdminLiveMap() {
         </div>
 
         {/* Free OpenStreetMap Container */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} dir="ltr">
-          <div className="live-map-leaflet-container" ref={mapContainerRef} style={{ width: "100%", minHeight: 480 }} dir="ltr" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 520, height: '100%' }} dir="ltr">
+          <div className="live-map-leaflet-container" ref={mapContainerRef} style={{ width: "100%", height: "100%", minHeight: 480 }} dir="ltr" />
           <div className="row between muted" style={{ fontSize: 11, padding: '0 4px' }}>
             <span>🗺️ {t('خريطة شوارع مصر مفتوحة المصدر (OpenStreetMap) · تفاصيل الأحياء والشوارع باللغة العربية')}</span>
             <span>⏱️ {t('يتم التحديث التلقائي كل 30 ثانية')}</span>

@@ -46,8 +46,11 @@ export type MonthlyTargetInput = {
   branch_id?: string | null;
 };
 type Scope = ReturnType<typeof useScope>;
-const errorMessage = (message: string, error: { message: string } | null) => {
-  if (error) throw new Error(message);
+const errorMessage = (message: string, error: { message: string; details?: string; hint?: string } | null) => {
+  if (error) {
+    const detail = (error as any).details || (error as any).hint || error.message;
+    throw new Error(detail ? `${message} (${detail})` : message);
+  }
 };
 async function countRows(sc: Scope, table: string, signal: AbortSignal, build: (q: any) => any) {
   return readExactCount(head => build(sc.scope(supabase.from(table).select('id', { count: 'exact', head }))),
@@ -213,15 +216,16 @@ export function useSaveMonthlyTarget() {
 
       const lastDay = new Date(input.year, input.month, 0).getDate();
       let query = supabase.from('targets').select('id').eq('company_id', sc.companyId)
-        .gte('target_date', `${targetMonthPrefix}-01`).lte('target_date', `${targetMonthPrefix}-${String(lastDay).padStart(2, '0')}`)
-        .eq('criteria', payload.criteria);
+        .gte('target_date', `${targetMonthPrefix}-01`).lte('target_date', `${targetMonthPrefix}-${String(lastDay).padStart(2, '0')}`);
       if (supervisorId) {
         query = query.eq('supervisor_id', supervisorId);
       } else {
         query = query.is('supervisor_id', null);
-      }
-      if (branchId) {
-        query = query.eq('branch_id', branchId);
+        if (branchId) {
+          query = query.eq('branch_id', branchId);
+        } else {
+          query = query.is('branch_id', null);
+        }
       }
 
       const existing = await query.maybeSingle();
@@ -232,12 +236,23 @@ export function useSaveMonthlyTarget() {
         : await (supabase.from('targets') as any).insert({ ...payload, actual_visits: 0, actual_audits: 0 }).select('id').single();
 
       // If the table requires explicit month/year columns (not generated)
-      if (r.error && (r.error.message?.includes('null value in column "month"') || r.error.message?.includes('column "month" of relation "targets" does not exist') === false && r.error.message?.includes('month'))) {
+      if (r.error && (r.error.message?.includes('null value in column "month"') || (r.error.message?.includes('column "month" of relation "targets" does not exist') === false && r.error.message?.includes('month')))) {
         payload.month = input.month;
         payload.year = input.year;
         r = existing.data
           ? await (supabase.from('targets') as any).update(payload).eq('id', existing.data.id).eq('company_id', sc.companyId).select('id').single()
           : await (supabase.from('targets') as any).insert({ ...payload, actual_visits: 0, actual_audits: 0 }).select('id').single();
+      }
+
+      // If insert failed due to duplicate key (unique violation), fall back to update
+      if (r.error && (r.error.code === '23505' || r.error.message?.includes('duplicate key') || r.error.message?.includes('unique constraint'))) {
+        const fallbackQuery = await supabase.from('targets').select('id').eq('company_id', sc.companyId)
+          .gte('target_date', `${targetMonthPrefix}-01`).lte('target_date', `${targetMonthPrefix}-${String(lastDay).padStart(2, '0')}`)
+          .eq('supervisor_id', supervisorId!)
+          .maybeSingle();
+        if (fallbackQuery.data?.id) {
+          r = await (supabase.from('targets') as any).update(payload).eq('id', fallbackQuery.data.id).eq('company_id', sc.companyId).select('id').single();
+        }
       }
 
       errorMessage('تعذر حفظ الهدف الشهري.', r.error);

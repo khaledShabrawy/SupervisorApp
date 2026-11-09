@@ -54,11 +54,17 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       const s = settings.data;
       [s.primary_color, s.success_color, s.danger_color, s.background_color, readableForeground(s.primary_color)]
         .forEach((color, i) => root.style.setProperty(properties[i], color));
+      root.style.setProperty('--primary', s.primary_color);
+      root.style.setProperty('--grad-primary', `linear-gradient(135deg, ${s.primary_color} 0%, ${s.primary_color} 100%)`);
+      root.style.setProperty('--shadow-primary', `0 4px 16px ${s.primary_color}44`);
       const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
       if (meta) meta.content = s.primary_color;
     }
     return () => {
       properties.forEach((property) => root.style.removeProperty(property));
+      root.style.removeProperty('--primary');
+      root.style.removeProperty('--grad-primary');
+      root.style.removeProperty('--shadow-primary');
       const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
       if (meta) meta.content = getComputedStyle(root).getPropertyValue('--color-primary').trim();
     };

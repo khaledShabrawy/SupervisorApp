@@ -212,10 +212,10 @@ export default function AdminTraining() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                     <div>
                       <span style={{ background: '#EEF2FF', color: '#4338CA', padding: '3px 10px', borderRadius: 16, fontSize: 12, fontWeight: 'bold' }}>
-                        {course.category}
+                        {t(course.category)}
                       </span>
-                      <h2 style={{ margin: '8px 0 4px', fontSize: 18, color: '#1E293B' }}>{course.title}</h2>
-                      {course.description && <p style={{ margin: 0, color: '#64748B', fontSize: 14 }}>{course.description}</p>}
+                      <h2 style={{ margin: '8px 0 4px', fontSize: 18, color: '#1E293B' }}>{t(course.title)}</h2>
+                      {course.description && <p style={{ margin: 0, color: '#64748B', fontSize: 14 }}>{t(course.description)}</p>}
                     </div>
                     <button
                       onClick={() => openNewLesson(course.id)}
@@ -253,7 +253,7 @@ export default function AdminTraining() {
                                   {i + 1}
                                 </span>
                                 <div>
-                                  <div style={{ fontSize: 14, fontWeight: '600', color: '#1E293B' }}>{lesson.title}</div>
+                                  <div style={{ fontSize: 14, fontWeight: '600', color: '#1E293B' }}>{t(lesson.title)}</div>
                                   <div style={{ fontSize: 12, color: '#64748B', display: 'flex', gap: 12 }}>
                                     <span>{t('المدة: {m} دقيقة', { m: Math.floor(lesson.duration_seconds / 60) })}</span>
                                     {lesson.attachment_url && <span style={{ color: '#2563EB' }}>{t('✓ يوجد ملخص PDF')}</span>}

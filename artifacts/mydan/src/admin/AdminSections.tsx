@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState, type ChangeEvent, type FormEvent } from
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
-import { Bell, Camera, CheckCheck, Download, FileText, MapPin, Package, Pencil, Plus, Store, Target, Trash2, X, BarChart3, ShieldAlert, ShieldCheck } from '@/components/Icons';
+import { Bell, Camera, CheckCheck, Download, FileText, MapPin, Package, Pencil, Plus, Search, Store, Target, Trash2, X, BarChart3, ShieldAlert, ShieldCheck } from '@/components/Icons';
 import { exportToCsv } from '@/lib/csv-export';
 import { fmtDate, fmtTime, num } from '@/lib/format';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
@@ -769,33 +769,53 @@ export function AdminProducts() {
     if (!search.trim()) return q.items;
     const term = search.trim().toLowerCase();
     return q.items.filter((p) =>
-      p.name?.toLowerCase().includes(term) ||
+      (p.name || '').toLowerCase().includes(term) ||
       (p.sku || '').toLowerCase().includes(term) ||
       (p.item_code || '').toLowerCase().includes(term) ||
       (p.master_brand || '').toLowerCase().includes(term) ||
       (p.sub_brand || '').toLowerCase().includes(term) ||
-      (p.category || '').toLowerCase().includes(term)
+      (p.category || '').toLowerCase().includes(term) ||
+      (p.unit || '').toLowerCase().includes(term) ||
+      (p.units_per_carton != null && String(p.units_per_carton).includes(term))
     );
   }, [q.items, search]);
 
   return <>
-    <div className="row between">
-      <h2>{t('المنتجات')}</h2>
+    <div className="row between items-center">
+      <div>
+        <h2 style={{ margin: 0 }}>{t('المنتجات')}</h2>
+        <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
+          {t('كتالوج الأصناف والمنتجات، الماركات، التعبئة، والأسعار الاسترشادية.')}
+        </p>
+      </div>
       <button className="btn" onClick={() => setEdit(null)}><Plus size={18} /> {t('منتج جديد')}</button>
     </div>
-    <div className="row" style={{ gap: 10, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-      <div className="row" style={{ gap: 6, flex: '1 1 240px', maxWidth: 320 }}>
-        <Search size={16} style={{ color: '#94A3B8', flexShrink: 0 }} />
-        <input className="input" style={{ flex: 1 }} placeholder={t('بحث بالاسم أو الكود أو الماركة...')} value={search} onChange={(e) => setSearch(e.target.value)} />
+    <div className="row" style={{ gap: 10, alignItems: 'center', margin: '14px 0 12px', flexWrap: 'wrap' }}>
+      <div className="row items-center" style={{ gap: 8, flex: '1 1 280px', maxWidth: 420, position: 'relative' }}>
+        <input
+          className="input block"
+          style={{ paddingInlineStart: 34, minHeight: 38 }}
+          placeholder={t('بحث بالاسم، كود الصنف، Master Brand، Sub Brand، أو التعبئة...')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <span style={{ position: 'absolute', insetInlineStart: 10, top: 11, opacity: 0.5 }}>
+          <Search size={16} />
+        </span>
       </div>
-      <div className="row" style={{ gap: 6 }}>
-        <span className="muted" style={{ fontSize: 13 }}>{t('الحالة:')}</span>
-        <select className="input" style={{ width: 170 }} value={availability} onChange={(e) => setAvailability(e.target.value as any)}>
+      <div className="row items-center" style={{ gap: 6 }}>
+        <span className="muted" style={{ fontSize: 13 }}>{t('حالة الصنف:')}</span>
+        <select className="input" style={{ width: 170, minHeight: 38 }} value={availability} onChange={(e) => setAvailability(e.target.value as any)}>
           <option value="all">{t('كل الأصناف')}</option>
           <option value="active">{t('المتاحة فقط')}</option>
           <option value="inactive">{t('غير المتاحة (المتوقفة)')}</option>
         </select>
       </div>
+      {search && (
+        <button className="btn sm ghost" onClick={() => setSearch('')}>
+          {t('مسح البحث')}
+        </button>
+      )}
     </div>
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
       : !filteredItems.length ? <EmptyState icon={<Package />} title={search ? t('لا توجد نتائج للبحث') : t('لا توجد منتجات')} />
@@ -989,7 +1009,9 @@ export function AdminNotifications() {
   const [body, setBody] = useState('');
   const [all, setAll] = useState(true);
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const active = sups.items.filter((s) => s.is_active);
+  const active = useMemo(() => {
+    return (sups.items ?? []).filter((s) => Boolean(s && s.id && s.is_active));
+  }, [sups.items]);
   const togglePick = (id: string) =>
     setPicked((p) => {
       const n = new Set(p);
@@ -1001,7 +1023,8 @@ export function AdminNotifications() {
   const submit = useCallback(
     (e: FormEvent) => {
       e.preventDefault();
-      const ids = all ? active.map((s) => s.id) : [...picked];
+      const ids = all ? active.map((s) => s.id) : [...picked].filter((id) => active.some((s) => s.id === id));
+      if (!ids.length) return;
       m.mutate(
         { supervisorIds: ids, title, body },
         {
@@ -1235,14 +1258,64 @@ export function AdminNotifications() {
       {activeTab === 'broadcast' && (
         <form className="card col" style={{ maxWidth: 640 }} onSubmit={submit}>
           <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>{t('إرسال إشعار فوري وتنبيه للمشرفين')}</h3>
-          <label className="f">{t('العنوان *')}<input className="input" required maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} /></label>
-          <label className="f">{t('النص *')}<textarea className="input" required rows={4} maxLength={1000} value={body} onChange={(e) => setBody(e.target.value)} /></label>
-          <div className="row"><label className="row"><input type="radio" checked={all} onChange={() => setAll(true)} /> {t('كل المشرفين النشطين ({n})', { n: active.length })}</label>
-            <label className="row"><input type="radio" checked={!all} onChange={() => setAll(false)} /> {t('مشرفون محددون')}</label></div>
-          {!all && <div className="row" style={{ flexWrap: 'wrap' }}>{active.map((s) =>
-            <button type="button" key={s.id} className={`chip ${picked.has(s.id) ? 'on' : ''}`} aria-pressed={picked.has(s.id)} onClick={() => togglePick(s.id)}>{s.full_name}</button>)}</div>}
+          <label className="f">
+            {t('العنوان *')}
+            <input
+              className="input"
+              required
+              maxLength={120}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={t('عنوان الإشعار أو التنبيه...')}
+            />
+          </label>
+          <label className="f">
+            {t('النص *')}
+            <textarea
+              className="input"
+              required
+              rows={4}
+              maxLength={1000}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder={t('اكتب نص الرسالة التي ستصل للمشرفين...')}
+            />
+          </label>
+          <div className="row" style={{ gap: 14 }}>
+            <label className="row" style={{ alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <input type="radio" checked={all} onChange={() => setAll(true)} />
+              <span>{t('كل المشرفين النشطين ({n})', { n: active.length })}</span>
+            </label>
+            <label className="row" style={{ alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <input type="radio" checked={!all} onChange={() => setAll(false)} />
+              <span>{t('مشرفون محددون')}</span>
+            </label>
+          </div>
+          {!all && (
+            <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+              {active.map((s) => (
+                <button
+                  type="button"
+                  key={s.id}
+                  className={`chip ${picked.has(s.id) ? 'on' : ''}`}
+                  aria-pressed={picked.has(s.id)}
+                  onClick={() => togglePick(s.id)}
+                >
+                  {s.full_name} {s.supervisor_code ? `(${s.supervisor_code})` : ''}
+                </button>
+              ))}
+            </div>
+          )}
           <LoadMore q={sups} />
-          <button className="btn" disabled={m.isPending || (!all && picked.size === 0)} data-testid="button-broadcast"><Bell size={18} /> {m.isPending ? t('جاري الإرسال...') : t('إرسال الإشعار والـ Push')}</button>
+          <button
+            type="submit"
+            className="btn"
+            disabled={m.isPending || (!all && picked.size === 0) || !title.trim() || !body.trim()}
+            data-testid="button-broadcast"
+            style={{ marginTop: 8 }}
+          >
+            <Bell size={18} /> {m.isPending ? t('جاري الإرسال...') : t('إرسال الإشعار والـ Push')}
+          </button>
         </form>
       )}
     </>
@@ -1310,11 +1383,18 @@ export function AdminAuditLogs() {
   </>;
 }
 
-/* ---------- Surveys ---------- */
+const SURVEY_CUSTOMER_TYPES = ['بقالة', 'سوبر ماركت', 'هايبر ماركت', 'منظفات', 'صيدليات', 'كافيه', 'جملة', 'أخرى'];
+
 function SurveyForm({ edit, onClose }: { edit: SurveyRow | null; onClose: () => void }) {
   const m = useSaveSurvey();
   const [title, setTitle] = useState(edit?.title ?? '');
-  const [targetType, setTargetType] = useState(edit?.target_customer_type ?? '');
+  const initialTypes = useMemo(() => {
+    const raw = edit?.target_customer_type?.trim();
+    if (!raw || raw === 'الكل') return [];
+    return raw.split(/[,،]/).map((s) => s.trim()).filter(Boolean);
+  }, [edit]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(initialTypes);
+  const [isAllTypes, setIsAllTypes] = useState<boolean>(!edit?.target_customer_type || edit.target_customer_type === 'الكل');
   const [mandatory, setMandatory] = useState(edit?.is_mandatory ?? false);
   const [active, setActive] = useState(edit?.is_active ?? true);
   const [validFrom, setValidFrom] = useState(edit?.valid_from?.slice(0, 10) ?? '');
@@ -1325,24 +1405,51 @@ function SurveyForm({ edit, onClose }: { edit: SurveyRow | null; onClose: () => 
   const updateQ = useCallback((i: number, field: keyof SurveyQuestion, val: string) =>
     setQuestions((q) => q.map((item, idx) => idx === i ? { ...item, [field]: val } : item)), []);
   const submit = useCallback((e: FormEvent) => { e.preventDefault();
-    m.mutate({ id: edit?.id, title, questions, target_customer_type: targetType,
+    const finalTargetType = isAllTypes || selectedTypes.length === 0 ? '' : selectedTypes.join(', ');
+    m.mutate({ id: edit?.id, title, questions, target_customer_type: finalTargetType,
       is_mandatory: mandatory, is_active: active, valid_from: validFrom, valid_to: validTo }, { onSuccess: onClose });
-  }, [m, edit, title, questions, targetType, mandatory, active, validFrom, validTo, onClose]);
+  }, [m, edit, title, questions, isAllTypes, selectedTypes, mandatory, active, validFrom, validTo, onClose]);
   return <Modal title={edit ? t('تعديل الاستبيان') : t('استبيان جديد')} onClose={onClose} onSubmit={submit}>
     <label className="f">{t('عنوان الاستبيان *')}<input className="input" required value={title} onChange={useInput(setTitle)} /></label>
-    <div className="row">
-      <label className="f grow">{t('نوع العميل المستهدف')}
-        <select className="input" value={targetType} onChange={(e) => setTargetType(e.target.value)}>
-          <option value="">{t('الكل (بدون تقييد)')}</option>
-          <option value="بقالة">{t('بقالة')}</option>
-          <option value="سوبر ماركت">{t('سوبر ماركت')}</option>
-          <option value="هايبر ماركت">{t('هايبر ماركت')}</option>
-          <option value="منظفات">{t('منظفات')}</option>
-          <option value="صيدليات">{t('صيدليات')}</option>
-          <option value="كافيه">{t('كافيه')}</option>
-          <option value="أخرى">{t('أخرى')}</option>
-        </select>
-      </label>
+    <div className="col" style={{ gap: 8, marginTop: 4 }}>
+      <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>{t('نوع العميل المستهدف')}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8, background: '#F8FAFC', padding: 12, borderRadius: 10, border: '1px solid #E2E8F0' }}>
+        <label className="row" style={{ gap: 8, cursor: 'pointer', fontWeight: isAllTypes ? 700 : 500 }}>
+          <input
+            type="checkbox"
+            checked={isAllTypes}
+            onChange={(e) => {
+              setIsAllTypes(e.target.checked);
+              if (e.target.checked) setSelectedTypes([]);
+            }}
+            style={{ width: 18, height: 18 }}
+          />
+          <span>{t('الكل (بدون تقييد)')}</span>
+        </label>
+        {SURVEY_CUSTOMER_TYPES.map((type) => {
+          const checked = !isAllTypes && selectedTypes.includes(type);
+          return (
+            <label key={type} className="row" style={{ gap: 8, cursor: 'pointer', fontWeight: checked ? 700 : 500 }}>
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setIsAllTypes(false);
+                    setSelectedTypes((prev) => [...prev, type]);
+                  } else {
+                    const next = selectedTypes.filter((t) => t !== type);
+                    setSelectedTypes(next);
+                    if (next.length === 0) setIsAllTypes(true);
+                  }
+                }}
+                style={{ width: 18, height: 18 }}
+              />
+              <span>{t(type)}</span>
+            </label>
+          );
+        })}
+      </div>
     </div>
     <div className="row">
       <label className="f grow">{t('من تاريخ')}<input className="input" type="date" value={validFrom} onChange={useInput(setValidFrom)} /></label>
@@ -1461,11 +1568,30 @@ export function AdminSettings() {
     <h2>{t('إعدادات الشركة')}</h2>
     <div className="adm-grid">
       <SettingsForm />
-      <div className="card col">
+      <div className="card col" style={{ minWidth: 260 }}>
         <div className="title">{t('شعار الشركة')}</div>
-        {s.logo_url ? <img src={s.logo_url} alt={t('شعار الشركة')} style={{ maxWidth: 160, maxHeight: 160, objectFit: 'contain' }} /> : <div className="muted">{t('لا يوجد شعار.')}</div>}
-        <label className="btn ghost">{up.isPending || save.isPending ? t('جاري الرفع...') : t('رفع شعار جديد')}
-          <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden onChange={onLogo} data-testid="input-logo" /></label>
+        <div style={{
+          width: '100%',
+          minHeight: 130,
+          background: '#F8FAFC',
+          border: '1.5px dashed #CBD5E1',
+          borderRadius: 12,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 14,
+          boxSizing: 'border-box',
+        }}>
+          {s.logo_url ? (
+            <img src={s.logo_url} alt={t('شعار الشركة')} style={{ maxWidth: '100%', maxHeight: 110, objectFit: 'contain' }} />
+          ) : (
+            <div className="muted">{t('لا يوجد شعار.')}</div>
+          )}
+        </div>
+        <label className="btn ghost" style={{ marginTop: 8 }}>
+          {up.isPending || save.isPending ? t('جاري الرفع...') : t('رفع شعار جديد')}
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden onChange={onLogo} data-testid="input-logo" />
+        </label>
         <div className="muted" style={{ fontSize: 13 }}>{t('PNG أو JPG أو WEBP أو SVG · حتى 1 ميجابايت')}</div>
       </div>
     </div>

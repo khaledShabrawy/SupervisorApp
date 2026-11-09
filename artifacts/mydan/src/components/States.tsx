@@ -15,7 +15,7 @@ export function SkeletonList({ n = 4 }: { n?: number }) {
 }
 export function LoadMore({ q }: { q: { hasNextPage: boolean; isFetchingNextPage: boolean; fetchNextPage: () => unknown; isFetchNextPageError?: boolean } }) {
   if (!q.hasNextPage) return null;
-  return <button className="btn ghost block" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>
+  return <button type="button" className="btn ghost block" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>
     {q.isFetchingNextPage ? t('جاري التحميل...') : q.isFetchNextPageError ? t('فشل التحميل، حاول مجددا') : t('عرض المزيد')}
   </button>;
 }

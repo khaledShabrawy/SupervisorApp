@@ -321,7 +321,7 @@ export function TargetForm({ editRow, onClose }: { editRow?: AdminTargetRow; onC
         scope_type: scopeType,
         target_scope: targetScope,
         branch_id: targetScope === 'specific_branch' ? branchId : null,
-      });
+      }, { onSuccess: onClose });
     }
   }, [valid, m, updateM, editRow, sid, month, year, v, a, criteria, scopeType, targetScope, branchId, onClose]);
 

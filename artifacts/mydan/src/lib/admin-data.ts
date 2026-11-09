@@ -308,7 +308,7 @@ export function useInviteSupervisor() {
   const sc = useScope(); const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { email: string; full_name: string; phone: string; role: InviteRole; branch_id?: string;
-      company_id?: string; permissions?: Record<ScreenKey, boolean> }) => {
+      company_id?: string; supervisor_code?: string; permissions?: Record<ScreenKey, boolean> }) => {
       requireAdmin(sc);
       if (((sc.supervisor.role as string) === 'branch_manager' || (sc.supervisor.role as string) === 'manager') && input.role === 'admin') {
         throw new Error(t('مدير الفرع لا يملك صلاحية دعوة رتبة مدير.'));
@@ -326,7 +326,7 @@ export function useInviteSupervisor() {
       if (!input.full_name.trim()) throw new Error('الاسم مطلوب.');
       const { data, error } = await supabase.functions.invoke('invite-supervisor', {
         body: { ...input, company_id: targetCompanyId, email, full_name: input.full_name.trim(), phone: input.phone.trim() || null,
-          branch_id: effectiveBranchId, redirect_to: `${window.location.origin}${import.meta.env.BASE_URL}set-password` },
+          branch_id: effectiveBranchId, supervisor_code: input.supervisor_code?.trim() || null, redirect_to: `${window.location.origin}${import.meta.env.BASE_URL}set-password` },
       });
       if (error) {
         // FunctionsHttpError carries the function's JSON body in context.

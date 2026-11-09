@@ -44,14 +44,16 @@ function UserModal({ title, onClose, onSubmit, children }: {
 function InviteModal({ onClose }: { onClose: () => void }) {
   const m = useInviteSupervisor(); const branches = useBranches();
   const [email, setEmail] = useState(''); const [name, setName] = useState(''); const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
   const [role, setRole] = useState<InviteRole>('supervisor'); const [branch, setBranch] = useState('');
   const [perms, setPerms] = useState(defaults);
   const onEmail = useInput(setEmail); const onName = useInput(setName); const onPhone = useInput(setPhone); const onBranch = useInput(setBranch);
+  const onCode = useInput(setCode);
   const toggle = useCallback((k: ScreenKey, v: boolean) => setPerms((p) => ({ ...p, [k]: v })), []);
   const submit = useCallback((e: FormEvent) => {
     e.preventDefault();
-    m.mutate({ email, full_name: name, phone, role, branch_id: branch, permissions: perms }, { onSuccess: onClose });
-  }, [m, email, name, phone, role, branch, perms, onClose]);
+    m.mutate({ email, full_name: name, phone, role, branch_id: branch, supervisor_code: code.trim() || undefined, permissions: perms }, { onSuccess: onClose });
+  }, [m, email, name, phone, role, branch, code, perms, onClose]);
   return <UserModal title={t('دعوة مستخدم جديد')} onClose={onClose} onSubmit={submit}>
       <div className="row between"><h2 style={{ margin: 0, fontSize: 18 }}>{t('دعوة مستخدم جديد')}</h2>
         <button type="button" className="icon-btn" aria-label={t('إغلاق')} onClick={onClose}><X /></button></div>
@@ -62,7 +64,10 @@ function InviteModal({ onClose }: { onClose: () => void }) {
         )}
       </label>
       <label className="f">{t('الاسم بالكامل *')}<input className="input" required value={name} onChange={onName} /></label>
-      <label className="f">{t('الهاتف')}<input className="input" dir="ltr" inputMode="tel" value={phone} onChange={onPhone} /></label>
+      <div className="row">
+        <label className="f grow">{t('كود المشرف')}<input className="input" dir="ltr" placeholder="SUP-001" value={code} onChange={onCode} /></label>
+        <label className="f grow">{t('الهاتف')}<input className="input" dir="ltr" inputMode="tel" value={phone} onChange={onPhone} /></label>
+      </div>
       <div className="row">
         <label className="f grow">{t('الدور')}<select className="input" value={role} onChange={(e) => setRole(e.target.value as InviteRole)}>
           {INVITE_ROLES.map((r) => <option key={r} value={r}>{ROLE[r]}</option>)}</select></label>
@@ -330,7 +335,11 @@ export default function AdminUsers() {
   const onDelete = useCallback((target: Supervisor) => del.mutate(target), [del]);
 
   const [sort, setSort] = useState<{ key: SortKey; asc: boolean }>({ key: 'full_name', asc: true });
-  const [branchFilter, setBranchFilter] = useState<string>('all');
+  const isBranchLocked = (supervisor?.role === 'branch_manager' || supervisor?.role === 'manager') && Boolean(supervisor.branch_id);
+  const [branchFilter, setBranchFilter] = useState<string>(() => {
+    if (isBranchLocked) return supervisor.branch_id!;
+    try { return localStorage.getItem('mydan_active_branch_id') || 'all'; } catch { return 'all'; }
+  });
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
 
@@ -350,9 +359,7 @@ export default function AdminUsers() {
   }, [resend]);
 
   // Scoping: branch_managers only see their branch
-  const effectiveBranchFilter = supervisor?.role === 'branch_manager' && supervisor.branch_id
-    ? supervisor.branch_id
-    : branchFilter;
+  const effectiveBranchFilter = isBranchLocked ? supervisor.branch_id! : branchFilter;
 
   const rows = useMemo(() => {
     let list = [...q.items];
@@ -413,7 +420,7 @@ export default function AdminUsers() {
 
     {/* Filters Toolbar */}
     <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center', marginTop: 14 }}>
-      {supervisor?.role !== 'branch_manager' && (
+      {!isBranchLocked && (
         <select
           className="input"
           style={{ width: 180 }}
@@ -443,8 +450,15 @@ export default function AdminUsers() {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      {(branchFilter !== 'all' || statusFilter !== 'all' || search) && (
-        <button className="btn sm ghost" onClick={() => { setBranchFilter('all'); setStatusFilter('all'); setSearch(''); }}>
+      {((!isBranchLocked && branchFilter !== 'all') || statusFilter !== 'all' || search) && (
+        <button
+          className="btn sm ghost"
+          onClick={() => {
+            setBranchFilter(isBranchLocked ? supervisor.branch_id! : 'all');
+            setStatusFilter('all');
+            setSearch('');
+          }}
+        >
           {t('إعادة ضبط')}
         </button>
       )}

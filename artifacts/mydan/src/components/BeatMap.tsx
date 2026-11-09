@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { BeatRow } from '@/lib/data';
 import { t } from '@/i18n';
+import 'leaflet/dist/leaflet.css';
 
 type Props = { plan: BeatRow[]; visited: Map<string, string> };
 
@@ -35,15 +36,6 @@ export default function BeatMap({ plan, visited }: Props) {
   useEffect(() => {
     if (!ref.current) return;
     let cancelled = false;
-
-    // inject Leaflet CSS once
-    if (!document.getElementById('lf-css')) {
-      const lnk = document.createElement('link');
-      lnk.id = 'lf-css';
-      lnk.rel = 'stylesheet';
-      lnk.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(lnk);
-    }
 
     import('leaflet').then((mod) => {
       if (cancelled || !ref.current) return;
