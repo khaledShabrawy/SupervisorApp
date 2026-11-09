@@ -203,7 +203,10 @@ export default function OrderEntryScreen() {
     if (!visitId || !customerId || lines.length === 0) return;
     save.mutate(
       { visitId, customerId, lines, notes },
-      { onSuccess: () => setSaved(true) }
+      {
+        onSuccess: () => setSaved(true),
+        onError: (e: Error) => notify(e.message || t('تعذر حفظ الأوردر'), 'error'),
+      }
     );
   }, [visitId, customerId, lines, notes, save]);
 

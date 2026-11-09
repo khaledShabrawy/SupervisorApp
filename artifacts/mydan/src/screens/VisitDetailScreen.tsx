@@ -183,16 +183,20 @@ export default function VisitDetailScreen() {
 
   const handleComplete = useCallback((taskId: string, visitId: string) => { completeTask.mutate({ taskId, visitId }); }, [completeTask]);
 
+  const pendingMandatory = useMemo(() => {
+    if (!detail.data || detail.data.visit_outcome !== 'متعامل') return 0;
+    return detail.data.visit_tasks.filter((t) => t.is_mandatory && !t.is_completed).length;
+  }, [detail.data]);
+
   const handleCheckOut = useCallback(() => {
     if (!id || !detail.data) return;
     if (!isVisitOutcome(detail.data.visit_outcome)) { notify(t('اختر نتيجة الزيارة أولاً: متعامل / غير متعامل / غير موجود'), 'error'); return; }
-    // Mandatory tasks only apply when the outlet is trading with us.
-    const open = detail.data.visit_outcome === 'متعامل'
-      ? detail.data.visit_tasks.filter((t) => t.is_mandatory && !t.is_completed).length : 0;
-    const msg = open ? t('توجد {n} مهام إلزامية غير منجزة. إنهاء الزيارة على أي حال؟', { n: open }) : t('إنهاء الزيارة وتسجيل الخروج؟');
+    const msg = pendingMandatory
+      ? t('توجد {n} مهام إلزامية غير منجزة. إنهاء الزيارة على أي حال؟', { n: pendingMandatory })
+      : t('إنهاء الزيارة وتسجيل الخروج؟');
     if (!window.confirm(msg)) return;
     checkOut.mutate({ id, status: 'completed' }, { onSuccess: () => nav('/visits', { replace: true }) });
-  }, [checkOut, id, nav, detail.data]);
+  }, [checkOut, id, nav, detail.data, pendingMandatory]);
 
   const goShelfAudit = useCallback(() => {
     const c = detail.data?.customers;
@@ -258,7 +262,7 @@ export default function VisitDetailScreen() {
             </div>
           )}
 
-          {detail.data.status === 'in_progress' && detail.data.visit_outcome !== t('غير موجود') && (
+          {detail.data.status === 'in_progress' && detail.data.visit_outcome === 'متعامل' && (
             <div className="card col">
               <div className="title">{t('إجراءات سريعة')}</div>
               <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
@@ -321,6 +325,12 @@ export default function VisitDetailScreen() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {pendingMandatory > 0 && (
+            <div className="card col" style={{ background: '#FFF7ED', border: '1px solid #F59E0B', padding: '10px 14px', borderRadius: 10, fontSize: 13, color: '#92400E', gap: 0 }}>
+              ⚠️ {t('{n} مهام إلزامية لم تُنجز بعد', { n: pendingMandatory })}
             </div>
           )}
 
