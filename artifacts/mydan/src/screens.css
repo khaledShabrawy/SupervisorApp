@@ -6,10 +6,10 @@
 .s-pw .input{padding-inline-start:50px}
 /* Three KPIs always fit side by side — no horizontal scroll that clips the last card. */
 .s-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.s-kpis>.kpi{padding:10px 8px;gap:4px;min-width:0}
-.s-kpis>.kpi .row{gap:4px;font-size:12px;line-height:1.3;align-items:flex-start}
-.s-kpis>.kpi .row>span:last-child{overflow-wrap:anywhere}
-.s-kpis>.kpi .big{font-size:24px}
+.s-kpis>.kpi{padding:12px 10px 10px;gap:2px;min-width:0}
+.s-kpis>.kpi .kpi-ic{width:30px;height:30px;border-radius:9px;margin-bottom:4px}
+.s-kpis>.kpi .big{font-size:22px;font-weight:800}
+.s-kpis>.kpi .kpi-lbl{font-size:10px}
 .s-acts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .s-acts>:last-child:nth-child(odd){grid-column:1/-1}
 .s-act{min-height:92px;border-radius:16px;border:0;color:#fff;font:inherit;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;text-align:center}
