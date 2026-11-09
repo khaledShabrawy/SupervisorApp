@@ -43,3 +43,21 @@ button.s-row{cursor:pointer}
 /* Language */
 [dir=ltr] .flip-ltr{transform:scaleX(-1)}
 .lang-toggle{font:inherit;font-weight:700;font-size:15px}
+
+/* Dark mode overrides for hardcoded colors in screens.css */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .s-row { background: #162032; border-color: #1E2E42; color: #E8EEF5; }
+  :root:not([data-theme="light"]) .s-steps > div { background: #1E2E42; color: #8B9EB5; }
+  :root:not([data-theme="light"]) .s-steps > div.done { background: #0A2318; color: #6EE7B7; }
+  :root:not([data-theme="light"]) .s-score > span { background: #162032; }
+  :root:not([data-theme="light"]) .s-unread { background: #111E35; border-inline-start-color: #3B7FFF; }
+  :root:not([data-theme="light"]) .s-card { background: #162032; border-color: #1E2E42; }
+  :root:not([data-theme="light"]) .s-hbar { color: #E8EEF5; }
+}
+:root[data-theme="dark"] .s-row { background: #162032; border-color: #1E2E42; color: #E8EEF5; }
+:root[data-theme="dark"] .s-steps > div { background: #1E2E42; color: #8B9EB5; }
+:root[data-theme="dark"] .s-steps > div.done { background: #0A2318; color: #6EE7B7; }
+:root[data-theme="dark"] .s-score > span { background: #162032; }
+:root[data-theme="dark"] .s-unread { background: #111E35; border-inline-start-color: #3B7FFF; }
+:root[data-theme="dark"] .s-card { background: #162032; border-color: #1E2E42; }
+:root[data-theme="dark"] .s-hbar { color: #E8EEF5; }

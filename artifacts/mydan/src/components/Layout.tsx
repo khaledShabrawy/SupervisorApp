@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, type ReactNode } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, Bell, LogOut, Settings2 } from '@/components/Icons';
+import { ArrowRight, Bell, LogOut, Moon, Settings2, Sun } from '@/components/Icons';
 import { useUnreadCount } from '@/lib/data';
 import { num } from '@/lib/format';
 import { useQueryClient } from '@tanstack/react-query';
@@ -11,6 +11,7 @@ import { canAdmin } from '@/lib/policy';
 import { notify } from '@/lib/toast';
 import { BottomNav } from './BottomNav';
 import { LanguageToggle } from './LanguageToggle';
+import { useTheme } from '@/hooks/useTheme';
 import LoadingSpinner from './LoadingSpinner';
 import { SyncActionBar } from './SyncActionBar';
 import { TrialBanner } from './TrialBanner';
@@ -99,6 +100,7 @@ function Shell() {
   const goNotifications = useCallback(() => nav('/notifications'), [nav]);
   const logout = useCallback(() => void signOut().catch((e: Error) => notify(e.message, 'error')), [signOut]);
   const home = pathname === '/';
+  const { isDark, toggle: toggleTheme } = useTheme();
   useEffect(() => {
     document.title = `${({ '/': t('الرئيسية'), '/visits': t('الزيارات'),
       '/visits/new': t('بدء زيارة'), '/shelf-audit': t('مراجعة الرف'),
@@ -115,6 +117,9 @@ function Shell() {
         : <button className="icon-btn" aria-label={t('رجوع')} onClick={goBack}><ArrowRight className="flip-ltr" /></button>}
       <h1><span className="header-brand">{s.app_name}</span><small>{supervisor!.full_name}</small></h1>
       <LanguageToggle />
+      <button className="icon-btn" aria-label={isDark ? t('الوضع الفاتح') : t('الوضع الداكن')} onClick={toggleTheme}>
+        {isDark ? <Sun size={20} /> : <Moon size={20} />}
+      </button>
       <button className="icon-btn" aria-label={t('الإشعارات')} data-testid="button-notifications" onClick={goNotifications}>
         <Bell size={21} />
         {unread.isError ? <span className="dot" aria-label={t('تعذر قراءة عدد الإشعارات')}>!</span>

@@ -77,3 +77,74 @@ button,a,input,select,textarea{transition:background-color .15s,color .15s,borde
 .login .hero h1{font-size:40px;margin:12px 0 0;line-height:1.1}
 .login form{padding:24px;display:flex;flex-direction:column;gap:14px}
 .sep{height:1px;background:var(--line);border:0;margin:0}
+
+/* ===== Dark Mode ===== */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-primary: #3B7FFF;
+    --color-success: #10B981;
+    --color-danger: #F87171;
+    --color-bg: #0F1B2D;
+    --primary-foreground: #FFFFFF;
+    --ink: #E8EEF5;
+    --muted: #8B9EB5;
+    --line: #1E2E42;
+    --card: #162032;
+    --warn: #FCD34D;
+    --warn-bg: #3A2208;
+  }
+  body { background: #070E18; }
+  .input { background: #162032; color: #E8EEF5; border-color: #1E2E42; }
+  .btn.ghost { background: #162032; }
+  .chip { background: #162032; border-color: #1E2E42; color: #E8EEF5; }
+  .chip.on { background: #3B7FFF; border-color: #3B7FFF; color: #fff; }
+  .kpi { background: #162032; }
+  .topbar { background: #0A1525; }
+  .bottomnav { background: #0F1B2D; border-color: #1E2E42; }
+  .bottomnav a { color: #8B9EB5; }
+  .alert.err { background: #2D0E0E; color: #FCA5A5; }
+  .alert.warn { background: #3A2208; color: #FCD34D; }
+  .alert.ok { background: #0A2318; color: #6EE7B7; }
+  .toast { background: #162032; }
+  .toast.success { background: #0A2318; }
+  .sheet { background: #0F1B2D; }
+}
+:root[data-theme="dark"] {
+  --color-primary: #3B7FFF;
+  --color-success: #10B981;
+  --color-danger: #F87171;
+  --color-bg: #0F1B2D;
+  --primary-foreground: #FFFFFF;
+  --ink: #E8EEF5;
+  --muted: #8B9EB5;
+  --line: #1E2E42;
+  --card: #162032;
+  --warn: #FCD34D;
+  --warn-bg: #3A2208;
+}
+:root[data-theme="dark"] body { background: #070E18; }
+:root[data-theme="dark"] .input { background: #162032; color: #E8EEF5; border-color: #1E2E42; }
+:root[data-theme="dark"] .btn.ghost { background: #162032; }
+:root[data-theme="dark"] .chip { background: #162032; border-color: #1E2E42; color: #E8EEF5; }
+:root[data-theme="dark"] .chip.on { background: #3B7FFF; border-color: #3B7FFF; color: #fff; }
+:root[data-theme="dark"] .kpi { background: #162032; }
+:root[data-theme="dark"] .topbar { background: #0A1525; }
+:root[data-theme="dark"] .bottomnav { background: #0F1B2D; border-color: #1E2E42; }
+:root[data-theme="dark"] .bottomnav a { color: #8B9EB5; }
+:root[data-theme="dark"] .alert.err { background: #2D0E0E; color: #FCA5A5; }
+:root[data-theme="dark"] .alert.warn { background: #3A2208; color: #FCD34D; }
+:root[data-theme="dark"] .alert.ok { background: #0A2318; color: #6EE7B7; }
+:root[data-theme="dark"] .sheet { background: #0F1B2D; }
+:root[data-theme="light"] {
+  --color-primary: #1A56DB;
+  --color-success: #108981;
+  --color-danger: #EF4444;
+  --color-bg: #F8FAFC;
+  --primary-foreground: #FFFFFF;
+  --ink: #0F1B2D;
+  --muted: #5B6B7F;
+  --line: #DCE3EC;
+  --card: #FFFFFF;
+  --warn: #B45309;
+  --warn-bg: #FEF3C7;
+}
