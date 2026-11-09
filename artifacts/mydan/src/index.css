@@ -1,7 +1,12 @@
+@import "tailwindcss";
 @import "./screens.css";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
+@theme {
+  --font-sans: 'Cairo', system-ui, sans-serif;
+  --color-primary: #1A56DB;
+  --color-success: #108981;
+  --color-danger: #EF4444;
+}
 
 :root{--color-primary:#1A56DB;--color-success:#108981;--color-danger:#EF4444;--color-bg:#F8FAFC;--primary-foreground:#FFFFFF;
 --ink:#0F1B2D;--muted:#5B6B7F;--line:#DCE3EC;--card:#FFFFFF;--warn:#B45309;--warn-bg:#FEF3C7;
