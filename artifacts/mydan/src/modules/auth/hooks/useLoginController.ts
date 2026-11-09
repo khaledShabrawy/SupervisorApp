@@ -11,10 +11,6 @@ export interface BranchOption {
 
 const DEFAULT_BRANCH_OPTIONS: BranchOption[] = [
   { id: 'all', name: 'جميع الفروع (المركز الرئيسي)' },
-  { id: 'cairo', name: 'فرع القاهرة الكبرى' },
-  { id: 'alex', name: 'فرع الإسكندرية والبحيرة' },
-  { id: 'delta', name: 'فرع الدلتا والقناة' },
-  { id: 'upper', name: 'فرع الصعيد' },
 ];
 
 function loadCachedBranches(): BranchOption[] {

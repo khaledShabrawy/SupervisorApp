@@ -100,6 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ++generation.current; currentUser.current = null;
     try {
       localStorage.removeItem(LAST_ACTIVITY_KEY);
+      localStorage.removeItem('mydan_known_branches');
+      localStorage.removeItem('mydan_active_branch_id');
     } catch {
       // ignore
     }
