@@ -119,7 +119,7 @@ export function AssetTypes() {
   </>;
 }
 
-const TABS = [['sup', t('المشرفون')], ['cus', t('العملاء')], ['pro', t('المنتجات')], ['ast', t('الأصول')], ['set', t('الإعدادات')], ['tar', t('الأهداف')]] as const;
+const TABS = [['sup', t('المشرفون')], ['cus', t('العملاء')], ['pro', t('المنتجات')], ['ast', t('الأصول')], ['set', t('الإعدادات')], ['tar', t('الأهداف')], ['lic', t('التراخيص')]] as const;
 type Tab = typeof TABS[number][0];
 
 const SupRow = memo(function SupRow({ s, self, onPatch }: { s: Supervisor; self: boolean; onPatch: (s: Supervisor, p: { is_active?: boolean; role?: 'admin' | 'supervisor' }) => void }) {
@@ -373,18 +373,202 @@ export function TargetForm() {
     </form>
   );
 }
+// ─── License Management (super_admin only) ────────────────────────────────
+type LicensedCompany = {
+  id: string; name: string; name_en: string | null;
+  license_type: string | null; license_key: string | null;
+  max_supervisors: number | null; is_active: boolean; expires_at: string | null;
+};
+
+function useLicenseCompanies() {
+  return useQuery({
+    queryKey: ['super-admin', 'license-companies'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('id,name,name_en,license_type,license_key,max_supervisors,is_active,expires_at')
+        .order('name');
+      if (error) throw new Error(t('تعذر تحميل بيانات الشركات.'));
+      return data as LicensedCompany[];
+    },
+  });
+}
+
+function useUpdateLicense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; is_active: boolean; expires_at: string | null; max_supervisors: number; license_type: string; license_key: string }) => {
+      const { error } = await supabase.from('companies').update({
+        is_active: input.is_active,
+        expires_at: input.expires_at,
+        max_supervisors: input.max_supervisors,
+        license_type: input.license_type,
+        license_key: input.license_key,
+      }).eq('id', input.id);
+      if (error) throw new Error(t('تعذر تحديث بيانات الترخيص.'));
+    },
+    onSuccess: () => { notify(t('تم تحديث الترخيص'), 'success'); qc.invalidateQueries({ queryKey: ['super-admin', 'license-companies'] }); },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
+function daysLeft(iso: string | null): number | null {
+  if (!iso) return null;
+  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
+}
+
+function genLicKey(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const seg = () => Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `MYD-${seg()}-${seg()}-${seg()}`;
+}
+
+const LICENSE_TYPES = [
+  ['starter', t('Starter — حتى 5 مشرفين'), 5],
+  ['growth', t('Growth — حتى 15 مشرفاً'), 15],
+  ['professional', t('Professional — حتى 30 مشرفاً'), 30],
+  ['enterprise', t('Enterprise — غير محدود'), 500],
+] as const;
+
+function LicenseManagement() {
+  const q = useLicenseCompanies();
+  const m = useUpdateLicense();
+  const retry = useRefetch(q.refetch);
+  const [edit, setEdit] = useState<LicensedCompany | null>(null);
+  const [isActive, setIsActive] = useState(true);
+  const [expiresAt, setExpiresAt] = useState('');
+  const [maxSup, setMaxSup] = useState(10);
+  const [licType, setLicType] = useState('starter');
+  const [licKey, setLicKey] = useState('');
+
+  const openEdit = useCallback((c: LicensedCompany) => {
+    setEdit(c); setIsActive(c.is_active);
+    setExpiresAt(c.expires_at ? c.expires_at.slice(0, 10) : '');
+    setMaxSup(c.max_supervisors ?? 10);
+    setLicType(c.license_type ?? 'starter');
+    setLicKey(c.license_key ?? '');
+  }, []);
+  const close = useCallback(() => setEdit(null), []);
+  const onGenKey = useCallback(() => setLicKey(genLicKey()), []);
+  const onLicType = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
+    const found = LICENSE_TYPES.find(([k]) => k === e.target.value);
+    setLicType(e.target.value);
+    if (found) setMaxSup(found[2]);
+  }, []);
+
+  const save = useCallback((e: FormEvent) => {
+    e.preventDefault();
+    if (!edit) return;
+    m.mutate({
+      id: edit.id, is_active: isActive,
+      expires_at: expiresAt ? new Date(expiresAt + 'T23:59:59').toISOString() : null,
+      max_supervisors: maxSup, license_type: licType, license_key: licKey,
+    }, { onSuccess: close });
+  }, [edit, isActive, expiresAt, maxSup, licType, licKey, m, close]);
+
+  if (q.isLoading) return <SkeletonList />;
+  if (q.error) return <ErrorState message={(q.error as Error).message} onRetry={retry} />;
+
+  return (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {(q.data ?? []).length === 0 && <EmptyState message={t('لا توجد شركات مسجلة')} />}
+        {(q.data ?? []).map(co => {
+          const days = daysLeft(co.expires_at);
+          const expired = days !== null && days <= 0;
+          const locked = !co.is_active || expired;
+          return (
+            <div key={co.id} className="card row between" style={{ padding: '14px 16px', gap: 12, flexWrap: 'wrap', borderRight: `4px solid ${locked ? '#EF4444' : '#108981'}` }}>
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <strong style={{ fontSize: 15 }}>{co.name}</strong>
+                {co.name_en && <div className="muted" style={{ fontSize: 12 }}>{co.name_en}</div>}
+                <div style={{ fontSize: 12, marginTop: 4, display: 'flex', gap: 8 }}>
+                  <span className="muted">{co.license_type ?? '—'}</span>
+                  {co.license_key && <span className="muted" style={{ fontFamily: 'monospace', letterSpacing: 1 }}>{co.license_key.slice(0, 11)}…</span>}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span className={`badge ${locked ? 'badge-danger' : 'badge-success'}`}>
+                  {!co.is_active ? t('معطّل') : expired ? t('منتهي') : t('نشط')}
+                </span>
+                {days !== null && !expired && (
+                  <span className={`badge ${days <= 14 ? 'badge-warning' : ''}`} style={days > 14 ? { background: '#E0F2FE', color: '#0369A1' } : {}}>
+                    {days} {t('يوم')}
+                  </span>
+                )}
+                <span className="muted" style={{ fontSize: 12 }}>{co.max_supervisors ?? 10} {t('مشرف')}</span>
+                <button className="btn sm" onClick={() => openEdit(co)}>{t('تعديل')}</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {edit && (
+        <div className="adm-modal-bg" onClick={close}>
+          <form className="adm-modal col" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} onSubmit={save} style={{ gap: 14, maxWidth: 480 }}>
+            <div className="row between">
+              <h2 style={{ margin: 0, fontSize: 18 }}>{t('إدارة ترخيص')} — {edit.name}</h2>
+              <button type="button" className="icon-btn" aria-label={t('إغلاق')} onClick={close}><X /></button>
+            </div>
+
+            <label className="f">
+              {t('نوع الباقة')}
+              <select className="input" value={licType} onChange={onLicType}>
+                {LICENSE_TYPES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+              </select>
+            </label>
+
+            <label className="f">
+              {t('الحد الأقصى للمشرفين النشطين')}
+              <input className="input" type="number" min={1} max={500} value={maxSup} onChange={(e) => setMaxSup(Number(e.target.value))} />
+            </label>
+
+            <label className="f">
+              {t('تاريخ انتهاء الاشتراك')}
+              <input className="input" type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+            </label>
+
+            <div className="f">
+              <label style={{ marginBottom: 4, display: 'block' }}>{t('مفتاح الترخيص (License Key)')}</label>
+              <div className="row" style={{ gap: 8 }}>
+                <input className="input" style={{ flex: 1, fontFamily: 'monospace', letterSpacing: 1, fontSize: 13 }} value={licKey} onChange={(e) => setLicKey(e.target.value)} placeholder="MYD-XXXXX-XXXXX-XXXXX" />
+                <button type="button" className="btn sm" onClick={onGenKey}>{t('توليد')}</button>
+              </div>
+            </div>
+
+            <label className="row" style={{ gap: 10, cursor: 'pointer', userSelect: 'none', padding: '10px 0' }}>
+              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} style={{ width: 18, height: 18, flexShrink: 0 }} />
+              <span style={{ fontSize: 15 }}>{t('الشركة نشطة')}</span>
+              {!isActive && <span className="badge badge-danger" style={{ marginRight: 'auto' }}>{t('محجوب الدخول')}</span>}
+            </label>
+
+            <div className="row" style={{ gap: 10, justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+              <button type="button" className="btn" onClick={close}>{t('إلغاء')}</button>
+              <button className="btn primary" disabled={m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ التغييرات')}</button>
+            </div>
+          </form>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function AdminPanel() {
   const { supervisor } = useAuth(); const settings = useAppSettings(); const [tab, setTab] = useState<Tab>('sup');
+  const isSuperAdmin = supervisor?.role === 'super_admin';
+  const visibleTabs = isSuperAdmin ? TABS : TABS.filter(([k]) => k !== 'lic');
   const onTab = useCallback((v: string) => setTab(v as Tab), []);
   if (!canAdmin(supervisor)) return <div className="page"><div className="alert err">{t('هذه الصفحة للمدراء فقط.')}</div></div>;
   return <div className="page" aria-label={settings.app_name} data-role={supervisor?.role}>
     <PageTitle>{t('إدارة الشركة')}</PageTitle>
-    <div className="tabs" role="tablist">{TABS.map(([k, l]) => <Chip key={k} role="tab" value={k} label={l} active={tab === k} onSelect={onTab} testId={`admin-tab-${k}`} />)}</div>
+    <div className="tabs" role="tablist">{visibleTabs.map(([k, l]) => <Chip key={k} role="tab" value={k} label={l} active={tab === k} onSelect={onTab} testId={`admin-tab-${k}`} />)}</div>
     {tab === 'sup' && <Supervisors />}
     {tab === 'cus' && <CustomersScreen embedded />}
     {tab === 'pro' && <Products />}
     {tab === 'ast' && <AssetTypes />}
     {tab === 'set' && <SettingsForm />}
     {tab === 'tar' && <TargetForm />}
+    {tab === 'lic' && isSuperAdmin && <LicenseManagement />}
   </div>;
 }
