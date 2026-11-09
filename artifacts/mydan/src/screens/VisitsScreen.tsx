@@ -13,6 +13,7 @@ import { ErrorState, LoadMore, SkeletonList } from '@/components/States';
 import { PageTitle } from '@/components/Layout';
 import { fmtDate, fmtTime, num, visitMinutes } from '@/lib/format';
 import { Chip, distanceLabel, usePullRefresh, useSentinel } from './shared';
+import { notify } from '@/lib/toast';
 import { t } from '@/i18n';
 
 type Row = VisitRow & { customers: (VisitRow['customers'] & { latitude?: number | null; longitude?: number | null }) | null };
@@ -75,7 +76,7 @@ export default function VisitsScreen() {
   const onStart = useCallback((id: string) => nav(`/visits/new?visit=${id}`), [nav]);
   const onStatus = useCallback((id: string, status: 'completed' | 'skipped') => {
     if (status === 'skipped' && !window.confirm(t('هل تريد إلغاء هذه الزيارة؟'))) return;
-    m.mutate({ id, status });
+    m.mutate({ id, status }, { onError: (e: Error) => notify(e.message || t('تعذر تحديث حالة الزيارة'), 'error') });
   }, [m]);
   const create = useCallback(() => nav('/visits/new'), [nav]);
 

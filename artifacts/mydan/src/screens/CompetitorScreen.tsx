@@ -123,7 +123,7 @@ export default function CompetitorScreen() {
       const url = await compressAndUpload(file, supervisor.company_id);
       setPhotoUrl(url);
     } catch {
-      // silently skip photo on error
+      notify(t('تعذر رفع الصورة'), 'error');
     } finally {
       setPhotoUploading(false);
     }
@@ -133,6 +133,7 @@ export default function CompetitorScreen() {
     if (!brand.trim() || !visitId) return;
     add.mutate({ visitId, brandName: brand, productName: product, quantity: Number(qty) || 0, notes, photoUrl: photoUrl ?? undefined }, {
       onSuccess: () => { setBrand(''); setProduct(''); setQty(''); setNotes(''); setPhotoUrl(null); setShowForm(false); },
+      onError: (e: Error) => notify(e.message || t('تعذر حفظ المنافس'), 'error'),
     });
   }, [add, visitId, brand, product, qty, notes, photoUrl]);
 

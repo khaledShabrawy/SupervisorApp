@@ -16,6 +16,7 @@ import { ErrorState } from '@/components/States';
 import { PageTitle } from '@/components/Layout';
 import { fmtDate, fmtTime, num, todayStr } from '@/lib/format';
 import { Act, useRefetch } from './shared';
+import { notify } from '@/lib/toast';
 import { t } from '@/i18n';
 import type { Attendance } from '@/types/database';
 
@@ -57,7 +58,7 @@ function AttendanceWidget() {
         <button
           className="btn sm danger"
           disabled={busy}
-          onClick={() => action.mutate({ kind: 'out', row: att as Attendance })}
+          onClick={() => action.mutate({ kind: 'out', row: att as Attendance }, { onError: (e: Error) => notify(e.message || t('تعذر تسجيل الانصراف'), 'error') })}
           style={{ whiteSpace: 'nowrap' }}
         >
           <LogOut size={15} /> {t('تسجيل انصراف')}
@@ -76,7 +77,7 @@ function AttendanceWidget() {
       <button
         className="btn sm primary"
         disabled={busy}
-        onClick={() => action.mutate({ kind: 'in', row: null })}
+        onClick={() => action.mutate({ kind: 'in', row: null }, { onError: (e: Error) => notify(e.message || t('تعذر تسجيل الحضور'), 'error') })}
         style={{ whiteSpace: 'nowrap' }}
       >
         <LogIn size={15} /> {t('تسجيل حضور')}

@@ -153,7 +153,7 @@ export default function FieldSurveyScreen() {
       setSurveyId(survey.id);
       setFile(null);
       await request.mutateAsync(survey);
-    } catch { setRequestFailed(true); }
+    } catch { setRequestFailed(true); notify(t('تعذر تحليل الصورة. حاول مجدداً.'), 'error'); }
   }, [file, gps, upload, request]);
 
   const retry = useCallback(() => {

@@ -36,7 +36,10 @@ function Form({ c, onClose }: { c: Customer | null; onClose: () => void }) {
   const la = lat === '' ? null : Number(lat), lo = lng === '' ? null : Number(lng);
   const bad = (la !== null && (!Number.isFinite(la) || Math.abs(la) > 90)) || (lo !== null && (!Number.isFinite(lo) || Math.abs(lo) > 180)) || ((la === null) !== (lo === null));
   const valid = name.trim() && type.trim() && address.trim() && !bad;
-  const save = useCallback(() => m.mutate({ id: c?.id, input: { name: name.trim(), type: type.trim(), customer_code: code.trim() || null, address: address.trim(), latitude: la, longitude: lo, is_active: active } }, { onSuccess: onClose }), [m, c, name, type, code, address, la, lo, active, onClose]);
+  const save = useCallback(() => m.mutate({ id: c?.id, input: { name: name.trim(), type: type.trim(), customer_code: code.trim() || null, address: address.trim(), latitude: la, longitude: lo, is_active: active } }, {
+    onSuccess: onClose,
+    onError: (e: Error) => notify(e.message || t('تعذر حفظ العميل'), 'error'),
+  }), [m, c, name, type, code, address, la, lo, active, onClose]);
   return <Sheet title={c ? t('تعديل العميل') : t('عميل جديد')} onClose={onClose}><div className="col">
     <label className="f">{t('اسم العميل')}<input className="input" value={name} onChange={onName} data-testid="input-name" /></label>
     <label className="f">{t('كود العميل (اختياري)')}<input className="input" placeholder="مثال: CUST-001" value={code} onChange={onCode} data-testid="input-customer-code" /></label>
