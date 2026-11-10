@@ -517,7 +517,7 @@ export function useNearestCustomers(lat: number | null, lng: number | null, limi
       // Resilient Fallback: Query active customers and calculate distance locally
       try {
         const { data, error } = await sc.scope(
-          supabase.from('customers').select('*').eq('is_active', true)
+          supabase.from('customers').select(CUSTOMER_COLUMNS).eq('is_active', true)
         ).limit(100).abortSignal(signal);
 
         if (error || !data) return [];

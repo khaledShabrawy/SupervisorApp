@@ -1068,7 +1068,7 @@ export function useAdminShelfAudits(filters: { branchId?: string; supervisorId?:
       // Resilient fallback if foreign table relationships differ
       if (error) {
         let fallbackQ = (supabase.from('shelf_audit') as any)
-          .select('*')
+          .select(AUDIT_COLUMNS)
           .eq('company_id', sc.companyId)
           .order('audited_at', { ascending: false })
           .limit(200);
@@ -1161,7 +1161,7 @@ export function useAdminAlerts(filterType?: string) {
       const { data, error } = await q;
       if (error) {
         let fallback = (supabase.from('notifications') as any)
-          .select('*')
+          .select('id,company_id,supervisor_id,type,title_ar,body_ar,is_read,created_at')
           .eq('company_id', sc.companyId)
           .order('created_at', { ascending: false })
           .limit(100);
