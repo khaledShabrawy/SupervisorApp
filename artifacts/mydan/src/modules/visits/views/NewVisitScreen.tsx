@@ -145,7 +145,7 @@ export default function NewVisitScreen() {
     if (!oorPending || !here) return;
     const { c, g, note } = oorPending;
     setOorPending(null);
-    const notePrefix = oorReason ? `[OOR: ${oorReason}]` : '[OOR]';
+    const notePrefix = oorReason ? `[خارج النطاق: ${oorReason}]` : '[خارج النطاق]';
     const combinedNote = note ? `${notePrefix} ${note}` : notePrefix;
     m.mutate({ customer_id: c.id, latitude: here.latitude, longitude: here.longitude, notes: combinedNote,
       geo_distance: g.distance_m, on_beat: false, ...(existingId ? { existingId } : {}) },

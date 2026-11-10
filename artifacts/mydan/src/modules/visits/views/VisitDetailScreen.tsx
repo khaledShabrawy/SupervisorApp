@@ -114,7 +114,7 @@ const TaskItem = memo(function TaskItem({
         <div style={{ fontWeight: 700, fontSize: 15, textDecoration: task.is_completed ? 'line-through' : 'none' }}>{task.title_ar}</div>
         {task.is_mandatory && !task.is_completed && (<span className="badge b-red" style={{ fontSize: 11, marginTop: 2 }}>{t('إلزامية')}</span>)}
       </div>
-      <button
+      {!task.is_completed && <button
         type="button"
         className="btn sm"
         style={{
@@ -138,7 +138,7 @@ const TaskItem = memo(function TaskItem({
         data-testid={`button-whatsapp-task-${task.id}`}
       >
         <span>💬</span>
-      </button>
+      </button>}
       {onEdit && !task.is_completed && <button type="button" className="btn sm ghost" onClick={() => onEdit(task)} data-testid={`button-edit-task-${task.id}`}>{t('تعديل خطة المهمة')}</button>}
       {!task.is_completed && canComplete && (
         <div className="row" style={{ gap: 6, flexShrink: 0 }}>
@@ -313,7 +313,7 @@ export default function VisitDetailScreen() {
     nav(`/competitors?${p}`);
   }, [nav, id, detail.data]);
 
-  const goFieldSurvey = useCallback(() => nav('/field-survey'), [nav]);
+  const goFieldSurvey = useCallback(() => nav(`/field-survey?visit=${id}`), [nav, id]);
 
   if (!id) return (
     <div className="page">
@@ -364,7 +364,7 @@ export default function VisitDetailScreen() {
           <OutcomePicker value={detail.data.visit_outcome} disabled={detail.data.status !== 'in_progress' || setOutcome.isPending} onPick={pickOutcome} />
           <GeoStatus v={detail.data} radius={settings.geofence_radius_m} />
 
-          {detail.data.visit_outcome !== t('غير موجود') && detail.data.visit_tasks.length > 0 && (
+          {detail.data.visit_outcome !== 'غير موجود' && detail.data.visit_tasks.length > 0 && (
             <div className="col" style={{ gap: 8 }}>
               <div className="row between">
                 <div className="title"><ClipboardList size={18} style={{ display: 'inline', marginInlineEnd: 6 }} />{t('مهام الزيارة')}</div>
@@ -387,7 +387,7 @@ export default function VisitDetailScreen() {
             </div>
           )}
 
-          {detail.data.status === 'in_progress' && detail.data.visit_outcome !== t('غير موجود') && (
+          {detail.data.status === 'in_progress' && detail.data.visit_outcome !== 'غير موجود' && (
             <div className="card col">
               <div className="title">{t('إجراءات سريعة')}</div>
               <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>

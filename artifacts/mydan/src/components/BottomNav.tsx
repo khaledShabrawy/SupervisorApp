@@ -6,13 +6,6 @@ import { num } from '@/lib/format';
 import { t } from '@/i18n';
 
 
-const tabs = [
-  { to: '/', label: t('الرئيسية'), icon: Home, end: true },
-  { to: '/visits', label: t('الزيارات'), icon: ClipboardList },
-  { to: '/customers', label: t('العملاء'), icon: Users },
-  { to: '/targets', label: t('التقارير'), icon: BarChart3 },
-  { to: '/notifications', label: t('الإشعارات'), icon: Bell },
-];
 function NotificationCount() {
   const unread = useUnreadCount();
   const n = unread.data ?? 0;
@@ -23,6 +16,13 @@ function NotificationCount() {
 }
 
 export function BottomNav() {
+  const tabs = [
+    { to: '/', label: t('الرئيسية'), icon: Home, end: true },
+    { to: '/visits', label: t('الزيارات'), icon: ClipboardList },
+    { to: '/customers', label: t('العملاء'), icon: Users },
+    { to: '/targets', label: t('التقارير'), icon: BarChart3 },
+    { to: '/notifications', label: t('الإشعارات'), icon: Bell },
+  ];
   const { pathname } = useLocation();
   // Visit-related operations remain grouped under the visit list.
   const selected = /^\/(visits|shelf-audit|beat-plan)(\/|$)/.test(pathname) ? '/visits' : pathname;

@@ -210,7 +210,7 @@ export default function ShelfAuditScreen() {
 
   const completeImmediately = useCallback(async () => {
     if (!auditId || !supervisor?.company_id) return;
-    if (!await confirm('هل تريد اعتماد مراجعة الرف يدوياً وحفظ التقرير؟')) return;
+    if (!await confirm(t('هل تريد اعتماد مراجعة الرف يدوياً وحفظ التقرير؟'))) return;
     try {
       const { error } = await supabase.from('shelf_audit').update({
         status: 'completed',

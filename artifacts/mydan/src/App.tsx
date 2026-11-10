@@ -46,7 +46,7 @@ const AdminBranches = section('AdminBranches'), AdminCustomers = section('AdminC
 const BulkImport = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/BulkTemplates').then(m => ({ default: m.BulkTemplates })));
 const AdminCompanies = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminCompanies'));
 const AdminReports = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminReports'));
-const AdminLiveMap = lazy(() => import('@/admin/AdminLiveMap'));
+const AdminLiveMap = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminLiveMap'));
 
 const queryClient = new QueryClient({
   defaultOptions: {

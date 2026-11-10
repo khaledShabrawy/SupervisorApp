@@ -15,8 +15,10 @@ export interface MonthProgress {
   year: number;
   visits_target: number;
   audit_target: number;
+  orders_target: number;
   actual_visits: number;
   actual_audits: number;
+  actual_orders: number;
 }
 export { useUploadAudit, useRequestAuditAnalysis, useAuditResult, useVisitAudits } from './screen-audit';
 
@@ -60,11 +62,11 @@ function monthRange(year: number, month: number) {
   const start = new Date(year, month - 1, 1), end = new Date(year, month, 1);
   return { start: dateKey(start), end: dateKey(end), startIso: start.toISOString(), endIso: end.toISOString() };
 }
-type TargetValues = Pick<Target, 'visits_target' | 'audit_target'>;
+type TargetValues = Pick<Target, 'visits_target' | 'audit_target' | 'orders_target'>;
 const targetSum = (rows: TargetValues[], field: keyof TargetValues) =>
   rows.reduce((sum, row) => sum + Number(row[field]), 0);
 function targetsFor(sc: Scope, month: number, year: number, signal: AbortSignal) {
-  return readAllRows<TargetValues & { id: string }>(() => sc.scope(supabase.from('targets').select('id,visits_target,audit_target'))
+  return readAllRows<TargetValues & { id: string }>(() => sc.scope(supabase.from('targets').select('id,visits_target,audit_target,orders_target'))
     .eq('month', month).eq('year', year), signal, 'تعذر تحميل الأهداف. تحقق من الاتصال والصلاحيات.');
 }
 
@@ -147,13 +149,15 @@ export function useMonthlyTargets() {
     queryKey: [...sc.base, 'targets', 'task-progress', month, year], retry: 1, staleTime: 60_000, gcTime: 300_000,
     queryFn: async ({ signal }) => Promise.all(Array.from({ length: 4 }, async (_, index): Promise<MonthProgress> => {
       const d = new Date(year, month - 1 - index, 1), m = d.getMonth() + 1, y = d.getFullYear(), range = monthRange(y, m);
-      const [targets, actual_visits, actual_audits] = await Promise.all([
+      const [targets, actual_visits, actual_audits, actual_orders] = await Promise.all([
         targetsFor(sc, m, y, signal),
         countRows(sc, 'visits', signal, q => q.eq('status', 'completed').gte('visit_date', range.start).lt('visit_date', range.end)),
         countRows(sc, 'shelf_audit', signal, q => q.eq('status', 'completed').gte('audited_at', range.startIso).lt('audited_at', range.endIso)),
+        countRows(sc, 'orders', signal, q => q.gte('created_at', range.startIso).lt('created_at', range.endIso)),
       ]);
       return { month: m, year: y, visits_target: targetSum(targets, 'visits_target'),
-        audit_target: targetSum(targets, 'audit_target'), actual_visits, actual_audits };
+        audit_target: targetSum(targets, 'audit_target'), orders_target: targetSum(targets, 'orders_target'),
+        actual_visits, actual_audits, actual_orders };
     })),
   });
 }
