@@ -218,6 +218,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [session, triggerTimeout]);
 
+  // Re-verify supervisor profile every 10 minutes to catch mid-session deactivation.
+  useEffect(() => {
+    if (!session) return;
+    const interval = setInterval(() => void synchronize(session), 10 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [session, synchronize]);
+
   const signIn = useCallback(async (email: string, password: string) => {
     signingIn.current = true;
     const epoch = ++generation.current;
