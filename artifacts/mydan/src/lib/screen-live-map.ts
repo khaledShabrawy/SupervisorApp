@@ -68,6 +68,16 @@ export interface LiveTrackingSummary {
   totalVisitsRecorded: number;
 }
 
+function isValidCoord(lat: unknown, lng: unknown): boolean {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
+  if (String(lat).trim() === '' || String(lng).trim() === '') return false;
+  const nLat = Number(lat);
+  const nLng = Number(lng);
+  if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) return false;
+  if (nLat === 0 && nLng === 0) return false;
+  return Math.abs(nLat) <= 90 && Math.abs(nLng) <= 180;
+}
+
 export function useLiveTrackingData(date: string = todayStr(), branchFilter: string = 'all') {
   const sc = useScope();
 
@@ -109,10 +119,9 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
           b.id,
           {
             name: b.name,
-            location:
-              Number.isFinite(Number(b.latitude)) && Number.isFinite(Number(b.longitude))
-                ? { latitude: Number(b.latitude), longitude: Number(b.longitude) }
-                : null,
+            location: isValidCoord(b.latitude, b.longitude)
+              ? { latitude: Number(b.latitude), longitude: Number(b.longitude) }
+              : null,
           },
         ])
       );
@@ -156,9 +165,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
         const route: SupervisorRoutePoint[] = [];
         let seq = 1;
         for (const v of supVisits) {
-          const lat = Number(v.latitude);
-          const lng = Number(v.longitude);
-          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          if (isValidCoord(v.latitude, v.longitude)) {
             route.push({
               seq: seq++,
               visitId: v.id,
@@ -166,8 +173,8 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
               customerName: v.customers?.name ?? t('عميل غير معروف'),
               customerCode: null,
               customerAddress: v.customers?.address,
-              latitude: lat,
-              longitude: lng,
+              latitude: Number(v.latitude),
+              longitude: Number(v.longitude),
               checkInTime: v.check_in_time,
               checkOutTime: v.check_out_time,
               status: v.status,
@@ -180,7 +187,7 @@ export function useLiveTrackingData(date: string = todayStr(), branchFilter: str
         // Determine current live location and status
         // Priority 1: Visit currently in progress
         const inProgress = supVisits.find((v) => v.status === 'in_progress');
-        if (inProgress && Number.isFinite(Number(inProgress.latitude)) && Number.isFinite(Number(inProgress.longitude))) {
+        if (inProgress && isValidCoord(inProgress.latitude, inProgress.longitude)) {
           return {
             supervisorId: s.id,
             supervisorName: s.full_name,
@@ -328,8 +335,8 @@ export function useSupervisorVisitsHistory(supervisorId: string | null) {
         checkInTime: v.check_in_time,
         checkOutTime: v.check_out_time,
         status: v.status,
-        latitude: Number.isFinite(Number(v.latitude)) ? Number(v.latitude) : null,
-        longitude: Number.isFinite(Number(v.longitude)) ? Number(v.longitude) : null,
+        latitude: isValidCoord(v.latitude, v.longitude) ? Number(v.latitude) : null,
+        longitude: isValidCoord(v.latitude, v.longitude) ? Number(v.longitude) : null,
         onBeat: v.on_beat,
         geoDistance: v.geo_distance,
         notes: v.notes,

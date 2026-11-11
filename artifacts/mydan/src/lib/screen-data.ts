@@ -206,12 +206,16 @@ export function useSaveMonthlyTarget() {
       const supervisorId = input.scope_type === 'per_user' && input.supervisor_id ? input.supervisor_id : null;
       const branchId = input.target_scope === 'specific_branch' ? (input.branch_id || null) : null;
 
-      const payload: Record<string, any> = {
+      const corePayload: Record<string, any> = {
         company_id: sc.companyId,
         supervisor_id: supervisorId,
         target_date: targetDate,
         visits_target: Number(input.visits_target) || 0,
         audit_target: Number(input.audit_target) || 0,
+      };
+
+      const fullPayload: Record<string, any> = {
+        ...corePayload,
         criteria: input.criteria || 'visits',
         scope_type: input.scope_type || 'per_user',
         target_scope: input.target_scope || 'all_branches',
@@ -219,47 +223,70 @@ export function useSaveMonthlyTarget() {
       };
 
       const lastDay = new Date(input.year, input.month, 0).getDate();
-      let query = supabase.from('targets').select('id').eq('company_id', sc.companyId)
-        .gte('target_date', `${targetMonthPrefix}-01`).lte('target_date', `${targetMonthPrefix}-${String(lastDay).padStart(2, '0')}`);
-      if (supervisorId) {
-        query = query.eq('supervisor_id', supervisorId);
-      } else {
-        query = query.is('supervisor_id', null);
-        if (branchId) {
-          query = query.eq('branch_id', branchId);
+      const rangeStart = `${targetMonthPrefix}-01`;
+      const rangeEnd = `${targetMonthPrefix}-${String(lastDay).padStart(2, '0')}`;
+
+      const findExisting = async (byCriteria: boolean, useBranchFilter: boolean): Promise<string | null> => {
+        let q = supabase.from('targets').select('id').eq('company_id', sc.companyId)
+          .gte('target_date', rangeStart).lte('target_date', rangeEnd);
+        if (supervisorId) {
+          q = q.eq('supervisor_id', supervisorId);
         } else {
-          query = query.is('branch_id', null);
+          q = q.is('supervisor_id', null);
+          if (useBranchFilter) {
+            q = branchId ? q.eq('branch_id', branchId) : q.is('branch_id', null);
+          }
         }
+        if (byCriteria) {
+          q = q.eq('criteria', fullPayload.criteria);
+        }
+        const res = await q.limit(1);
+        if (res.error) return null;
+        return res.data?.[0]?.id ?? null;
+      };
+
+      let existingId = await findExisting(true, true);
+
+      const writeTarget = async (idToUpdate: string | null, data: Record<string, any>) => {
+        return idToUpdate
+          ? await (supabase.from('targets') as any).update(data).eq('id', idToUpdate).eq('company_id', sc.companyId).select('id').limit(1)
+          : await (supabase.from('targets') as any).insert({ ...data, actual_visits: 0, actual_audits: 0 }).select('id').limit(1);
+      };
+
+      let activePayload: Record<string, any> = { ...fullPayload };
+      let r = await writeTarget(existingId, activePayload);
+
+      // Graceful fallback if optional Phase 3 columns (criteria/scope_type/target_scope/branch_id) do not exist on DB yet
+      if (r.error && (r.error.code === '42703' || r.error.code === 'PGRST204' || /does not exist|schema cache/i.test(r.error.message || ''))) {
+        if (!existingId) {
+          existingId = await findExisting(false, false);
+        }
+        activePayload = { ...corePayload };
+        r = await writeTarget(existingId, activePayload);
       }
-
-      const existing = await query.maybeSingle();
-
-      // Attempt write without generated month/year columns first
-      let r = existing.data
-        ? await (supabase.from('targets') as any).update(payload).eq('id', existing.data.id).eq('company_id', sc.companyId).select('id').single()
-        : await (supabase.from('targets') as any).insert({ ...payload, actual_visits: 0, actual_audits: 0 }).select('id').single();
 
       // If the table requires explicit month/year columns (not generated)
       if (r.error && (r.error.message?.includes('null value in column "month"') || (r.error.message?.includes('column "month" of relation "targets" does not exist') === false && r.error.message?.includes('month')))) {
-        payload.month = input.month;
-        payload.year = input.year;
-        r = existing.data
-          ? await (supabase.from('targets') as any).update(payload).eq('id', existing.data.id).eq('company_id', sc.companyId).select('id').single()
-          : await (supabase.from('targets') as any).insert({ ...payload, actual_visits: 0, actual_audits: 0 }).select('id').single();
+        activePayload = { ...activePayload, month: input.month, year: input.year };
+        r = await writeTarget(existingId, activePayload);
       }
 
-      // If insert failed due to duplicate key (unique violation), fall back to update
+      // If insert failed due to duplicate key (legacy unique constraint on (supervisor_id, target_date)), fall back to update
       if (r.error && (r.error.code === '23505' || r.error.message?.includes('duplicate key') || r.error.message?.includes('unique constraint'))) {
-        const fallbackQuery = await supabase.from('targets').select('id').eq('company_id', sc.companyId)
-          .gte('target_date', `${targetMonthPrefix}-01`).lte('target_date', `${targetMonthPrefix}-${String(lastDay).padStart(2, '0')}`)
-          .eq('supervisor_id', supervisorId!)
-          .maybeSingle();
-        if (fallbackQuery.data?.id) {
-          r = await (supabase.from('targets') as any).update(payload).eq('id', fallbackQuery.data.id).eq('company_id', sc.companyId).select('id').single();
+        const fallbackId = await findExisting(false, false);
+        if (fallbackId) {
+          r = await writeTarget(fallbackId, activePayload);
         }
       }
 
+      if (r.error && r.error.code === '23502' && /supervisor_id/i.test(r.error.message || '')) {
+        throw new Error('تعذر حفظ هدف عام بدون مشرف. يرجى تشغيل ترحيل قاعدة البيانات أو اختيار مشرف محدد.');
+      }
+
       errorMessage('تعذر حفظ الهدف الشهري.', r.error);
+      if (!r.data?.length) {
+        throw new Error('تعذر حفظ الهدف الشهري. تحقق من صلاحيات المدير على جدول الأهداف.');
+      }
 
       if (supervisorId) {
         void (supabase.from('notifications') as any).insert({
@@ -267,14 +294,14 @@ export function useSaveMonthlyTarget() {
           supervisor_id: supervisorId,
           type: 'target_update',
           title_ar: 'تم تحديد أهداف بيعية جديدة 🎯',
-          body_ar: `تم تعيين هدفك الشهري (${payload.visits_target || 0} زيارة، ${payload.audit_target || 0} تدقيق رف).`,
+          body_ar: `تم تعيين هدفك الشهري (${activePayload.visits_target || 0} زيارة، ${activePayload.audit_target || 0} تدقيق رف).`,
           is_read: false,
         });
         void supabase.functions.invoke('push-notify', {
           body: {
             supervisorIds: [supervisorId],
             title: 'تم تحديد أهداف بيعية جديدة 🎯',
-            body: `تم تعيين هدفك الشهري (${payload.visits_target || 0} زيارة).`,
+            body: `تم تعيين هدفك الشهري (${activePayload.visits_target || 0} زيارة).`,
           },
         }).catch(() => {});
       }

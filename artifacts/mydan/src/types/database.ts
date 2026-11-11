@@ -81,8 +81,8 @@ export interface AppSettings {
 }
 export interface Target {
   id: ID; supervisor_id: ID | null; month: number; year: number;
-  visits_target: number; audit_target: number;
-  actual_visits: number; actual_audits: number; company_id: ID;
+  visits_target: number; audit_target: number; orders_target?: number;
+  actual_visits: number; actual_audits: number; actual_orders?: number; company_id: ID;
   criteria?: string; scope_type?: 'per_user' | 'general';
   target_scope?: 'all_branches' | 'specific_branch';
   branch_id?: ID | null; target_amount?: number;

@@ -346,18 +346,18 @@ export default function AdminShelfShare() {
       {/* 4 Executive KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 20 }}>
         {/* Total Audits */}
-        <div className="card" style={{ padding: '16px 20px', borderRight: '4px solid #3B82F6', borderRadius: 12 }}>
+        <div className="card" style={{ padding: '16px 20px', borderRadius: 12, fontVariantNumeric: 'tabular-nums' }}>
           <div style={{ fontSize: 13, color: '#64748B', marginBottom: 4 }}>{t('إجمالي عمليات التدقيق')}</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#1E293B' }}>{num(stats.total)}</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#0F172A' }}>{num(stats.total)}</div>
           <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
             {t('متوسط واجهات العرض لكل متجر')}: <strong>{stats.avgFacingsPerStore}</strong>
           </div>
         </div>
 
         {/* Avg Share of Shelf */}
-        <div className="card" style={{ padding: '16px 20px', borderRight: '4px solid #10B981', borderRadius: 12 }}>
+        <div className="card" style={{ padding: '16px 20px', borderRadius: 12, fontVariantNumeric: 'tabular-nums' }}>
           <div style={{ fontSize: 13, color: '#64748B', marginBottom: 4 }}>{t('متوسط حصة الرف')}</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#059669' }}>{num(stats.avgShare)}%</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#059669' }}>{num(stats.avgShare)}%</div>
           <div style={{ width: '100%', height: 6, background: '#E2E8F0', borderRadius: 3, overflow: 'hidden', marginTop: 8 }}>
             <div
               style={{
@@ -372,18 +372,18 @@ export default function AdminShelfShare() {
         </div>
 
         {/* Perfect Store Index Rate */}
-        <div className="card" style={{ padding: '16px 20px', borderRight: '4px solid #8B5CF6', borderRadius: 12 }}>
+        <div className="card" style={{ padding: '16px 20px', borderRadius: 12, fontVariantNumeric: 'tabular-nums' }}>
           <div style={{ fontSize: 13, color: '#64748B', marginBottom: 4 }}>{t('نسبة المتاجر النموذجية')}</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#7C3AED' }}>{num(stats.perfectRate)}%</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#0369A1' }}>{num(stats.perfectRate)}%</div>
           <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
             {num(stats.perfectCount)} {t('من إجمالي')} {num(stats.total)} {t('متجر')}
           </div>
         </div>
 
         {/* Store OOS Rate */}
-        <div className="card" style={{ padding: '16px 20px', borderRight: '4px solid #EF4444', borderRadius: 12 }}>
+        <div className="card" style={{ padding: '16px 20px', borderRadius: 12, fontVariantNumeric: 'tabular-nums' }}>
           <div style={{ fontSize: 13, color: '#64748B', marginBottom: 4 }}>{t('معدل النواقص في المتاجر')}</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: stats.oosRate > 20 ? '#EF4444' : '#F59E0B' }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: stats.oosRate > 20 ? '#DC2626' : '#D97706' }}>
             {num(stats.oosRate)}%
           </div>
           <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
@@ -397,14 +397,14 @@ export default function AdminShelfShare() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
           {/* Search Input */}
           <div style={{ flex: '1 1 200px', position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+            <Search size={16} style={{ position: 'absolute', insetInlineStart: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', pointerEvents: 'none' }} />
             <input
               type="text"
               className="input"
               placeholder={t('بحث بالعميل أو المشرف...')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ width: '100%', paddingRight: 36 }}
+              style={{ width: '100%', paddingInlineStart: 36 }}
             />
           </div>
 
@@ -421,7 +421,7 @@ export default function AdminShelfShare() {
             >
               <option value="">{t('كل الفروع')}</option>
               {branches.data?.map((b: any) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
+                <option key={b.id} value={b.id}>{t(b.name)}</option>
               ))}
             </select>
           </div>
@@ -523,7 +523,7 @@ export default function AdminShelfShare() {
                   {branchBreakdown.map((b) => (
                     <div key={b.branchName} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <div className="row between" style={{ fontSize: 13 }}>
-                        <span style={{ fontWeight: 600, color: '#1E293B' }}>{b.branchName}</span>
+                        <span dir="auto" style={{ fontWeight: 600, color: '#1E293B' }}>{t(b.branchName)}</span>
                         <div className="row" style={{ gap: 8 }}>
                           <span className="muted" style={{ fontSize: 12 }}>{b.totalAudits} {t('تدقيق')}</span>
                           <strong style={{ color: b.avgShare >= 40 ? '#059669' : '#D97706' }}>{b.avgShare}%</strong>
@@ -551,12 +551,12 @@ export default function AdminShelfShare() {
             <div className="card col" style={{ padding: 20, gap: 14 }}>
               <div className="row between" style={{ alignItems: 'center' }}>
                 <div className="row" style={{ alignItems: 'center', gap: 8 }}>
-                  <Award size={18} color="#7C3AED" />
+                  <Award size={18} color="#0369A1" />
                   <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
                     {t('مصفوفة المتجر النموذجي')}
                   </h3>
                 </div>
-                <span className="badge b-purple">{num(stats.avgScore)}% {t('متوسط التقييم')}</span>
+                <span className="badge b-blue">{num(stats.avgScore)}% {t('متوسط التقييم')}</span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
@@ -566,17 +566,20 @@ export default function AdminShelfShare() {
                   style={{
                     padding: 14,
                     gap: 6,
-                    borderRight: '4px solid #10B981',
+                    borderInlineStart: '3px solid #10B981',
                     background: tierFilter === 'perfect' ? '#ECFDF5' : '#F8FAFC',
                     cursor: 'pointer',
                   }}
                   onClick={() => setTierFilter(tierFilter === 'perfect' ? 'all' : 'perfect')}
                 >
                   <div className="row between">
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#065F46' }}>🏆 {t('متجر نموذجي')}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#065F46', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} />
+                      {t('متجر نموذجي')}
+                    </span>
                     <span className="badge b-green" style={{ fontSize: 10 }}>80%+</span>
                   </div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#047857' }}>{num(stats.perfectCount)}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#047857', fontVariantNumeric: 'tabular-nums' }}>{num(stats.perfectCount)}</div>
                   <span className="muted" style={{ fontSize: 11 }}>
                     {stats.total > 0 ? Math.round((stats.perfectCount / stats.total) * 100) : 0}% {t('من الإجمالي')}
                   </span>
@@ -588,17 +591,20 @@ export default function AdminShelfShare() {
                   style={{
                     padding: 14,
                     gap: 6,
-                    borderRight: '4px solid #3B82F6',
+                    borderInlineStart: '3px solid #3B82F6',
                     background: tierFilter === 'good' ? '#EFF6FF' : '#F8FAFC',
                     cursor: 'pointer',
                   }}
                   onClick={() => setTierFilter(tierFilter === 'good' ? 'all' : 'good')}
                 >
                   <div className="row between">
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#1E40AF' }}>✅ {t('عرض تجاري جيد')}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#1E40AF', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3B82F6' }} />
+                      {t('عرض تجاري جيد')}
+                    </span>
                     <span className="badge b-blue" style={{ fontSize: 10 }}>65-79%</span>
                   </div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#1D4ED8' }}>{num(stats.goodCount)}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#1D4ED8', fontVariantNumeric: 'tabular-nums' }}>{num(stats.goodCount)}</div>
                   <span className="muted" style={{ fontSize: 11 }}>
                     {stats.total > 0 ? Math.round((stats.goodCount / stats.total) * 100) : 0}% {t('من الإجمالي')}
                   </span>
@@ -610,17 +616,20 @@ export default function AdminShelfShare() {
                   style={{
                     padding: 14,
                     gap: 6,
-                    borderRight: '4px solid #F59E0B',
+                    borderInlineStart: '3px solid #F59E0B',
                     background: tierFilter === 'needs_imp' ? '#FFFBEB' : '#F8FAFC',
                     cursor: 'pointer',
                   }}
                   onClick={() => setTierFilter(tierFilter === 'needs_imp' ? 'all' : 'needs_imp')}
                 >
                   <div className="row between">
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#92400E' }}>⚠️ {t('يحتاج تحسينات')}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#92400E', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B' }} />
+                      {t('يحتاج تحسينات')}
+                    </span>
                     <span className="badge b-yellow" style={{ fontSize: 10 }}>45-64%</span>
                   </div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#B45309' }}>{num(stats.needsImpCount)}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#B45309', fontVariantNumeric: 'tabular-nums' }}>{num(stats.needsImpCount)}</div>
                   <span className="muted" style={{ fontSize: 11 }}>
                     {stats.total > 0 ? Math.round((stats.needsImpCount / stats.total) * 100) : 0}% {t('من الإجمالي')}
                   </span>
@@ -632,17 +641,20 @@ export default function AdminShelfShare() {
                   style={{
                     padding: 14,
                     gap: 6,
-                    borderRight: '4px solid #EF4444',
+                    borderInlineStart: '3px solid #EF4444',
                     background: tierFilter === 'poor' ? '#FEF2F2' : '#F8FAFC',
                     cursor: 'pointer',
                   }}
                   onClick={() => setTierFilter(tierFilter === 'poor' ? 'all' : 'poor')}
                 >
                   <div className="row between">
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#991B1B' }}>❌ {t('أداء ضعيف')}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#991B1B', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#EF4444' }} />
+                      {t('أداء ضعيف')}
+                    </span>
                     <span className="badge b-red" style={{ fontSize: 10 }}>&lt; 45%</span>
                   </div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#DC2626' }}>{num(stats.poorCount)}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: '#DC2626', fontVariantNumeric: 'tabular-nums' }}>{num(stats.poorCount)}</div>
                   <span className="muted" style={{ fontSize: 11 }}>
                     {stats.total > 0 ? Math.round((stats.poorCount / stats.total) * 100) : 0}% {t('من الإجمالي')}
                   </span>
@@ -831,10 +843,10 @@ export default function AdminShelfShare() {
                               {audit.supervisor_code}
                             </span>
                           )}
-                          <span>{audit.supervisor_name}</span>
+                          <span dir="auto">{audit.supervisor_name}</span>
                         </div>
                         {audit.branch_name && (
-                          <div style={{ fontSize: 11.5, color: '#64748B' }}>{audit.branch_name}</div>
+                          <div dir="auto" style={{ fontSize: 11.5, color: '#64748B' }}>{t(audit.branch_name)}</div>
                         )}
                       </td>
 

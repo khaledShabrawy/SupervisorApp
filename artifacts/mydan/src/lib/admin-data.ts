@@ -19,6 +19,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Supervisor } from '@/types/database';
 import { supabase } from './supabase';
 import { useScope, usePaged, PHOTO_BUCKET } from './data';
+import { AUDIT_COLUMNS } from './columns';
 import { useAuth } from '@/contexts/AuthContext';
 import { readExactCount } from './read-count';
 import { notify } from './toast';
@@ -911,7 +912,7 @@ export function useUpdateAdminTarget() {
     }) => {
       requireAdmin(sc);
       if (!['visits','shelf_audit','new_opportunity'].includes(row.criteria)) throw new Error('نوع الهدف غير مدعوم.');
-      const { error } = await supabase.from('targets').update({
+      const fullPatch = {
         visits_target: row.visits_target,
         audit_target: row.audit_target,
         criteria: row.criteria,
@@ -919,7 +920,16 @@ export function useUpdateAdminTarget() {
         target_scope: row.target_scope,
         supervisor_id: row.supervisor_id ?? null,
         branch_id: row.branch_id ?? null,
-      }).eq('id', row.id).eq('company_id', sc.companyId);
+      };
+      let { error } = await supabase.from('targets').update(fullPatch).eq('id', row.id).eq('company_id', sc.companyId);
+      if (error && (error.code === '42703' || error.code === 'PGRST204' || /does not exist|schema cache/i.test(error.message || ''))) {
+        const retry = await supabase.from('targets').update({
+          visits_target: row.visits_target,
+          audit_target: row.audit_target,
+          supervisor_id: row.supervisor_id ?? null,
+        }).eq('id', row.id).eq('company_id', sc.companyId);
+        error = retry.error;
+      }
       if (error) fail(t('تعذر تحديث الهدف.'), error);
 
       if (row.supervisor_id) {
@@ -1049,12 +1059,7 @@ export function useAdminShelfAudits(filters: { branchId?: string; supervisorId?:
     queryFn: async () => {
       requireAdmin(sc);
       let q = (supabase.from('shelf_audit') as any)
-        .select(`
-          id, visit_id, supervisor_id, company_id, photo_url, audit_summary_ar,
-          audit_score, ai_detailed_report, status, audited_at, created_at,
-          supervisors(id, full_name, supervisor_code, branch_id, branches(id, name)),
-          visits(id, customer_id, customers(id, name))
-        `)
+        .select(AUDIT_COLUMNS)
         .eq('company_id', sc.companyId)
         .order('audited_at', { ascending: false })
         .limit(200);
@@ -1063,27 +1068,40 @@ export function useAdminShelfAudits(filters: { branchId?: string; supervisorId?:
       if (filters.dateFrom) q = q.gte('audited_at', filters.dateFrom);
       if (filters.dateTo) q = q.lte('audited_at', filters.dateTo + 'T23:59:59');
 
-      let { data, error } = await q;
+      const { data, error } = await q;
+      if (error) throw error;
 
-      // Resilient fallback if foreign table relationships differ
-      if (error) {
-        let fallbackQ = (supabase.from('shelf_audit') as any)
-          .select(AUDIT_COLUMNS)
-          .eq('company_id', sc.companyId)
-          .order('audited_at', { ascending: false })
-          .limit(200);
-        if (filters.supervisorId) fallbackQ = fallbackQ.eq('supervisor_id', filters.supervisorId);
-        if (filters.dateFrom) fallbackQ = fallbackQ.gte('audited_at', filters.dateFrom);
-        if (filters.dateTo) fallbackQ = fallbackQ.lte('audited_at', filters.dateTo + 'T23:59:59');
-        const res = await fallbackQ;
-        if (res.error) throw res.error;
-        data = res.data;
-      }
+      const auditRows = (data ?? []) as any[];
+      const supIds = [...new Set(auditRows.map((r) => r.supervisor_id).filter(Boolean))];
+      const visitIds = [...new Set(auditRows.map((r) => r.visit_id).filter(Boolean))];
 
-      const rows: AdminShelfAuditRow[] = await Promise.all((data ?? []).map(async (row: any) => {
-        const sup = row.supervisors;
-        const visit = row.visits;
-        const cust = visit?.customers;
+      // Resolve supervisors, branches, and visits -> customers via flat ID queries
+      // (avoids ambiguous PostgREST FK embeds between supervisors and branches).
+      const [supRes, branchRes, visitRes] = await Promise.all([
+        supIds.length
+          ? supabase.from('supervisors').select('id,full_name,supervisor_code,branch_id').eq('company_id', sc.companyId).in('id', supIds)
+          : Promise.resolve({ data: [] as any[], error: null }),
+        supabase.from('branches').select('id,name').eq('company_id', sc.companyId),
+        visitIds.length
+          ? supabase.from('visits').select('id,customer_id').eq('company_id', sc.companyId).in('id', visitIds)
+          : Promise.resolve({ data: [] as any[], error: null }),
+      ]);
+
+      const supMap = new Map<string, any>((supRes.data ?? []).map((s: any) => [s.id, s]));
+      const branchMap = new Map<string, any>((branchRes.data ?? []).map((b: any) => [b.id, b]));
+      const visitMap = new Map<string, any>((visitRes.data ?? []).map((v: any) => [v.id, v]));
+
+      const custIds = [...new Set((visitRes.data ?? []).map((v: any) => v.customer_id).filter(Boolean))];
+      const custRes = custIds.length
+        ? await supabase.from('customers').select('id,name').eq('company_id', sc.companyId).in('id', custIds)
+        : { data: [] as any[], error: null };
+      const custMap = new Map<string, any>((custRes.data ?? []).map((c: any) => [c.id, c]));
+
+      const rows: AdminShelfAuditRow[] = await Promise.all(auditRows.map(async (row: any) => {
+        const sup = row.supervisor_id ? supMap.get(row.supervisor_id) : null;
+        const branch = sup?.branch_id ? branchMap.get(sup.branch_id) : null;
+        const visit = row.visit_id ? visitMap.get(row.visit_id) : null;
+        const cust = visit?.customer_id ? custMap.get(visit.customer_id) : null;
 
         // Extract facings from ai_detailed_report if available
         const report = row.ai_detailed_report;
@@ -1104,10 +1122,11 @@ export function useAdminShelfAudits(filters: { branchId?: string; supervisorId?:
         return {
           ...row,
           signed_photo_url: signedUrl,
+          branch_id: sup?.branch_id ?? null,
           supervisor_name: sup?.full_name || '—',
           supervisor_code: sup?.supervisor_code || '',
           customer_name: cust?.name || '—',
-          branch_name: sup?.branches?.name || '',
+          branch_name: branch?.name || '',
           our_facings: our,
           competitor_facings: comp,
           shelf_share_pct: share,
@@ -1116,7 +1135,7 @@ export function useAdminShelfAudits(filters: { branchId?: string; supervisorId?:
 
       // Filter by branch if requested
       if (filters.branchId) {
-        return rows.filter((r: any) => r.supervisors?.branch_id === filters.branchId);
+        return rows.filter((r: any) => r.branch_id === filters.branchId);
       }
 
       return rows;

@@ -1876,4 +1876,56 @@ export const EN: Record<string, string> = {
   'الالتزام بالنطاق الميداني: {n}%': 'Field geofence compliance: {n}%',
   'يرجى اختيار الفرع أولاً': 'Please select a branch first',
   'لا يوجد مستخدمين مرتبطين بهذا الفرع': 'No users linked to this branch',
+
+  // --- Live Map, Reports, Targets, Notifications & Seeded Data Fixes ---
+  'جاري تجهيز الخريطة...': 'Initializing map...',
+  'تعذر تهيئة الخريطة.': 'Could not initialize the map.',
+  '{n} مكتملة': '{n} completed',
+  'لا توجد صفوف متاحة في هذا المصدر لاكتشاف الأعمدة حالياً.': 'No rows available in this data source to discover columns right now.',
+  'تعذر حفظ الهدف العام لأن قاعدة البيانات لم يتم ترحيلها بعد. شغّل ترحيل 28 أو اختر مشرفاً محدداً.': 'Could not save the general target because database migration 28 has not been applied yet. Run migration 28 or select a specific supervisor.',
+
+  // Common Egyptian Branches / Regions
+  'القاهرة': 'Cairo',
+  'القاهرة الكبرى': 'Greater Cairo',
+  'الجيزة': 'Giza',
+  'الإسكندرية': 'Alexandria',
+  'الدلتا': 'Delta',
+  'الصعيد': 'Upper Egypt',
+  'المنصورة': 'Mansoura',
+  'طنطا': 'Tanta',
+  'أسيوط': 'Assiut',
+  'الشرقية': 'Sharqia',
+  'الغربية': 'Gharbia',
+  'المنوفية': 'Menoufia',
+  'الدقهلية': 'Dakahlia',
+  'الإسماعيلية': 'Ismailia',
+  'السويس': 'Suez',
+  'بورسعيد': 'Port Said',
+  'البحر الأحمر': 'Red Sea',
+  'سوهاج': 'Sohag',
+  'المنيا': 'Minya',
+  'قنا': 'Qena',
+  'الأقصر': 'Luxor',
+  'أسوان': 'Aswan',
+
+  // Seeded Field Notifications
+  'مرحباً بك في ميدان': 'Welcome to Mydan',
+  'هدفك لأكتوبر': 'Your October Target',
+  'تحديث النظام': 'System Update',
+  'مرحباً بك في ميدان — نظام إدارة المشرفين الميدانيين': 'Welcome to Mydan — Field Supervisor Management System',
+
+  // Training Seed Variants (with/without numbering or word order variants)
+  'الدليل العملي للمشرف الميداني المتميز لتطوير أداء المناديب، فتح عملاء جدد، وتحقيق أعلى إنتاجية من الزيارة.': 'Practical field guide for sales supervisors to boost rep performance, acquire new outlets, and maximize visit yield.',
+  'التحضير لما قبل الزيارة (Pre-Call Preparation)': 'Pre-Call Preparation',
+  'خطوات فتح وتأهيل عميل جديد (Store Prospecting)': 'Store Prospecting & Qualification',
+  'معالجة اعتراضات التاجر على السعر وتواجد المنافسين': 'Handling Pricing & Competitor Objections',
+  'فن إغلاق الأوردر والترتيب المثالي للرف (Order Closing & Facing)': 'Order Closing & Shelf Facing',
+  'فن إغلاق الطلب والترتيب المثالي للرف (Order Closing & Facing)': 'Order Closing & Shelf Facing',
+
+  // --- Editorial / Clean Chrome Translations (without emojis) ---
+  'تتبع المشرفين': 'Supervisor Tracking',
+  'تحقيق ممتاز': 'On Target',
+  'يحتاج تكثيف': 'Needs Focus',
+  'عرض تحليلات حصة الرف التفصيلية': 'View Shelf Share Analytics',
+  'فتح مركز التنبيهات والإشعارات': 'Open Alerts & Notifications Hub',
 };

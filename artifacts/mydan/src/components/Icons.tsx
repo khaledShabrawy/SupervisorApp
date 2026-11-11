@@ -72,5 +72,6 @@ export const GraduationCap = icon([["path",{"d":"M21.42 10.922a1 1 0 0 0-.019-1.
 export const BookOpen = icon([["path",{"d":"M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"}],["path",{"d":"M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"}]]);
 export const Zap = icon([["path",{"d":"M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"}]]);
 export const Key = icon([["circle",{"cx":"7.5","cy":"15.5","r":"5.5"}],["path",{"d":"m21 2-9.6 9.6"}],["path",{"d":"m15.5 7.5 3 3L22 7l-3-3"}]]);
+export const Globe = icon([["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"}],["path",{"d":"M2 12h20"}]]);
 // Geometry adapted from Lucide under the ISC license; see THIRD_PARTY_NOTICES.
 

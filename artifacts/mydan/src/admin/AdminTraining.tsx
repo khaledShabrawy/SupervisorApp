@@ -11,6 +11,22 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { notify } from '@/lib/toast';
 import { t } from '@/i18n';
 
+function tTraining(value?: string | null): string {
+  if (!value) return '';
+  const trimmed = value.trim();
+  const direct = t(trimmed);
+  if (direct !== trimmed) return direct;
+  const numbered = /^(\d+\.\s*)([\s\S]+)$/.exec(trimmed);
+  if (numbered) {
+    const [, prefix, body] = numbered;
+    const translatedBody = t(body.trim());
+    if (translatedBody !== body.trim()) {
+      return `${prefix}${translatedBody.replace(/^\d+\.\s*/, '')}`;
+    }
+  }
+  return value;
+}
+
 export default function AdminTraining() {
   const [activeTab, setActiveTab] = useState<'content' | 'analytics'>('content');
 
@@ -130,10 +146,10 @@ export default function AdminTraining() {
       {/* Page Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
-          <h1 style={{ margin: '0 0 6px', fontSize: 24, display: 'flex', alignItems: 'center', gap: 10, color: '#0F172A' }}>
-            <GraduationCap size={28} color="#4F46E5" /> {t('أكاديمية ميدان والجدارات البيعية (Sales Capability)')}
+          <h1 style={{ margin: '0 0 6px', fontSize: 22, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10, color: '#0F172A' }}>
+            <GraduationCap size={24} color="#0369A1" /> {t('أكاديمية ميدان والجدارات البيعية (Sales Capability)')}
           </h1>
-          <p style={{ margin: 0, color: '#64748B', fontSize: 14 }}>
+          <p style={{ margin: 0, color: '#64748B', fontSize: 13.5 }}>
             {t('منصة رفع وإدارة الفيديوهات التدريبية بنمط Udemy/Coursera ومتابعة نسب إنجاز المشرفين الميدانيين.')}
           </p>
         </div>
@@ -142,7 +158,7 @@ export default function AdminTraining() {
           <button
             onClick={openNewCourse}
             className="btn"
-            style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#4F46E5', color: '#fff', borderRadius: 10 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0369A1', color: '#fff', borderRadius: 8 }}
           >
             <Plus size={18} /> {t('إضافة مسار تدريبي جديد')}
           </button>
@@ -150,17 +166,17 @@ export default function AdminTraining() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 12, borderBottom: '2px solid #E2E8F0', marginBottom: 24 }}>
+      <div style={{ display: 'flex', gap: 12, borderBottom: '1px solid #E2E8F0', marginBottom: 24 }}>
         <button
           onClick={() => setActiveTab('content')}
           style={{
-            padding: '10px 20px',
-            fontSize: 15,
-            fontWeight: activeTab === 'content' ? 'bold' : 'normal',
-            color: activeTab === 'content' ? '#4F46E5' : '#64748B',
-            borderBottom: activeTab === 'content' ? '3px solid #4F46E5' : 'none',
+            padding: '10px 18px',
+            fontSize: 14,
+            fontWeight: activeTab === 'content' ? 700 : 500,
+            color: activeTab === 'content' ? '#0369A1' : '#64748B',
             background: 'none',
             border: 'none',
+            borderBottom: activeTab === 'content' ? '2px solid #0369A1' : '2px solid transparent',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -172,13 +188,13 @@ export default function AdminTraining() {
         <button
           onClick={() => setActiveTab('analytics')}
           style={{
-            padding: '10px 20px',
-            fontSize: 15,
-            fontWeight: activeTab === 'analytics' ? 'bold' : 'normal',
-            color: activeTab === 'analytics' ? '#4F46E5' : '#64748B',
-            borderBottom: activeTab === 'analytics' ? '3px solid #4F46E5' : 'none',
+            padding: '10px 18px',
+            fontSize: 14,
+            fontWeight: activeTab === 'analytics' ? 700 : 500,
+            color: activeTab === 'analytics' ? '#0369A1' : '#64748B',
             background: 'none',
             border: 'none',
+            borderBottom: activeTab === 'analytics' ? '2px solid #0369A1' : '2px solid transparent',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -201,21 +217,21 @@ export default function AdminTraining() {
               <p style={{ margin: '0 0 16px', color: '#64748B' }}>
                 {t('ابدأ بإنشاء أول مسار تدريبي للمشرفين وارفع الفيديوهات التعليمية الخاصة بفريقك.')}
               </p>
-              <button onClick={openNewCourse} className="btn" style={{ background: '#4F46E5', color: '#fff' }}>
+              <button onClick={openNewCourse} className="btn" style={{ background: '#0369A1', color: '#fff' }}>
                 <Plus size={18} /> {t('إضافة أول مسار الآن')}
               </button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {courses.map((course: any) => (
-                <div key={course.id} className="card" style={{ borderRadius: 14, border: '1px solid #CBD5E1' }}>
+                <div key={course.id} className="card" style={{ borderRadius: 12, border: '1px solid #E2E8F0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                     <div>
-                      <span style={{ background: '#EEF2FF', color: '#4338CA', padding: '3px 10px', borderRadius: 16, fontSize: 12, fontWeight: 'bold' }}>
-                        {t(course.category)}
+                      <span style={{ background: '#E0F2FE', color: '#0369A1', padding: '3px 10px', borderRadius: 16, fontSize: 12, fontWeight: 700 }}>
+                        {tTraining(course.category)}
                       </span>
-                      <h2 style={{ margin: '8px 0 4px', fontSize: 18, color: '#1E293B' }}>{t(course.title)}</h2>
-                      {course.description && <p style={{ margin: 0, color: '#64748B', fontSize: 14 }}>{t(course.description)}</p>}
+                      <h2 dir="auto" style={{ margin: '8px 0 4px', fontSize: 18, color: '#1E293B' }}>{tTraining(course.title)}</h2>
+                      {course.description && <p dir="auto" style={{ margin: 0, color: '#64748B', fontSize: 14 }}>{tTraining(course.description)}</p>}
                     </div>
                     <button
                       onClick={() => openNewLesson(course.id)}
@@ -249,11 +265,11 @@ export default function AdminTraining() {
                               }}
                             >
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#E0E7FF', color: '#4338CA', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 'bold' }}>
+                                <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#E0F2FE', color: '#0369A1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 'bold' }}>
                                   {i + 1}
                                 </span>
                                 <div>
-                                  <div style={{ fontSize: 14, fontWeight: '600', color: '#1E293B' }}>{t(lesson.title)}</div>
+                                  <div dir="auto" style={{ fontSize: 14, fontWeight: '600', color: '#1E293B' }}>{tTraining(lesson.title)}</div>
                                   <div style={{ fontSize: 12, color: '#64748B', display: 'flex', gap: 12 }}>
                                     <span>{t('المدة: {m} دقيقة', { m: Math.floor(lesson.duration_seconds / 60) })}</span>
                                     {lesson.attachment_url && <span style={{ color: '#2563EB' }}>{t('✓ يوجد ملخص PDF')}</span>}
@@ -294,21 +310,30 @@ export default function AdminTraining() {
             <div>
               {/* Summary KPIs */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
-                <div className="card" style={{ borderLeft: '4px solid #4F46E5' }}>
-                  <div style={{ fontSize: 13, color: '#64748B' }}>{t('إجمالي الدروس المنشورة')}</div>
-                  <div style={{ fontSize: 26, fontWeight: 'bold', color: '#1E293B', marginTop: 4 }}>
+                <div className="card" style={{ border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: 13, color: '#64748B', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0369A1' }} />
+                    <span>{t('إجمالي الدروس المنشورة')}</span>
+                  </div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: '#0F172A', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
                     {analytics?.totalLessons ?? 0}
                   </div>
                 </div>
-                <div className="card" style={{ borderLeft: '4px solid #10B981' }}>
-                  <div style={{ fontSize: 13, color: '#64748B' }}>{t('إجمالي المشرفين المسجلين')}</div>
-                  <div style={{ fontSize: 26, fontWeight: 'bold', color: '#1E293B', marginTop: 4 }}>
+                <div className="card" style={{ border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: 13, color: '#64748B', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#059669' }} />
+                    <span>{t('إجمالي المشرفين المسجلين')}</span>
+                  </div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: '#0F172A', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
                     {analytics?.supervisors?.length ?? 0}
                   </div>
                 </div>
-                <div className="card" style={{ borderLeft: '4px solid #F59E0B' }}>
-                  <div style={{ fontSize: 13, color: '#64748B' }}>{t('متوسط نسبة الإنجاز العام')}</div>
-                  <div style={{ fontSize: 26, fontWeight: 'bold', color: '#1E293B', marginTop: 4 }}>
+                <div className="card" style={{ border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: 13, color: '#64748B', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#D97706' }} />
+                    <span>{t('متوسط نسبة الإنجاز العام')}</span>
+                  </div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: '#0F172A', marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
                     {analytics?.supervisors && analytics.supervisors.length > 0
                       ? Math.round(
                           analytics.supervisors.reduce((acc: number, s: any) => acc + s.completion_pct, 0) /
@@ -336,7 +361,7 @@ export default function AdminTraining() {
                     {analytics?.supervisors?.map((s: any) => (
                       <tr key={s.supervisor_id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                         <td style={{ padding: '12px 16px', fontWeight: 'bold', color: '#1E293B' }}>{s.name}</td>
-                        <td style={{ padding: '12px 16px', color: '#64748B' }}>{s.branch}</td>
+                        <td style={{ padding: '12px 16px', color: '#64748B' }}>{s.branch ? t(s.branch) : '—'}</td>
                         <td style={{ padding: '12px 16px' }}>
                           {t('{completed} من {total}', { completed: s.completed_count, total: s.total_count })}
                         </td>
@@ -437,7 +462,7 @@ export default function AdminTraining() {
                 <button type="button" onClick={() => setShowCourseModal(false)} className="btn ghost">
                   {t('إلغاء')}
                 </button>
-                <button type="submit" disabled={saveCourse.isPending} className="btn" style={{ background: '#4F46E5', color: '#fff' }}>
+                <button type="submit" disabled={saveCourse.isPending} className="btn" style={{ background: '#0369A1', color: '#fff' }}>
                   {saveCourse.isPending ? t('جاري الحفظ...') : t('حفظ ونشر المسار')}
                 </button>
               </div>
@@ -451,7 +476,7 @@ export default function AdminTraining() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
           <div className="card" style={{ width: '100%', maxWidth: 560, borderRadius: 16, maxHeight: '90vh', overflowY: 'auto' }}>
             <h3 style={{ margin: '0 0 16px', fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Video size={20} color="#4F46E5" /> {t('إضافة درس وفيديو تعليمي')}
+              <Video size={20} color="#0369A1" /> {t('إضافة درس وفيديو تعليمي')}
             </h3>
 
             <form onSubmit={submitLesson} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -493,7 +518,7 @@ export default function AdminTraining() {
                   style={{ display: 'block', fontSize: 13, width: '100%' }}
                 />
                 {uploadingVideo && (
-                  <div style={{ marginTop: 8, fontSize: 12, color: '#4F46E5', fontWeight: 'bold' }}>
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#0369A1', fontWeight: 'bold' }}>
                     {t('جاري رفع الفيديو وحفظه في السيرفر السحابي الآمن... يرجى الانتظار')}
                   </div>
                 )}
@@ -528,7 +553,7 @@ export default function AdminTraining() {
                   disabled={uploadingPdf}
                   style={{ display: 'block', fontSize: 13, width: '100%' }}
                 />
-                {uploadingPdf && <div style={{ marginTop: 6, fontSize: 12, color: '#4F46E5' }}>{t('جاري رفع الملخص...')}</div>}
+                {uploadingPdf && <div style={{ marginTop: 6, fontSize: 12, color: '#0369A1' }}>{t('جاري رفع الملخص...')}</div>}
                 {lessonForm.attachment_url && (
                   <div style={{ marginTop: 6, fontSize: 12, color: '#10B981', display: 'flex', alignItems: 'center', gap: 4 }}>
                     <CheckCircle2 size={14} /> {t('تم إرفاق الملف')}
@@ -562,9 +587,9 @@ export default function AdminTraining() {
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
                 <button type="button" onClick={() => setShowLessonModal(false)} className="btn ghost">
-                  إلغاء
+                  {t('إلغاء')}
                 </button>
-                <button type="submit" disabled={saveLesson.isPending || uploadingVideo} className="btn" style={{ background: '#4F46E5', color: '#fff' }}>
+                <button type="submit" disabled={saveLesson.isPending || uploadingVideo} className="btn" style={{ background: '#0369A1', color: '#fff' }}>
                   {saveLesson.isPending ? t('جاري الحفظ...') : t('حفظ ونشر الدرس')}
                 </button>
               </div>

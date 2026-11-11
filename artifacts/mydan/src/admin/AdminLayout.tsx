@@ -15,9 +15,9 @@ import { useCompanySubscription, SubscriptionLockedView } from '@/lib/subscripti
 
 export const ADMIN_NAV = [
   { to: '/admin', label: t('لوحة المؤشرات'), icon: BarChart3, end: true },
-  { to: '/admin/live-map', label: t('تتبع المشرفين 🗺️'), icon: MapPin },
+  { to: '/admin/live-map', label: t('تتبع المشرفين'), icon: MapPin },
   { to: '/admin/shelf-share', label: t('حصة الرف'), icon: BarChart3 },
-  { to: '/admin/training', label: t('أكاديمية التدريب 🎓'), icon: GraduationCap },
+  { to: '/admin/training', label: t('أكاديمية التدريب'), icon: GraduationCap },
   { to: '/admin/users', label: t('المستخدمين'), icon: Users },
   { to: '/admin/companies', label: t('الشركات'), icon: Building2, superAdminOnly: true },
   { to: '/admin/branches', label: t('الفروع'), icon: MapPin },
@@ -74,7 +74,7 @@ export default function AdminLayout() {
     <aside className="adm-side">
       <div className="adm-brand">
         {s.logo_url ? <img className="logo" src={s.logo_url} alt="" /> : <span className="logo">{s.app_name.slice(0, 1)}</span>}
-        <div className="grow">{s.app_name}<small style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 8px #22C55E', flex: 'none' }} />{supervisor!.full_name}</small></div>
+        <div className="grow">{s.app_name}<small style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', flex: 'none' }} />{supervisor!.full_name}</small></div>
         <span className="adm-lang-mobile"><LanguageToggle /></span>
       </div>
       <nav className="adm-nav" aria-label={t('قائمة الإدارة')}>
@@ -92,13 +92,15 @@ export default function AdminLayout() {
         <button className="adm-mobile-btn adm-mobile-logout" onClick={logout}><LogOut size={16} />{t('تسجيل الخروج')}</button>
       </div>
       <div className="adm-foot">
-        <LanguageToggle className="lang-toggle" />
+        <LanguageToggle className="lang-toggle" verbose />
         <button className="logout-btn" onClick={logout}><LogOut size={18} />{t('تسجيل الخروج')}</button>
       </div>
     </aside>
     <main className="adm-main">
-      <TrialBanner />
-      <Suspense fallback={<LoadingSpinner />}><Outlet /></Suspense>
+      <div className="adm-shell-content">
+        <TrialBanner />
+        <Suspense fallback={<LoadingSpinner />}><Outlet /></Suspense>
+      </div>
     </main>
   </div>;
 }

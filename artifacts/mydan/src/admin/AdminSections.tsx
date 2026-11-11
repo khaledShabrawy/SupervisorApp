@@ -496,7 +496,7 @@ export function AdminTargets() {
             onChange={(e) => { setFilterBranchId(e.target.value); setFilterSupId(''); }}
           >
             <option value="">{t('كل الفروع')}</option>
-            {branches.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            {branches.data?.map((b) => <option key={b.id} value={b.id}>{t(b.name)}</option>)}
           </select>
         </div>
 
@@ -577,14 +577,14 @@ export function AdminTargets() {
                         </div>
                       )}
                     </td>
-                    <td>{row.branches?.name ?? t('كل الفروع')}</td>
+                    <td>{row.branches?.name ? t(row.branches.name) : t('كل الفروع')}</td>
                     <td>
                       <span className="badge b-gray">
                         {criteriaLabels[row.criteria ?? 'visits'] || row.criteria || '—'}
                       </span>
                     </td>
                     <td style={{ fontWeight: 600 }}>
-                      {`${row.visits_target || 0} زيارة`}
+                      {t('{n} زيارة', { n: row.visits_target || 0 })}
                       {(row.audit_target ?? 0) > 0 && (
                         <div className="muted" style={{ fontSize: 12 }}>
                           {row.audit_target} {t('مراجعة')}
@@ -1165,7 +1165,7 @@ export function AdminNotifications() {
                     key={alert.id}
                     className="card"
                     style={{
-                      borderRight: `4px solid ${borderColor}`,
+                      borderInlineStart: `3px solid ${borderColor}`,
                       background: bgColor,
                       padding: '14px 16px',
                       display: 'flex',
@@ -1177,8 +1177,8 @@ export function AdminNotifications() {
                   >
                     <div style={{ flex: '1 1 300px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <span style={{ fontWeight: 700, fontSize: 15, color: '#0F172A' }}>
-                          {alert.title_ar}
+                        <span dir="auto" style={{ fontWeight: 700, fontSize: 15, color: '#0F172A' }}>
+                          {t(alert.title_ar)}
                         </span>
                         {!alert.is_read && (
                           <span className="badge b-blue" style={{ fontSize: 10, padding: '1px 6px' }}>
@@ -1190,8 +1190,8 @@ export function AdminNotifications() {
                         </span>
                       </div>
 
-                      <p style={{ margin: '4px 0 8px', fontSize: 13.5, color: '#334155', lineHeight: 1.5 }}>
-                        {alert.body_ar}
+                      <p dir="auto" style={{ margin: '4px 0 8px', fontSize: 13.5, color: '#334155', lineHeight: 1.5 }}>
+                        {t(alert.body_ar)}
                       </p>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#64748B' }}>
