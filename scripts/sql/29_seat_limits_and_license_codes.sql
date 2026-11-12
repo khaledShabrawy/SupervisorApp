@@ -50,13 +50,13 @@ CREATE POLICY "super_admin_manage_license_codes"
   USING (
     EXISTS (
       SELECT 1 FROM public.supervisors s
-      WHERE s.auth_user_id = auth.uid() AND s.role = 'super_admin' AND s.is_active = true
+      WHERE s.user_id = auth.uid() AND s.role = 'super_admin' AND s.is_active = true
     )
   )
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.supervisors s
-      WHERE s.auth_user_id = auth.uid() AND s.role = 'super_admin' AND s.is_active = true
+      WHERE s.user_id = auth.uid() AND s.role = 'super_admin' AND s.is_active = true
     )
   );
 
@@ -132,7 +132,7 @@ BEGIN
   SELECT id, company_id, role, is_active
     INTO v_caller
     FROM public.supervisors
-   WHERE auth_user_id = auth.uid()
+   WHERE user_id = auth.uid()
    LIMIT 1;
 
   IF NOT FOUND OR v_caller.is_active IS DISTINCT FROM true OR v_caller.role NOT IN ('admin', 'super_admin') THEN
