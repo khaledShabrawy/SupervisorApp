@@ -332,10 +332,10 @@ function RedeemLicenseModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     redeem.mutate(code, {
       onSuccess: () => {
-        notify(t('تم تفعيل الترخيص بنجاح.'), 'ok');
+        notify(t('تم تفعيل الترخيص بنجاح.'), 'success');
         onClose();
       },
-      onError: (err) => notify(err instanceof Error ? err.message : String(err), 'err'),
+      onError: (err) => notify(err instanceof Error ? err.message : String(err), 'error'),
     });
   }, [redeem, code, onClose]);
   return (
@@ -475,7 +475,7 @@ export default function AdminUsers() {
             className="btn"
             onClick={() => {
               if (seatLimitReached) {
-                notify(t('تم الوصول للحد الأقصى للمقاعد النشطة في باقتك الحالية.'), 'err');
+                notify(t('تم الوصول للحد الأقصى للمقاعد النشطة في باقتك الحالية.'), 'error');
                 return;
               }
               setInvite(true);
