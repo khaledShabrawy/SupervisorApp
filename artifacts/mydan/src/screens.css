@@ -14,7 +14,7 @@
 .s-acts>:last-child:nth-child(odd){grid-column:1/-1}
 .s-act{min-height:92px;border-radius:16px;border:0;color:#fff;font:inherit;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;text-align:center}
 .s-act:active{transform:scale(.97)}
-.s-green{background:#108981}.s-blue{background:#1A56DB}.s-orange{background:#C2570C}.s-purple{background:#6D3FC0}
+.s-green{background:#108981}.s-blue{background:#1A56DB}.s-orange{background:#C2570C}.s-purple{background:#0369A1}
 .s-row{width:100%;text-align:start;font:inherit;color:inherit;display:flex;gap:10px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;min-height:56px}
 button.s-row{cursor:pointer}
 .s-steps{display:flex;gap:6px}.s-steps>div{flex:1;text-align:center;font-size:13px;font-weight:700;padding:8px 4px;border-radius:10px;background:#E8ECF2;color:var(--muted)}

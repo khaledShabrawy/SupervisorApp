@@ -775,39 +775,39 @@ export default function AdminShelfShare() {
               type="button"
               className={`chip ${tierFilter === 'perfect' ? 'on' : ''}`}
               onClick={() => setTierFilter('perfect')}
-              style={{ fontSize: 12 }}
+              style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}
             >
-              🏆 {t('متجر نموذجي')} ({stats.perfectCount})
+              <Award size={13} /> {t('متجر نموذجي')} ({num(stats.perfectCount)})
             </button>
             <button
               type="button"
               className={`chip ${tierFilter === 'good' ? 'on' : ''}`}
               onClick={() => setTierFilter('good')}
-              style={{ fontSize: 12 }}
+              style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}
             >
-              ✅ {t('عرض تجاري جيد')} ({stats.goodCount})
+              <CheckCircle2 size={13} /> {t('عرض تجاري جيد')} ({num(stats.goodCount)})
             </button>
             <button
               type="button"
               className={`chip ${tierFilter === 'needs_imp' ? 'on' : ''}`}
               onClick={() => setTierFilter('needs_imp')}
-              style={{ fontSize: 12 }}
+              style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}
             >
-              ⚠️ {t('يحتاج تحسينات')} ({stats.needsImpCount})
+              <AlertTriangle size={13} /> {t('يحتاج تحسينات')} ({num(stats.needsImpCount)})
             </button>
             <button
               type="button"
               className={`chip ${tierFilter === 'poor' ? 'on' : ''}`}
               onClick={() => setTierFilter('poor')}
-              style={{ fontSize: 12 }}
+              style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}
             >
-              ❌ {t('أداء ضعيف')} ({stats.poorCount})
+              <AlertCircle size={13} /> {t('أداء ضعيف')} ({num(stats.poorCount)})
             </button>
           </div>
 
           <div className="card" style={{ padding: 0, overflow: 'hidden', borderRadius: 12 }}>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: 13.5 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'start', fontSize: 13.5 }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', color: '#475569' }}>
                     <th style={{ padding: '12px 16px' }}>{t('التاريخ')}</th>
@@ -1069,10 +1069,10 @@ export default function AdminShelfShare() {
             {/* AI Issues & Recommendations if available */}
             {activePhoto.ai_detailed_report?.issues?.length > 0 && (
               <div style={{ marginBottom: 10 }}>
-                <strong style={{ fontSize: 12.5, color: '#DC2626', display: 'block', marginBottom: 4 }}>
-                  ⚠️ {t('الملاحظات والسلبيات')}:
+                <strong style={{ fontSize: 12.5, color: '#DC2626', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <AlertTriangle size={14} /> {t('الملاحظات والسلبيات')}:
                 </strong>
-                <ul style={{ margin: 0, paddingRight: 20, fontSize: 12.5, color: '#475569' }}>
+                <ul style={{ margin: 0, paddingInlineStart: 20, fontSize: 12.5, color: '#475569' }}>
                   {activePhoto.ai_detailed_report.issues.map((iss: string, idx: number) => (
                     <li key={idx}>{iss}</li>
                   ))}
@@ -1082,10 +1082,10 @@ export default function AdminShelfShare() {
 
             {activePhoto.ai_detailed_report?.recommendations?.length > 0 && (
               <div>
-                <strong style={{ fontSize: 12.5, color: '#059669', display: 'block', marginBottom: 4 }}>
-                  💡 {t('التوصيات المقترحة')}:
+                <strong style={{ fontSize: 12.5, color: '#059669', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <CheckCircle2 size={14} /> {t('التوصيات المقترحة')}:
                 </strong>
-                <ul style={{ margin: 0, paddingRight: 20, fontSize: 12.5, color: '#475569' }}>
+                <ul style={{ margin: 0, paddingInlineStart: 20, fontSize: 12.5, color: '#475569' }}>
                   {activePhoto.ai_detailed_report.recommendations.map((rec: string, idx: number) => (
                     <li key={idx}>{rec}</li>
                   ))}

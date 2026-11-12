@@ -1,5 +1,9 @@
-/* Mydan Admin Back-Office Editorial Design System */
+/* Mydan Admin Back-Office Architectural Design System (design-taste-frontend) */
 .adm {
+  --m-in: 150ms;
+  --m-out: 120ms;
+  --m-press: 90ms;
+  --m-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   min-height: 100dvh;
   display: grid;
   grid-template-columns: 1fr;
@@ -176,12 +180,12 @@
   text-wrap: balance;
 }
 
-/* Executive Surface & Compact Controls inside Admin */
+/* Executive Surface & Tactile Controls inside Admin (zero rest shadow blur) */
 .adm-main .card {
   background: #FFFFFF;
   border: 1px solid #E2E8F0;
   border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
 }
 
 .adm-main .input {
@@ -192,6 +196,7 @@
   border: 1px solid #CBD5E1;
   box-shadow: none;
   background: #FFFFFF;
+  transition: border-color var(--m-out) var(--m-ease);
 }
 
 .adm-main .input:focus {
@@ -199,9 +204,20 @@
   box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.12);
 }
 
+.adm-main .input:focus-visible,
+.adm-main .btn:focus-visible,
+.adm-main .chip:focus-visible,
+.adm-seg button:focus-visible,
+.adm-nav a:focus-visible {
+  outline: 2px solid var(--color-primary, #1A56DB);
+  outline-offset: 2px;
+}
+
 .adm-main .btn {
   border-radius: 8px;
   font-weight: 600;
+  box-shadow: none;
+  transition: background-color var(--m-out) var(--m-ease), color var(--m-out) var(--m-ease), border-color var(--m-out) var(--m-ease), transform var(--m-press) var(--m-ease);
 }
 
 .adm-main .btn.sm {
@@ -211,13 +227,39 @@
   border-radius: 8px;
 }
 
+.adm-main .chip {
+  transition: background-color var(--m-out) var(--m-ease), border-color var(--m-out) var(--m-ease), color var(--m-out) var(--m-ease), transform var(--m-press) var(--m-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .adm-main .btn:hover {
+    transform: translateY(-1px);
+    transition-duration: var(--m-in), var(--m-in), var(--m-in), var(--m-press);
+  }
+  .adm-main .btn.primary:hover {
+    background: #1648B8;
+  }
+  .adm-main .btn.ghost:hover {
+    background: #F1F5F9;
+    border-color: #CBD5E1;
+  }
+  .adm-main .chip:hover {
+    border-color: #94A3B8;
+  }
+}
+
+.adm-main .btn:active,
+.adm-main .chip:active {
+  transform: translateY(1px) scale(0.985);
+}
+
 /* Filter Toolbar & Segmented Period Selector */
 .adm-filter-bar {
   background: #FFFFFF;
   border: 1px solid #E2E8F0;
   border-radius: 12px;
   padding: 12px 14px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -312,9 +354,9 @@
   border-inline-start-color: #E2E8F0;
   border-radius: 12px;
   padding: 16px 18px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
   gap: 10px;
-  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: transform var(--m-out) var(--m-ease), border-color var(--m-out) var(--m-ease), box-shadow var(--m-out) var(--m-ease);
 }
 
 .adm-main .kpi .kpi-ic {
@@ -355,14 +397,20 @@
   letter-spacing: -0.02em;
 }
 
-.adm-main .kpi.kpi-clickable:hover {
-  transform: translateY(-2px);
-  border-color: #CBD5E1;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
-}
-
-.adm-main .kpi.kpi-clickable:hover .kpi-arrow {
-  color: var(--color-primary, #1A56DB);
+@media (hover: hover) and (pointer: fine) {
+  .adm-main .kpi.kpi-clickable:hover {
+    transform: translateY(-2px);
+    border-color: #94A3B8;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    transition-duration: var(--m-in);
+  }
+  .adm-main .kpi.kpi-clickable:hover .kpi-arrow {
+    color: var(--color-primary, #1A56DB);
+    transform: translateX(-3px);
+  }
+  [dir="ltr"] .adm-main .kpi.kpi-clickable:hover .kpi-arrow {
+    transform: translateX(3px);
+  }
 }
 
 .adm-grid {
@@ -378,7 +426,7 @@
   background: #fff;
   border: 1px solid #E2E8F0;
   border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
 }
 
 .adm-table {
@@ -596,10 +644,15 @@
 
 @media (prefers-reduced-motion: reduce) {
   .adm-main .kpi,
+  .adm-main .kpi .kpi-arrow,
+  .adm-main .btn,
+  .adm-main .chip,
+  .adm-main .input,
   .adm-nav a,
   .adm-seg button,
   .adm-drawer {
-    transition: none;
-    animation: none;
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
   }
 }

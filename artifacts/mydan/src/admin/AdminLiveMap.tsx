@@ -654,7 +654,7 @@ export default function AdminLiveMap() {
                 </div>
                 {selectedTrack.branchName && (
                   <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-                    🏢 {t('الفرع')}: {t(selectedTrack.branchName)}
+                    {t('الفرع')}: {t(selectedTrack.branchName)}
                   </div>
                 )}
                 <div className="row" style={{ gap: 6, marginTop: 8 }}>
@@ -683,7 +683,7 @@ export default function AdminLiveMap() {
                         justifyContent: 'center',
                       }}
                     >
-                      💬 <span>{t('مراسلة واتساب')}</span>
+                      <span>{t('مراسلة واتساب')}</span>
                     </a>
                   )}
                 </div>
@@ -692,8 +692,8 @@ export default function AdminLiveMap() {
               {/* Section 1: Today's Stops */}
               <div className="col" style={{ gap: 6 }}>
                 <div className="row between" style={{ alignItems: 'center' }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: '#1E293B' }}>
-                    📍 {t('محطات اليوم')} ({num(selectedTrack.route.length)})
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#1E293B', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <MapPin size={14} /> {t('محطات اليوم')} ({num(selectedTrack.route.length)})
                   </div>
                   {selectedTrack.route.length > 0 && (
                     <span style={{ fontSize: 11, color: 'var(--muted)' }}>
@@ -704,7 +704,7 @@ export default function AdminLiveMap() {
 
                 {selectedTrack.route.length === 0 ? (
                   <div className="muted" style={{ fontSize: 12, background: '#F8FAFC', padding: 8, borderRadius: 8 }}>
-                    ℹ️ {t('لا توجد زيارات مسجلة للمشرف بتاريخ اليوم.')}
+                    {t('لا توجد زيارات مسجلة للمشرف بتاريخ اليوم.')}
                   </div>
                 ) : (
                   <div className="col" style={{ gap: 6 }}>
@@ -851,23 +851,26 @@ export default function AdminLiveMap() {
                 <button
                   className={`chip sm ${statusFilter === 'in_progress' ? 'on' : ''}`}
                   onClick={() => setStatusFilter('in_progress')}
-                  style={{ fontSize: 11, padding: '2px 8px' }}
+                  style={{ fontSize: 11, padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                 >
-                  🟢 {t('في زيارة')}
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#16A34A' }} />
+                  {t('في زيارة')}
                 </button>
                 <button
                   className={`chip sm ${statusFilter === 'completed' ? 'on' : ''}`}
                   onClick={() => setStatusFilter('completed')}
-                  style={{ fontSize: 11, padding: '2px 8px' }}
+                  style={{ fontSize: 11, padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                 >
-                  🔵 {t('متحرك')}
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#0369A1' }} />
+                  {t('متحرك')}
                 </button>
                 <button
                   className={`chip sm ${statusFilter === 'idle' ? 'on' : ''}`}
                   onClick={() => setStatusFilter('idle')}
-                  style={{ fontSize: 11, padding: '2px 8px' }}
+                  style={{ fontSize: 11, padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                 >
-                  ⚪ {t('بدون نشاط')}
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#94A3B8' }} />
+                  {t('بدون نشاط')}
                 </button>
               </div>
 
@@ -913,7 +916,7 @@ export default function AdminLiveMap() {
                             </div>
                             {trk.branchName && (
                               <div className="muted" style={{ fontSize: 12 }}>
-                                🏢 {t(trk.branchName)}
+                                {t(trk.branchName)}
                               </div>
                             )}
                           </div>
@@ -921,7 +924,7 @@ export default function AdminLiveMap() {
                             className={`badge ${isLive ? 'b-green' : hasLocation ? 'b-blue' : 'b-gray'}`}
                             style={{ fontSize: 11, whiteSpace: 'nowrap' }}
                           >
-                            {isLive ? `🟢 ${t('في زيارة')}` : hasLocation ? `🔵 ${t('متحرك')}` : `⚪ ${t('غير نشط')}`}
+                            {isLive ? t('في زيارة') : hasLocation ? t('متحرك') : t('غير نشط')}
                           </span>
                         </div>
 
@@ -929,7 +932,7 @@ export default function AdminLiveMap() {
                         {trk.currentCustomerName ? (
                           <div style={{ fontSize: 12, color: 'var(--muted)', background: '#F8FAFC', padding: '4px 8px', borderRadius: 6 }}>
                             <div style={{ fontWeight: 600, color: '#334155' }}>
-                              🏪 {trk.currentCustomerName}
+                              {trk.currentCustomerName}
                               {trk.currentCustomerCode && (
                                 <span style={{ fontSize: 11, fontWeight: 500, color: '#64748B', marginInlineStart: 4 }}>
                                   [{trk.currentCustomerCode}]
@@ -938,12 +941,12 @@ export default function AdminLiveMap() {
                             </div>
                             {trk.currentCustomerAddress && (
                               <div style={{ fontSize: 11, color: '#64748B' }}>
-                                📍 {trk.currentCustomerAddress}
+                                {trk.currentCustomerAddress}
                               </div>
                             )}
                             {trk.lastActiveTime && (
-                              <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>
-                                🕒 {fmtTime(trk.lastActiveTime)}
+                              <div style={{ fontSize: 11, color: '#64748B', marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+                                {fmtTime(trk.lastActiveTime)}
                               </div>
                             )}
                           </div>
@@ -968,7 +971,8 @@ export default function AdminLiveMap() {
                               onClick={() => handleSelectSupervisor(trk.supervisorId)}
                               title={t('تتبع خط السير على الخريطة')}
                             >
-                              🗺️ {isSelected ? t('المسار مفعل') : t('تتبع')}
+                              <Compass size={13} />
+                              <span>{isSelected ? t('المسار مفعل') : t('تتبع')}</span>
                             </button>
                             {trk.phone && (
                               <a
@@ -1032,8 +1036,8 @@ export default function AdminLiveMap() {
             <div className="live-map-leaflet-container" ref={mapContainerRef} dir="ltr" />
           )}
           <div className="row between muted" style={{ fontSize: 11, padding: '0 4px' }}>
-            <span>🗺️ {t('خريطة شوارع مصر مفتوحة المصدر (OpenStreetMap) · تفاصيل الأحياء والشوارع باللغة العربية')}</span>
-            <span>⏱️ {t('يتم التحديث التلقائي كل 30 ثانية')}</span>
+            <span>{t('خريطة شوارع مصر مفتوحة المصدر (OpenStreetMap) · تفاصيل الأحياء والشوارع باللغة العربية')}</span>
+            <span>{t('يتم التحديث التلقائي كل 30 ثانية')}</span>
           </div>
         </div>
       </div>

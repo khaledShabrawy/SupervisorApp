@@ -84,7 +84,7 @@ export default function BeatMap({ plan, visited }: Props) {
 
       if (points.length > 1) {
         (L as typeof import('leaflet'))
-          .polyline(points, { color: '#6366f1', weight: 3, dashArray: '10 7', opacity: 0.8 })
+          .polyline(points, { color: '#0369A1', weight: 3, dashArray: '10 7', opacity: 0.8 })
           .addTo(map);
       }
 
