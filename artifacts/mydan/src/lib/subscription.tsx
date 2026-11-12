@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { t } from '@/i18n';
@@ -9,6 +9,7 @@ export interface CompanySubscription {
   expires_at: string | null;
   license_type: string | null;
   is_active: boolean;
+  max_supervisors?: number | null;
 }
 
 export function daysUntil(iso: string): number {
@@ -27,7 +28,7 @@ export function useCompanySubscription() {
     queryFn: async (): Promise<CompanySubscription | null> => {
       const { data, error } = await supabase
         .from('companies')
-        .select('id, name, expires_at, license_type, is_active')
+        .select('id, name, expires_at, license_type, is_active, max_supervisors')
         .eq('id', companyId!)
         .maybeSingle();
 
@@ -178,4 +179,21 @@ export function SubscriptionLockedView({
       </div>
     </div>
   );
+}
+
+export function useRedeemLicenseCode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (code: string) => {
+      const cleaned = code.trim();
+      if (!cleaned) throw new Error(t('كود الترخيص'));
+      const { data, error } = await supabase.rpc('redeem_license_code', { p_code: cleaned });
+      if (error) throw new Error(error.message);
+      return data as { max_users: number; license_type: string; expires_at: string };
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['company-subscription'] });
+      void qc.invalidateQueries({ queryKey: ['mydan'] });
+    },
+  });
 }

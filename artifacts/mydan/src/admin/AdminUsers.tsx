@@ -17,6 +17,8 @@ import { useResetDeviceBinding } from '@/lib/device-binding';
 import { t } from '@/i18n';
 import { confirm } from '@/lib/confirm';
 import { useDialogFocus } from '@/hooks/useDialogFocus';
+import { useCompanySubscription, useRedeemLicenseCode } from '@/lib/subscription';
+import { notify } from '@/lib/toast';
 
 type SortKey = 'full_name' | 'role' | 'is_active';
 const INVITE_ROLES: InviteRole[] = ['supervisor', 'senior_supervisor', 'branch_manager', 'admin'];
@@ -323,8 +325,41 @@ const Row = memo(function Row({
   </tr>;
 });
 
+function RedeemLicenseModal({ onClose }: { onClose: () => void }) {
+  const redeem = useRedeemLicenseCode();
+  const [code, setCode] = useState('');
+  const submit = useCallback((e: FormEvent) => {
+    e.preventDefault();
+    redeem.mutate(code, {
+      onSuccess: () => {
+        notify(t('تم تفعيل الترخيص بنجاح.'), 'ok');
+        onClose();
+      },
+      onError: (err) => notify(err instanceof Error ? err.message : String(err), 'err'),
+    });
+  }, [redeem, code, onClose]);
+  return (
+    <UserModal title={t('تفعيل كود ترخيص')} onClose={onClose} onSubmit={submit}>
+      <div className="row between">
+        <h2 style={{ margin: 0, fontSize: 18 }}>{t('تفعيل كود ترخيص')}</h2>
+        <button type="button" className="icon-btn" aria-label={t('إغلاق')} onClick={onClose}><X /></button>
+      </div>
+      <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+        {t('أدخل كود الترخيص المرسل بعد الشراء لتحديث عدد المقاعد وتمديد الاشتراك.')}
+      </p>
+      <label className="f">{t('كود الترخيص')} *
+        <input className="input" dir="ltr" required placeholder="MYD-XXXX-XXXX" value={code} onChange={(e) => setCode(e.target.value)} />
+      </label>
+      <button className="btn" disabled={redeem.isPending}>
+        {redeem.isPending ? t('جاري التفعيل...') : t('تفعيل الكود')}
+      </button>
+    </UserModal>
+  );
+}
+
 export default function AdminUsers() {
   const { supervisor } = useAuth();
+  const subscription = useCompanySubscription();
   const canManageCredentials = ['admin', 'super_admin'].includes(supervisor?.role ?? '');
   const q = useSupervisors();
   const branches = useBranches();
@@ -344,6 +379,7 @@ export default function AdminUsers() {
   const [search, setSearch] = useState('');
 
   const [invite, setInvite] = useState(false);
+  const [redeemOpen, setRedeemOpen] = useState(false);
   const [perms, setPerms] = useState<Supervisor | null>(null);
   const [editing, setEditing] = useState<Supervisor | null>(null);
   const [pwTarget, setPwTarget] = useState<Supervisor | null>(null);
@@ -405,17 +441,51 @@ export default function AdminUsers() {
     }
   }, [resetDevice]);
 
+  const activeSeats = useMemo(
+    () => q.items.filter((u) => u.is_active && u.role !== 'super_admin').length,
+    [q.items],
+  );
+  const seatLimit = subscription.company?.max_supervisors ?? null;
+  const seatLimitReached = seatLimit !== null && activeSeats >= seatLimit;
+
   return <>
-    <div className="row between">
+    <div className="row between" style={{ flexWrap: 'wrap', gap: 12 }}>
       <div>
         <h2 style={{ margin: 0 }}>{t('المستخدمين')}</h2>
         <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
           {t('إدارة حسابات المشرفين والمدراء، الفروع، الصلاحيات، وتعيين كلمات المرور.')}
         </p>
       </div>
-      {canManageCredentials && <button className="btn" onClick={() => setInvite(true)} data-testid="button-invite">
-        <Plus size={18} /> {t('دعوة مستخدم جديد')}
-      </button>}
+      <div className="row gap-2 items-center" style={{ flexWrap: 'wrap' }}>
+        {seatLimit !== null && (
+          <span
+            className={`badge ${seatLimitReached ? 'badge-danger' : 'badge-info'}`}
+            style={{ fontVariantNumeric: 'tabular-nums', padding: '6px 12px', fontSize: 13 }}
+          >
+            {t('المقاعد النشطة:')} {activeSeats} / {seatLimit}
+          </span>
+        )}
+        {canManageCredentials && supervisor?.role !== 'super_admin' && (
+          <button type="button" className="btn ghost" onClick={() => setRedeemOpen(true)}>
+            <Key size={16} /> {t('تفعيل كود ترخيص')}
+          </button>
+        )}
+        {canManageCredentials && (
+          <button
+            className="btn"
+            onClick={() => {
+              if (seatLimitReached) {
+                notify(t('تم الوصول للحد الأقصى للمقاعد النشطة في باقتك الحالية.'), 'err');
+                return;
+              }
+              setInvite(true);
+            }}
+            data-testid="button-invite"
+          >
+            <Plus size={18} /> {t('دعوة مستخدم جديد')}
+          </button>
+        )}
+      </div>
     </div>
 
     {/* Filters Toolbar */}
@@ -504,6 +574,7 @@ export default function AdminUsers() {
 
     <LoadMore q={q} />
     {invite && <InviteModal onClose={closeInvite} />}
+    {redeemOpen && <RedeemLicenseModal onClose={() => setRedeemOpen(false)} />}
     {editing && <EditSupervisorModal s={editing} onClose={closeEdit} />}
     {perms && <PermissionsDrawer s={perms} onClose={closePerms} />}
     {pwTarget && <SetPasswordModal s={pwTarget} onClose={closePw} />}

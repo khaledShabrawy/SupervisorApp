@@ -1928,4 +1928,14 @@ export const EN: Record<string, string> = {
   'يحتاج تكثيف': 'Needs Focus',
   'عرض تحليلات حصة الرف التفصيلية': 'View Shelf Share Analytics',
   'فتح مركز التنبيهات والإشعارات': 'Open Alerts & Notifications Hub',
+
+  // --- Seat Limits & License Code Redemption ---
+  'المقاعد النشطة:': 'Active seats:',
+  'تفعيل كود ترخيص': 'Activate License Code',
+  'كود الترخيص': 'License code',
+  'أدخل كود الترخيص المرسل بعد الشراء لتحديث عدد المقاعد وتمديد الاشتراك.': 'Enter the license code sent after purchase to update seats and extend subscription.',
+  'تفعيل الكود': 'Activate Code',
+  'تم تفعيل الترخيص بنجاح.': 'License activated successfully.',
+  'ترقية الباقة': 'Upgrade Plan',
+  'تم الوصول للحد الأقصى للمقاعد النشطة في باقتك الحالية.': 'You have reached the maximum active seats in your current plan.',
 };
