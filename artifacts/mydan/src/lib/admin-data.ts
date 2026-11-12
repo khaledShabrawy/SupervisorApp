@@ -778,6 +778,7 @@ export function useSaveCompany() {
         name: c.name.trim(), name_en: c.name_en?.trim() || null,
         license_type: c.license_type || 'basic',
         max_supervisors: c.max_supervisors ?? 10,
+        max_users: c.max_supervisors ?? 10,
         is_active: c.is_active ?? true,
         expires_at: c.expires_at || null,
         country: c.country?.trim() || null,
