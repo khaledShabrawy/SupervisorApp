@@ -107,7 +107,7 @@
       --primary-hover: #1648B8;
       --primary-light: #EFF6FF;
       --accent: #0369A1;
-      --success: #059669;
+      --success: #047857;
       --warning: #D97706;
       --dark: #0F172A;
       --gray-900: #0F172A;
@@ -248,6 +248,39 @@
       background: var(--primary-light);
     }
 
+    .nav-links a.btn-primary {
+      background: var(--primary);
+      color: var(--white);
+      padding: 10px 20px;
+    }
+
+    .nav-links a.btn-primary:hover {
+      background: var(--primary-hover);
+      color: var(--white);
+    }
+
+    .nav-links a.btn-outline {
+      background: var(--white);
+      color: var(--gray-800);
+      border-color: var(--gray-300);
+      padding: 10px 20px;
+    }
+
+    .nav-links a.btn-outline:hover {
+      background: var(--gray-100);
+      color: var(--gray-900);
+      border-color: var(--gray-400);
+    }
+
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
     .nav-actions {
       display: flex;
       align-items: center;
@@ -351,6 +384,9 @@
       background: var(--gray-50);
       border-bottom: 1px solid var(--gray-200);
       padding: 64px 0 88px;
+      min-height: calc(100svh - 72px);
+      display: flex;
+      align-items: center;
       position: relative;
       overflow: hidden;
     }
@@ -451,16 +487,18 @@
     .app-mockup {
       background: var(--white);
       border-radius: var(--radius-xl);
-      border: 1px solid rgba(226, 232, 240, 0.95);
-      box-shadow: var(--shadow-xl), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+      border: 1px solid var(--gray-200);
+      box-shadow: var(--shadow-lg);
       overflow: hidden;
-      transform: perspective(1000px) rotateY(-4deg) rotateX(2deg);
-      transition: transform 0.4s var(--ease-smooth), box-shadow 0.4s ease;
+      transform: none;
+      transition: transform var(--m-out) var(--ease-smooth), border-color var(--m-out) var(--ease-smooth);
     }
 
-    .app-mockup:hover {
-      transform: perspective(1000px) rotateY(0deg) rotateX(0deg) translateY(-4px);
-      box-shadow: 0 32px 64px -12px rgba(15, 23, 42, 0.20);
+    @media (hover: hover) and (pointer: fine) {
+      .app-mockup:hover {
+        transform: translateY(-2px);
+        border-color: var(--gray-300);
+      }
     }
 
     .mockup-header {
@@ -619,7 +657,7 @@
     /* ─── FEATURES GRID ───────────────────────────────────────────────────── */
     .features-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
       gap: 24px;
     }
 
@@ -666,7 +704,7 @@
     /* ─── HOW IT WORKS ────────────────────────────────────────────────────── */
     .steps-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
       gap: 24px;
       position: relative;
     }
@@ -711,7 +749,7 @@
     /* ─── PRICING SECTION ─────────────────────────────────────────────────── */
     .pricing-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
       gap: 28px;
       align-items: stretch;
     }
@@ -856,6 +894,7 @@
     .footer-col a {
       font-size: 14px;
       color: var(--gray-400);
+      overflow-wrap: anywhere;
       transition: color 0.15s ease;
     }
 
@@ -992,17 +1031,19 @@
 
 <!-- NAV -->
 <nav role="navigation" aria-label="Main navigation">
-  <div class="nav-brand">
-    <img src="/icons/icon-192.png" alt="Mydan Logo" width="36" height="36" />
-    <span>Mydan</span>
-  </div>
-  <div class="nav-links">
-    <a href="#features" class="btn btn-ghost" id="nav-features">المزايا</a>
-    <a href="#pricing" class="btn btn-ghost" id="nav-pricing">الأسعار</a>
-    <a href="#demo" class="btn btn-ghost" id="nav-demo">طلب عرض</a>
-    <button class="btn btn-ghost lang-btn" id="langToggle" onclick="toggleLang()" aria-label="Switch language">EN</button>
-    <a href="/login" class="btn btn-outline" id="nav-login">تسجيل دخول</a>
-    <a href="https://store.digityoucan.com/" class="btn btn-primary" id="nav-cta" target="_blank" rel="noopener">اشترِ الآن</a>
+  <div class="nav-inner">
+    <div class="nav-brand">
+      <img src="/icons/icon-192.png" alt="Mydan Logo" width="36" height="36" />
+      <span>Mydan</span>
+    </div>
+    <div class="nav-links">
+      <a href="#features" class="btn btn-ghost" id="nav-features">المزايا</a>
+      <a href="#pricing" class="btn btn-ghost" id="nav-pricing">الأسعار</a>
+      <a href="#demo" class="btn btn-ghost" id="nav-demo">طلب عرض</a>
+      <button class="btn btn-ghost lang-btn" id="langToggle" onclick="toggleLang()" aria-label="Switch language">EN</button>
+      <a href="/login" class="btn btn-outline" id="nav-login">تسجيل دخول</a>
+      <a href="https://store.digityoucan.com/" class="btn btn-primary" id="nav-cta" target="_blank" rel="noopener">اشترِ الآن</a>
+    </div>
   </div>
 </nav>
 
@@ -1015,12 +1056,14 @@
         <span class="pulse-dot"></span>
         <span id="badge-text">منصة SaaS للرقابة الميدانية و FMCG</span>
       </div>
-      <h1 id="hero-title">إدارة المشرفين والرقابة الميدانية <span>بذكاء اصطناعي</span></h1>
-      <p id="hero-subtitle">نظام متكامل لإدارة جولات المشرفين الميدانيين، تدقيق الرفوف بالـ AI، رصد المنافسين، واقتناص الفرص البيعية — يعمل بدون إنترنت على الموبايل والمتصفح.</p>
+      <h1 id="hero-title">منصة ميدان لإدارة المشرفين <span>والرقابة الميدانية</span></h1>
+      <p id="hero-subtitle">نظام متكامل لإدارة جولات المشرفين الميدانيين، تدقيق الرفوف بالـ AI، رصد المنافسين، واقتناص الفرص البيعية؛ يعمل بدون إنترنت على الموبايل والمتصفح.</p>
       <div class="hero-cta">
         <a href="https://store.digityoucan.com/" class="btn btn-primary btn-xl" id="hero-btn1" target="_blank" rel="noopener">اشترِ الآن</a>
-        <a href="/Mydan.apk" class="btn btn-outline btn-xl" id="hero-btn-apk" download="Mydan.apk" style="display:inline-flex;gap:8px;align-items:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span id="hero-apk-text">تحميل تطبيق Android (APK)</span></a>
         <a href="#demo" class="btn btn-outline btn-xl" id="hero-btn2">طلب عرض تجريبي</a>
+      </div>
+      <div style="margin-bottom:24px;">
+        <a href="/Mydan.apk" id="hero-btn-apk" download="Mydan.apk" style="display:inline-flex;gap:8px;align-items:center;font-size:14px;font-weight:700;color:var(--primary);text-decoration:underline;text-underline-offset:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span id="hero-apk-text">تحميل تطبيق Android (APK)</span></a>
       </div>
       <div class="hero-trust">
         <div class="hero-trust-avatars">
@@ -1160,8 +1203,8 @@
     <div class="ai-section">
       <div>
         <span class="section-tag ai-badge" id="ai-tag">الذكاء الاصطناعي</span>
-        <h2 class="section-title" id="ai-title" style="color:white; margin-top:12px;">تدقيق الرفوف بتقنية Claude Vision</h2>
-        <p class="section-subtitle" id="ai-subtitle" style="color:rgba(255,255,255,0.7);">المشرف يصوّر رف المتجر، الذكاء الاصطناعي يعطي تقريراً فورياً يشمل:</p>
+        <h2 class="section-title" id="ai-title" style="color:var(--gray-900); margin-top:12px;">تدقيق الرفوف بتقنية Claude Vision</h2>
+        <p class="section-subtitle" id="ai-subtitle" style="color:var(--gray-600);">المشرف يصوّر رف المتجر، الذكاء الاصطناعي يعطي تقريراً فورياً يشمل:</p>
         <div class="ai-feature-list">
           <div class="ai-feature-item"><span class="check">✓</span><span id="ai-f1">نسبة امتلاء الرف وأماكن الفراغ</span></div>
           <div class="ai-feature-item"><span class="check">✓</span><span id="ai-f2">ترتيب المنتجات وجودة العرض</span></div>
@@ -1189,8 +1232,8 @@
           <span id="air4">منتجات ناقصة</span>
           <span class="ai-score score-low">٣ أصناف</span>
         </div>
-        <div style="margin-top:16px; padding:12px 16px; background:rgba(52,211,153,0.1); border-radius:8px; border:1px solid rgba(52,211,153,0.2);">
-          <p style="font-size:12px; color:#6EE7B7;" id="ai-recommendation">توصية: أعد ترتيب منتجات العائلة A في مستوى العين. استبدل Shelf 3 Row 2.</p>
+        <div style="margin-top:16px; padding:12px 16px; background:#F0FDF4; border-radius:8px; border:1px solid #BBF7D0;">
+          <p style="font-size:12px; color:#065F46; font-weight:600;" id="ai-recommendation">توصية: أعد ترتيب منتجات العائلة A في مستوى العين. استبدل Shelf 3 Row 2.</p>
         </div>
       </div>
     </div>
@@ -1198,17 +1241,17 @@
 </section>
 
 <!-- INDUSTRIES -->
-<section>
+<section id="industries">
   <div class="section-inner">
     <div class="section-header center">
       <span class="section-tag" id="ind-tag">القطاعات</span>
       <h2 class="section-title" id="ind-title">مصمم لقطاعات السلع الاستهلاكية</h2>
     </div>
     <div class="industries-grid">
-      <div class="industry-card"><span class="icon">🥤</span><h3 id="ind1">مشروبات FMCG</h3><p id="ind1d">توزيع وتغطية نقاط البيع</p></div>
-      <div class="industry-card"><span class="icon">🧴</span><h3 id="ind2">مستحضرات تجميل</h3><p id="ind2d">مراجعة العروض والأسعار</p></div>
-      <div class="industry-card"><span class="icon">💊</span><h3 id="ind3">أدوية وصيدليات</h3><p id="ind3d">متابعة التوزيع والتوافر</p></div>
-      <div class="industry-card"><span class="icon">🍫</span><h3 id="ind4">مواد غذائية</h3><p id="ind4d">تحليل أداء الرف والمنافسين</p></div>
+      <div class="industry-card"><span class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2h8l1 5H7l1-5Z"/><path d="M7 7h10l-1 13a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2L7 7Z"/></svg></span><h3 id="ind1">مشروبات FMCG</h3><p id="ind1d">توزيع وتغطية نقاط البيع</p></div>
+      <div class="industry-card"><span class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v4H9z"/><path d="M7 7h10v13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7z"/><path d="M10 12h4"/></svg></span><h3 id="ind2">مستحضرات تجميل</h3><p id="ind2d">مراجعة العروض والأسعار</p></div>
+      <div class="industry-card"><span class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v12"/><path d="M6 12h12"/><rect x="3" y="3" width="18" height="18" rx="4"/></svg></span><h3 id="ind3">أدوية وصيدليات</h3><p id="ind3d">متابعة التوزيع والتوافر</p></div>
+      <div class="industry-card"><span class="icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"/><path d="m3 9 2.45-4.9A2 2 0 0 1 7.24 3h9.52a2 2 0 0 1 1.8 1.1L21 9"/><path d="M12 3v6"/></svg></span><h3 id="ind4">مواد غذائية</h3><p id="ind4d">تحليل أداء الرف والمنافسين</p></div>
     </div>
   </div>
 </section>
@@ -1436,10 +1479,10 @@
       <div class="footer-col">
         <h4 id="fc2-title">القطاعات</h4>
         <ul>
-          <li><a href="#" id="fc2-1">FMCG</a></li>
-          <li><a href="#" id="fc2-2">أدوية</a></li>
-          <li><a href="#" id="fc2-3">تجميل</a></li>
-          <li><a href="#" id="fc2-4">مواد غذائية</a></li>
+          <li><a href="#industries" id="fc2-1">FMCG</a></li>
+          <li><a href="#industries" id="fc2-2">أدوية</a></li>
+          <li><a href="#industries" id="fc2-3">تجميل</a></li>
+          <li><a href="#industries" id="fc2-4">مواد غذائية</a></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -1447,13 +1490,13 @@
         <ul>
           <li><a href="mailto:hello@mydan.digityoucan.com" id="fc3-1">hello@mydan.digityoucan.com</a></li>
           <li><a href="#demo" id="fc3-2">اطلب عرضاً تجريبياً</a></li>
-          <li><a href="#" id="fc3-3">سياسة الخصوصية</a></li>
-          <li><a href="#" id="fc3-4">الشروط والأحكام</a></li>
+          <li><a href="#features" id="fc3-3">الأمان والخصوصية</a></li>
+          <li><a href="#pricing" id="fc3-4">الخطط والشروط</a></li>
         </ul>
       </div>
     </div>
     <div class="footer-bottom">
-      <p id="footer-copy">© 2025 Mydan. جميع الحقوق محفوظة.</p>
+      <p id="footer-copy">© 2026 Mydan. جميع الحقوق محفوظة.</p>
       <p id="footer-powered">Powered by Supabase · Cloudflare Pages</p>
     </div>
   </div>
@@ -1545,7 +1588,7 @@ const content = {
     'fc2-title': 'القطاعات', 'fc2-1': 'FMCG', 'fc2-2': 'أدوية', 'fc2-3': 'تجميل', 'fc2-4': 'مواد غذائية',
     'fc3-title': 'تواصل معنا', 'fc3-1': 'hello@mydan.digityoucan.com', 'fc3-2': 'اطلب عرضاً تجريبياً',
     'fc3-3': 'سياسة الخصوصية', 'fc3-4': 'الشروط والأحكام',
-    'footer-copy': '© 2025 Mydan. جميع الحقوق محفوظة.',
+    'footer-copy': '© 2026 Mydan. جميع الحقوق محفوظة.',
     'footer-powered': 'Powered by Supabase · Cloudflare Pages',
   },
   en: {
@@ -1631,7 +1674,7 @@ const content = {
     'fc2-title': 'Industries', 'fc2-1': 'FMCG', 'fc2-2': 'Pharma', 'fc2-3': 'Cosmetics', 'fc2-4': 'Food',
     'fc3-title': 'Contact', 'fc3-1': 'hello@mydan.digityoucan.com', 'fc3-2': 'Book a Demo',
     'fc3-3': 'Privacy Policy', 'fc3-4': 'Terms & Conditions',
-    'footer-copy': '© 2025 Mydan. All rights reserved.',
+    'footer-copy': '© 2026 Mydan. All rights reserved.',
     'footer-powered': 'Powered by Supabase · Cloudflare Pages',
   }
 };
