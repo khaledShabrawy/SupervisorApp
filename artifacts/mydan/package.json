@@ -13,10 +13,10 @@
     "build:android": "vite build --mode android",
     "cap:sync": "vite build --mode android && cap sync android && npm run clean:android-assets",
     "cap:open": "cap open android",
-    "apk:debug": "npm run cap:sync && cd android && gradlew.bat assembleDebug",
-    "apk:release:win": "npm run cap:sync && cd android && gradlew.bat assembleRelease",
+    "apk:debug": "npm run cap:sync && cd android && .\\gradlew.bat assembleDebug",
+    "apk:release:win": "npm run cap:sync && cd android && .\\gradlew.bat assembleRelease",
     "apk:release:unix": "npm run cap:sync && cd android && ./gradlew assembleRelease",
-    "aab:release:win": "npm run cap:sync && cd android && gradlew.bat bundleRelease",
+    "aab:release:win": "npm run cap:sync && cd android && .\\gradlew.bat bundleRelease",
     "aab:release:unix": "npm run cap:sync && cd android && ./gradlew bundleRelease"
   },
   "dependencies": {

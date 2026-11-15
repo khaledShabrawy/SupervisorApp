@@ -27,7 +27,7 @@ test('patched glob retains the sync API Workbox consumes and rimraf removes only
     await writeFile(join(directory, 'target', 'asset.js'), 'synthetic');
     await writeFile(join(directory, 'keep.txt'), 'keep');
     const glob = fromWorkbox('glob');
-    assert.deepEqual(glob.sync('**/*.js', { cwd: directory, nodir: true }), ['target/asset.js']);
+    assert.deepEqual(glob.sync('**/*.js', { cwd: directory, nodir: true }).map(path => path.replaceAll('\\', '/')), ['target/asset.js']);
     const fromCapacitor = createRequire(require.resolve('@capacitor/cli/package.json'));
     const { rimraf } = fromCapacitor('rimraf');
     await rimraf(join(directory, 'target'));

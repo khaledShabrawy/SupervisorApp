@@ -14,6 +14,7 @@ import { fmtDateTime, num } from '@/lib/format';
 import { SelectOption, useInput, useRefetch } from '@/screens/shared';
 import { DIR, LANG, t } from '@/i18n';
 import { confirm } from '@/lib/confirm';
+import { compressImage } from '@/lib/image-compression';
 
 function toList(v: unknown): string[] {
   if (!Array.isArray(v)) return typeof v === 'string' && v.trim() ? [v] : [];
@@ -42,47 +43,6 @@ const Step = memo(function Step({ label, index, current }: { label: string; inde
 function AuditRealtime({ id, onChange }: { id: string; onChange: () => void }) {
   useRealtime('shelf_audit', `id=eq.${id}`, onChange);
   return null;
-}
-
-async function compressImage(file: File, maxPx = 1400, quality = 0.85): Promise<File> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    const timer = setTimeout(() => {
-      URL.revokeObjectURL(url);
-      resolve(file);
-    }, 4000);
-    img.onload = () => {
-      clearTimeout(timer);
-      URL.revokeObjectURL(url);
-      try {
-        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
-        const w = Math.round(img.width * scale);
-        const h = Math.round(img.height * scale);
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { resolve(file); return; }
-        ctx.drawImage(img, 0, 0, w, h);
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) { resolve(file); return; }
-            const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
-            resolve(compressed);
-          },
-          'image/jpeg', quality,
-        );
-      } catch {
-        resolve(file);
-      }
-    };
-    img.onerror = () => {
-      clearTimeout(timer);
-      URL.revokeObjectURL(url);
-      resolve(file);
-    };
-    img.src = url;
-  });
 }
 
 const ROOT_CAUSES = [
