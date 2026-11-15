@@ -1,0 +1,13 @@
+-- Migration 26: Applied directly to production (not via migration file)
+-- Date: 2026-11-15
+--
+-- This placeholder documents that migration sequence 26 was applied
+-- directly to the live Supabase project (ywdlrrdkjbtpfgacuuoy) without
+-- a corresponding SQL file in this repository.
+--
+-- Migration 27 (27_fix_branch_performance_view.sql) depends on the state
+-- left by migration 26. If restoring from scratch, verify the branch_performance
+-- view exists before applying 27.
+--
+-- TODO: Reconstruct the original SQL for migration 26 from Supabase migration history
+-- via: supabase db remote commit --project-ref ywdlrrdkjbtpfgacuuoy
