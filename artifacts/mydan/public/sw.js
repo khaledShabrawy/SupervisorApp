@@ -14,7 +14,7 @@ self.addEventListener('install', event => {
     const cache = await caches.open(CACHE);
     // Reject installation when any public asset is unavailable. The browser keeps
     // the previous worker active, and its complete cache remains available.
-    await cache.addAll([...new Set(['./', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
+    await cache.addAll([...new Set(['./', 'manifest.webmanifest', 'offline.html', 'icons/icon-192.png', 'icons/icon-512.png',
       ...manifest.assets, ...BUILD_ASSETS.map(entry => entry.url)].map(path => new URL(path, BASE).href))]
       .map(url => new Request(url, { cache: 'reload' })));
     await self.skipWaiting();
@@ -54,12 +54,13 @@ self.addEventListener('fetch', event => {
         // overwrite this shell with HTML whose chunks have not been cached.
         return cached;
       }
-      // No cache yet — go to network, fallback to offline message
-      return fetch(request).catch(() =>
-        new Response('التطبيق غير متاح دون اتصال. افتحه مرة واحدة متصلًا بالإنترنت.', {
+      // No cache yet — go to network, fallback to offline page
+      return fetch(request).catch(async () => {
+        const offlinePage = await caches.match(new URL('offline.html', BASE).href);
+        return offlinePage || new Response('أنت غير متصل بالإنترنت', {
           status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-        })
-      );
+        });
+      });
     })());
   } else if (isAsset) {
     event.respondWith(caches.match(request, { ignoreVary: true }).then(cached => cached || fetch(request)));
