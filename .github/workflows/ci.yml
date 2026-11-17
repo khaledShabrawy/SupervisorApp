@@ -107,7 +107,7 @@ jobs:
       - name: Test scaling authorization, concurrency and rollbacks
         run: bash scripts/testing/database/run-scaling.sh
       - name: Set up Python for authenticated backup tests
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install isolated backup test dependency
