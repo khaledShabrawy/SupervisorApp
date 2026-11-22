@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useScope } from '@/lib/data';
@@ -7,6 +7,64 @@ import { exportToCsv } from '@/lib/csv-export';
 import EmptyState from '@/components/EmptyState';
 import { ErrorState } from '@/components/States';
 import { t } from '@/i18n';
+
+// Column name aliases used to match filter fields against any view's columns
+const FILTER_ALIASES: Record<string, string[]> = {
+  supervisor_code: ['supervisor_code', 'code'],
+  supervisor_name: ['supervisor_name', 'supervisor', 'name'],
+  branch:          ['branch', 'branch_name'],
+  region:          ['region', 'region_name'],
+  date:            ['visit_date', 'attendance_date', 'audit_date', 'created_at', 'date', 'report_date'],
+};
+
+function findCol(row: Record<string, unknown>, aliases: string[]): string | null {
+  for (const a of aliases) if (a in row) return a;
+  return null;
+}
+
+interface ReportFilters {
+  supervisorCode: string;
+  supervisorName: string;
+  branch: string;
+  region: string;
+  dateFrom: string;
+  dateTo: string;
+}
+
+const emptyFilters = (): ReportFilters => ({
+  supervisorCode: '', supervisorName: '', branch: '', region: '', dateFrom: '', dateTo: '',
+});
+
+function applyFilters(rows: Row[], filters: ReportFilters): Row[] {
+  if (!rows.length) return rows;
+  const sample = rows[0];
+  const codeCol   = findCol(sample, FILTER_ALIASES.supervisor_code);
+  const nameCol   = findCol(sample, FILTER_ALIASES.supervisor_name);
+  const branchCol = findCol(sample, FILTER_ALIASES.branch);
+  const regionCol = findCol(sample, FILTER_ALIASES.region);
+  const dateCol   = findCol(sample, FILTER_ALIASES.date);
+
+  return rows.filter((row) => {
+    if (filters.supervisorCode && codeCol) {
+      if (!String(row[codeCol] ?? '').toLowerCase().includes(filters.supervisorCode.toLowerCase())) return false;
+    }
+    if (filters.supervisorName && nameCol) {
+      if (!String(row[nameCol] ?? '').toLowerCase().includes(filters.supervisorName.toLowerCase())) return false;
+    }
+    if (filters.branch && branchCol) {
+      if (!String(row[branchCol] ?? '').toLowerCase().includes(filters.branch.toLowerCase())) return false;
+    }
+    if (filters.region && regionCol) {
+      if (!String(row[regionCol] ?? '').toLowerCase().includes(filters.region.toLowerCase())) return false;
+    }
+    if (dateCol) {
+      const raw = String(row[dateCol] ?? '').slice(0, 10);
+      if (filters.dateFrom && raw < filters.dateFrom) return false;
+      if (filters.dateTo   && raw > filters.dateTo)   return false;
+    }
+    return true;
+  });
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -134,6 +192,10 @@ function KpiCards({ data, cols }: { data: Row[]; cols: string[] }) {
 
 function ReportViewer({ config, onClose }: { config: ReportConfig; onClose: () => void }) {
   const sc = useScope();
+  const [filters, setFilters] = useState<ReportFilters>(emptyFilters);
+  const setF = <K extends keyof ReportFilters>(k: K, v: string) => setFilters((f) => ({ ...f, [k]: v }));
+  const hasFilter = Object.values(filters).some(Boolean);
+
   const q = useQuery({
     queryKey: ['mydan', 'report', sc.companyId, config.id, config.source, config.rowLimit],
     queryFn: async () => {
@@ -145,15 +207,26 @@ function ReportViewer({ config, onClose }: { config: ReportConfig; onClose: () =
     },
   });
 
+  const filteredData = useMemo(() => applyFilters(q.data ?? [], filters), [q.data, filters]);
+
+  const displayCols = config.columns.length > 0 ? config.columns : (q.data?.[0] ? Object.keys(q.data[0]) : []);
+
   const handleExport = () => {
-    if (!q.data?.length) return;
-    const cols = config.columns.length > 0 ? config.columns : Object.keys(q.data[0]);
+    if (!filteredData.length) return;
     exportToCsv(
       `${config.name}_${new Date().toISOString().slice(0, 10)}`,
-      cols.map((c) => ({ header: c, accessor: (row) => row[c] ?? '' })),
-      q.data
+      displayCols.map((c) => ({ header: c, accessor: (row: Row) => row[c] ?? '' })),
+      filteredData
     );
   };
+
+  // Detect which filter fields are relevant for this view
+  const sample = q.data?.[0];
+  const hasCodeCol   = sample ? !!findCol(sample, FILTER_ALIASES.supervisor_code) : true;
+  const hasNameCol   = sample ? !!findCol(sample, FILTER_ALIASES.supervisor_name) : true;
+  const hasBranchCol = sample ? !!findCol(sample, FILTER_ALIASES.branch) : true;
+  const hasRegionCol = sample ? !!findCol(sample, FILTER_ALIASES.region) : true;
+  const hasDateCol   = sample ? !!findCol(sample, FILTER_ALIASES.date) : true;
 
   return (
     <div className="col" style={{ gap: 14 }}>
@@ -165,7 +238,7 @@ function ReportViewer({ config, onClose }: { config: ReportConfig; onClose: () =
             aria-label={t('تصدير Excel')}
             title={t('تصدير التقرير إلى Excel')}
             onClick={handleExport}
-            disabled={!q.data?.length}
+            disabled={!filteredData.length}
           >
             <Download size={18} />
           </button>
@@ -179,14 +252,111 @@ function ReportViewer({ config, onClose }: { config: ReportConfig; onClose: () =
         {SOURCES.find((s) => s.id === config.source)?.label ?? config.source}
       </span>
 
+      {/* ── Filter Bar ───────────────────────────────────────────────────── */}
+      {q.data && (
+        <div style={{
+          background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12,
+          padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontWeight: 700, fontSize: 13, color: '#475569' }}>{t('فلترة النتائج')}</span>
+            {hasFilter && (
+              <button
+                className="btn ghost sm"
+                style={{ fontSize: 12, padding: '2px 10px', color: '#EF4444', borderColor: '#EF4444' }}
+                onClick={() => setFilters(emptyFilters())}
+              >
+                {t('مسح الفلاتر')}
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+            {hasCodeCol && (
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('كود المشرف')}</label>
+                <input
+                  className="input" style={{ width: '100%', fontSize: 13, padding: '5px 10px' }}
+                  placeholder={t('ابحث بالكود...')}
+                  value={filters.supervisorCode}
+                  onChange={(e) => setF('supervisorCode', e.target.value)}
+                  dir="ltr"
+                />
+              </div>
+            )}
+            {hasNameCol && (
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('اسم المشرف')}</label>
+                <input
+                  className="input" style={{ width: '100%', fontSize: 13, padding: '5px 10px' }}
+                  placeholder={t('ابحث بالاسم...')}
+                  value={filters.supervisorName}
+                  onChange={(e) => setF('supervisorName', e.target.value)}
+                />
+              </div>
+            )}
+            {hasBranchCol && (
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('الفرع')}</label>
+                <input
+                  className="input" style={{ width: '100%', fontSize: 13, padding: '5px 10px' }}
+                  placeholder={t('ابحث بالفرع...')}
+                  value={filters.branch}
+                  onChange={(e) => setF('branch', e.target.value)}
+                />
+              </div>
+            )}
+            {hasRegionCol && (
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>Region</label>
+                <input
+                  className="input" style={{ width: '100%', fontSize: 13, padding: '5px 10px' }}
+                  placeholder={t('ابحث بالمنطقة...')}
+                  value={filters.region}
+                  onChange={(e) => setF('region', e.target.value)}
+                />
+              </div>
+            )}
+            {hasDateCol && (
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('التاريخ من')}</label>
+                <input
+                  type="date" className="input" style={{ width: '100%', fontSize: 13, padding: '5px 10px' }}
+                  value={filters.dateFrom}
+                  onChange={(e) => setF('dateFrom', e.target.value)}
+                  dir="ltr"
+                />
+              </div>
+            )}
+            {hasDateCol && (
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('إلى')}</label>
+                <input
+                  type="date" className="input" style={{ width: '100%', fontSize: 13, padding: '5px 10px' }}
+                  value={filters.dateTo}
+                  onChange={(e) => setF('dateTo', e.target.value)}
+                  dir="ltr"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {q.isPending && <div className="skel" style={{ height: 200 }} />}
       {q.isError && <ErrorState error={q.error} onRetry={q.refetch} />}
       {q.data && (
         <>
-          <span className="muted" style={{ fontSize: 13 }}>{t('{n} صف', { n: q.data.length })}</span>
-          {config.chartType === 'table' && <ReportTable data={q.data} cols={config.columns} />}
-          {config.chartType === 'bar'   && <BarChart data={q.data} labelCol={config.labelCol} valueCol={config.valueCol} />}
-          {config.chartType === 'kpi'   && <KpiCards data={q.data} cols={config.columns} />}
+          <span className="muted" style={{ fontSize: 13 }}>
+            {t('{n} صف', { n: filteredData.length })}
+            {hasFilter && q.data.length !== filteredData.length && (
+              <span style={{ color: '#F59E0B', marginRight: 8 }}>
+                {t('(من أصل {total})', { total: q.data.length })}
+              </span>
+            )}
+          </span>
+          {config.chartType === 'table' && <ReportTable data={filteredData} cols={displayCols} />}
+          {config.chartType === 'bar'   && <BarChart data={filteredData} labelCol={config.labelCol} valueCol={config.valueCol} />}
+          {config.chartType === 'kpi'   && <KpiCards data={filteredData} cols={displayCols} />}
         </>
       )}
     </div>
