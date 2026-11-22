@@ -981,15 +981,32 @@ export function useSupervisors() {
 
   return usePaged<Supervisor>(sc, 'admin-supervisors', [], async (from, to, signal) => {
 
-    const { data, error } = await supabase.from('supervisors').select('id,user_id,full_name,phone,role,branch_id,company_id,is_active,supervisor_code')
+    let supQ = supabase.from('supervisors')
+      .select('id,user_id,full_name,phone,role,branch_id,company_id,is_active,device_id,supervisor_code')
+      .eq('company_id', sc.companyId);
 
-      .eq('company_id', sc.companyId).order('full_name').order('id').range(from, to).abortSignal(signal);
+    const r = sc.supervisor.role;
+    if ((r === 'branch_manager' || r === 'manager') && sc.supervisor.branch_id) {
+      supQ = supQ.eq('branch_id', sc.supervisor.branch_id);
+    } else if (r === 'senior_supervisor' && sc.supervisor.branch_id) {
+      const { data: myBranch } = await supabase.from('branches')
+        .select('region_id').eq('id', sc.supervisor.branch_id).eq('company_id', sc.companyId).single();
+      if (myBranch?.region_id) {
+        const { data: regionBranches } = await supabase.from('branches')
+          .select('id').eq('company_id', sc.companyId).eq('region_id', myBranch.region_id).abortSignal(signal);
+        if (regionBranches?.length) {
+          supQ = supQ.in('branch_id', regionBranches.map((b: { id: string }) => b.id));
+        }
+      }
+    }
+
+    const { data, error } = await supQ.order('full_name').order('id').range(from, to).abortSignal(signal);
 
     if (error) fail('تعذر تحميل المشرفين.', error);
 
     return data as Supervisor[];
 
-  }, sc.isAdmin);
+  }, sc.isAdmin || sc.supervisor.role === 'senior_supervisor');
 
 }
 

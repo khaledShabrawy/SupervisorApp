@@ -182,15 +182,13 @@ const Row = memo(function Row({
 
   return <tr data-testid={`row-supervisor-${s.id}`}>
     <td>
-      <div className="row items-center gap-1">
-        <span className="title">{s.full_name}{self && t(' (أنت)')}</span>
-        {s.supervisor_code && (
-          <span className="badge b-blue" style={{ fontSize: 11, fontFamily: 'monospace', padding: '1px 6px' }}>
-            {s.supervisor_code}
-          </span>
-        )}
-      </div>
+      <span className="title">{s.full_name}{self && t(' (أنت)')}</span>
       <div className="muted" dir="ltr" style={{ textAlign: 'start', fontSize: 12 }}>{s.phone ?? '—'}</div>
+    </td>
+    <td dir="ltr" style={{ textAlign: 'center' }}>
+      {s.supervisor_code
+        ? <span className="badge b-blue" style={{ fontSize: 11, fontFamily: 'monospace' }}>{s.supervisor_code}</span>
+        : <span className="muted">—</span>}
     </td>
     <td>{branch}</td>
     <td><span className="badge b-gray"><ShieldCheck size={14} /> {ROLE[s.role] ?? s.role}</span></td>
@@ -541,6 +539,7 @@ export default function AdminUsers() {
             <thead>
               <tr>
                 {th('full_name', t('الاسم'))}
+                <th>{t('الكود')}</th>
                 <th>{t('الفرع')}</th>
                 {th('role', t('الدور'))}
                 <th>{t('جهاز العمل')}</th>

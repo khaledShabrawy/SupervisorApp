@@ -9,6 +9,10 @@ export function isAuthorizedSupervisor(value: unknown, userId: string): value is
 export function canAdmin(profile: Supervisor | null): boolean {
   return !!profile?.is_active && ['admin', 'super_admin', 'branch_manager', 'manager'].includes(profile.role);
 }
+/** Grants access to the admin panel UI; wider than canAdmin — includes senior_supervisor (regional manager). */
+export function canAdminPanel(profile: Supervisor | null): boolean {
+  return !!profile?.is_active && ['admin', 'super_admin', 'branch_manager', 'manager', 'senior_supervisor'].includes(profile.role);
+}
 export function validateSettings(value: AppSettings, companyId: string): AppSettings {
   if (value.company_id !== companyId || !value.app_name?.trim()) {
     throw new Error('إعدادات الشركة غير صالحة أو لا تخص حسابك.');

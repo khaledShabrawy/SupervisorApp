@@ -6,6 +6,7 @@ import { ErrorState } from '@/components/States';
 import { useAdminKpis, useBranches, useRegions, useAdminAlerts, type AdminAlertRow } from '@/lib/admin-data';
 import { useSupervisors } from '@/lib/data';
 import { fmtTime, num, todayStr } from '@/lib/format';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRefetch } from '@/screens/shared';
 import { t } from '@/i18n';
 
@@ -140,9 +141,20 @@ function TargetGaugeChart({
 
 export default function AdminDashboard() {
   const nav = useNavigate();
+  const { supervisor: me } = useAuth();
   const regions = useRegions();
   const branches = useBranches();
   const sups = useSupervisors();
+
+  // Role-based locking: branch_manager sees only their branch; senior_supervisor sees only their region
+  const isBranchLocked = (me?.role === 'branch_manager' || me?.role === 'manager') && Boolean(me?.branch_id);
+  const isRegionLocked = me?.role === 'senior_supervisor' && Boolean(me?.branch_id);
+
+  // Derive locked region_id from senior_supervisor's branch
+  const lockedRegionId = useMemo(() => {
+    if (!isRegionLocked || !me?.branch_id) return null;
+    return branches.data?.find((b) => b.id === me.branch_id)?.region_id ?? null;
+  }, [isRegionLocked, me?.branch_id, branches.data]);
 
   const [dateFrom, setDateFrom] = useState(() => todayStr().slice(0, 8) + '01');
   const [dateTo, setDateTo] = useState(() => todayStr());
@@ -151,25 +163,29 @@ export default function AdminDashboard() {
   const [branchId, setBranchId] = useState(() => { try { return localStorage.getItem('mydan_active_branch_id') || 'all'; } catch { return 'all'; } });
   const [supervisorId, setSupervisorId] = useState('all');
 
+  // Effective filters after applying role-based locks
+  const effectiveBranchId = isBranchLocked ? me!.branch_id! : branchId;
+  const effectiveRegionId = isRegionLocked && lockedRegionId ? lockedRegionId : regionId;
+
   // Cascading branches based on selected region
   const filteredBranches = useMemo(() => {
     const list = branches.data ?? [];
-    if (regionId === 'all') return list;
-    return list.filter((b) => b.region_id === regionId);
-  }, [branches.data, regionId]);
+    if (effectiveRegionId === 'all') return list;
+    return list.filter((b) => b.region_id === effectiveRegionId);
+  }, [branches.data, effectiveRegionId]);
 
   // Cascading supervisors based on selected branch/region
   const filteredSupervisors = useMemo(() => {
     const list = sups.items;
-    if (branchId !== 'all') {
-      return list.filter((s) => s.branch_id === branchId);
+    if (effectiveBranchId !== 'all') {
+      return list.filter((s) => s.branch_id === effectiveBranchId);
     }
-    if (regionId !== 'all') {
+    if (effectiveRegionId !== 'all') {
       const bSet = new Set(filteredBranches.map((b) => b.id));
       return list.filter((s) => s.branch_id && bSet.has(s.branch_id));
     }
     return list;
-  }, [sups.items, branchId, regionId, filteredBranches]);
+  }, [sups.items, effectiveBranchId, effectiveRegionId, filteredBranches]);
 
   const alertsQ = useAdminAlerts();
   const alerts: AdminAlertRow[] = alertsQ.data ?? [];
@@ -178,8 +194,8 @@ export default function AdminDashboard() {
   const q = useAdminKpis({
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
-    regionId: regionId !== 'all' ? regionId : undefined,
-    branchId: branchId !== 'all' ? branchId : undefined,
+    regionId: effectiveRegionId !== 'all' ? effectiveRegionId : undefined,
+    branchId: effectiveBranchId !== 'all' ? effectiveBranchId : undefined,
     supervisorId: supervisorId !== 'all' ? supervisorId : undefined,
   });
 
@@ -248,35 +264,39 @@ export default function AdminDashboard() {
           <button type="button" className={preset === 'all' ? 'active' : ''} onClick={() => applyPreset('all')}>{t('الكل')}</button>
         </div>
 
-        <select className="input" style={{ width: 150 }} value={regionId} onChange={(e) => {
-          setRegionId(e.target.value);
-          setBranchId('all');
-          setSupervisorId('all');
-        }}>
-          <option value="all">{t('كل الأقاليم')}</option>
-          {regions.data?.map((r) => <option key={r.id} value={r.id}>{r.name_en && t('كل الأقاليم') !== 'كل الأقاليم' ? r.name_en : t(r.name)}</option>)}
-        </select>
+        {!isRegionLocked && (
+          <select className="input" style={{ width: 150 }} value={regionId} onChange={(e) => {
+            setRegionId(e.target.value);
+            setBranchId('all');
+            setSupervisorId('all');
+          }}>
+            <option value="all">{t('كل الأقاليم')}</option>
+            {regions.data?.map((r) => <option key={r.id} value={r.id}>{r.name_en && t('كل الأقاليم') !== 'كل الأقاليم' ? r.name_en : t(r.name)}</option>)}
+          </select>
+        )}
 
-        <select className="input" style={{ width: 150 }} value={branchId} onChange={(e) => {
-          setBranchId(e.target.value);
-          setSupervisorId('all');
-        }}>
-          <option value="all">{t('كل الفروع')}</option>
-          {filteredBranches.map((b) => <option key={b.id} value={b.id}>{t(b.name)}</option>)}
-        </select>
+        {!isBranchLocked && !isRegionLocked && (
+          <select className="input" style={{ width: 150 }} value={branchId} onChange={(e) => {
+            setBranchId(e.target.value);
+            setSupervisorId('all');
+          }}>
+            <option value="all">{t('كل الفروع')}</option>
+            {filteredBranches.map((b) => <option key={b.id} value={b.id}>{t(b.name)}</option>)}
+          </select>
+        )}
 
         <select className="input" style={{ width: 165 }} value={supervisorId} onChange={(e) => setSupervisorId(e.target.value)}>
           <option value="all">{t('كل المستخدمين')}</option>
           {filteredSupervisors.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
         </select>
 
-        {(regionId !== 'all' || branchId !== 'all' || supervisorId !== 'all' || preset !== 'month') && (
+        {(!isRegionLocked && !isBranchLocked && (regionId !== 'all' || branchId !== 'all') || supervisorId !== 'all' || preset !== 'month') && (
           <button
             type="button"
             className="btn sm ghost"
             onClick={() => {
-              setRegionId('all');
-              setBranchId('all');
+              if (!isRegionLocked) setRegionId('all');
+              if (!isBranchLocked && !isRegionLocked) setBranchId('all');
               setSupervisorId('all');
               applyPreset('month');
             }}

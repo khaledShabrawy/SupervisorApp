@@ -4,7 +4,7 @@ import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BarChart3, Bell, Building2, Camera, ClipboardList, Download, FileText, GraduationCap, Home, LogOut, MapPin, Package, PieChart, ScanSearch, Settings2, ShieldCheck, ShoppingCart, Store, Target, Users } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
-import { canAdmin } from '@/lib/policy';
+import { canAdminPanel } from '@/lib/policy';
 import { notify } from '@/lib/toast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { LanguageToggle } from '@/components/LanguageToggle';
@@ -59,7 +59,7 @@ export default function AdminLayout() {
     message="تعذر التحقق من اشتراك الشركة. تحقق من الاتصال وأعد المحاولة."
     onRetry={() => void subscription.retry()} />;
   if (supervisor?.force_password_change) return <Navigate to="/set-password" replace />;
-  if (!canAdmin(supervisor)) return <Navigate to="/" replace />;
+  if (!canAdminPanel(supervisor)) return <Navigate to="/" replace />;
   if (subscription.isLocked) {
     return (
       <SubscriptionLockedView
