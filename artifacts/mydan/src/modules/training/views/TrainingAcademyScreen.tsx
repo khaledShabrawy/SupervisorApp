@@ -15,6 +15,17 @@ import { useDialogFocus } from '@/hooks/useDialogFocus';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { fmtDate } from '@/lib/format';
 import { t } from '@/i18n';
+import { LANG } from '@/i18n/lang';
+
+type BilingualItem = { title: string; title_ar?: string | null; title_en?: string | null; description?: string | null; description_ar?: string | null; description_en?: string | null };
+function pickTitle(item: BilingualItem): string {
+  if (LANG === 'en') return item.title_en?.trim() || item.title;
+  return item.title_ar?.trim() || item.title;
+}
+function pickDesc(item: BilingualItem): string {
+  if (LANG === 'en') return item.description_en?.trim() || item.description || '';
+  return item.description_ar?.trim() || item.description || '';
+}
 
 // ── FMCG Field Decision Scenarios ──────────────────────────────────────────
 interface ScenarioOption {
@@ -412,7 +423,7 @@ export default function TrainingAcademyScreen() {
             <div>
               {/* Course breadcrumb */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 17, color: '#1E293B' }}>{t(currentCourse?.title || 'المسار التدريبي')}</h3>
+                <h3 style={{ margin: 0, fontSize: 17, color: '#1E293B' }}>{currentCourse ? pickTitle(currentCourse) : t('المسار التدريبي')}</h3>
                 <button
                   type="button"
                   className="btn sm ghost"
@@ -473,7 +484,7 @@ export default function TrainingAcademyScreen() {
                   {/* Lesson Details */}
                   {currentLesson && (
                     <div className="card" style={{ marginBottom: 16, borderTop: '3px solid #3B82F6' }}>
-                      <h3 style={{ margin: '0 0 6px', fontSize: 17, color: '#0F172A' }}>{t(currentLesson.title)}</h3>
+                      <h3 style={{ margin: '0 0 6px', fontSize: 17, color: '#0F172A' }}>{pickTitle(currentLesson)}</h3>
                       {currentLesson.description && (
                         <p style={{ margin: 0, fontSize: 13.5, color: '#64748B', lineHeight: 1.5 }}>
                           {t(currentLesson.description)}
@@ -566,7 +577,7 @@ export default function TrainingAcademyScreen() {
                               )}
                               <div>
                                 <div style={{ fontSize: 13.5, fontWeight: isActive ? 'bold' : '500', color: isActive ? '#1D4ED8' : '#1E293B' }}>
-                                  {t(lesson.title)}
+                                  {pickTitle(lesson)}
                                 </div>
                                 {lesson.duration_seconds > 0 && (
                                   <div style={{ fontSize: 11.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -639,7 +650,7 @@ export default function TrainingAcademyScreen() {
                         </span>
                       </div>
 
-                      <h3 style={{ margin: '0 0 6px', fontSize: 16, color: '#0F172A' }}>{t(course.title)}</h3>
+                      <h3 style={{ margin: '0 0 6px', fontSize: 16, color: '#0F172A' }}>{pickTitle(course)}</h3>
                       {course.description && (
                         <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748B', lineHeight: 1.4 }}>
                           {t(course.description)}

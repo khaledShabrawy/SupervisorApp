@@ -10,8 +10,11 @@ import {
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { notify } from '@/lib/toast';
 import { t } from '@/i18n';
+import { LANG } from '@/i18n/lang';
 
-function tTraining(value?: string | null): string {
+type BilingualItem = { title: string; title_ar?: string | null; title_en?: string | null; description?: string | null; description_ar?: string | null; description_en?: string | null };
+
+function tFallback(value?: string | null): string {
   if (!value) return '';
   const trimmed = value.trim();
   const direct = t(trimmed);
@@ -20,11 +23,19 @@ function tTraining(value?: string | null): string {
   if (numbered) {
     const [, prefix, body] = numbered;
     const translatedBody = t(body.trim());
-    if (translatedBody !== body.trim()) {
-      return `${prefix}${translatedBody.replace(/^\d+\.\s*/, '')}`;
-    }
+    if (translatedBody !== body.trim()) return `${prefix}${translatedBody.replace(/^\d+\.\s*/, '')}`;
   }
   return value;
+}
+
+function pickTitle(item: BilingualItem): string {
+  if (LANG === 'en') return item.title_en?.trim() || tFallback(item.title);
+  return item.title_ar?.trim() || item.title;
+}
+
+function pickDesc(item: BilingualItem): string {
+  if (LANG === 'en') return item.description_en?.trim() || tFallback(item.description);
+  return item.description_ar?.trim() || item.description || '';
 }
 
 export default function AdminTraining() {
@@ -41,11 +52,16 @@ export default function AdminTraining() {
 
   // Modal / Form States
   const [showCourseModal, setShowCourseModal] = useState(false);
-  const [courseForm, setCourseForm] = useState({ id: '', title: '', description: '', category: 'مهارات المبيعات', display_order: 1 });
+  const [courseForm, setCourseForm] = useState({
+    id: '', title: '', title_en: '', title_ar: '',
+    description: '', description_en: '', description_ar: '',
+    category: 'مهارات المبيعات', display_order: 1
+  });
 
   const [showLessonModal, setShowLessonModal] = useState(false);
   const [lessonForm, setLessonForm] = useState({
-    id: '', course_id: '', title: '', description: '',
+    id: '', course_id: '', title: '', title_en: '', title_ar: '',
+    description: '', description_en: '', description_ar: '',
     video_url: '', duration_seconds: 180, display_order: 1, attachment_url: ''
   });
 
@@ -54,14 +70,15 @@ export default function AdminTraining() {
 
   // Open course form
   const openNewCourse = useCallback(() => {
-    setCourseForm({ id: '', title: '', description: '', category: 'مهارات المبيعات', display_order: (courses?.length ?? 0) + 1 });
+    setCourseForm({ id: '', title: '', title_en: '', title_ar: '', description: '', description_en: '', description_ar: '', category: 'مهارات المبيعات', display_order: (courses?.length ?? 0) + 1 });
     setShowCourseModal(true);
   }, [courses]);
 
   // Open lesson form
   const openNewLesson = useCallback((courseId: string) => {
     setLessonForm({
-      id: '', course_id: courseId, title: '', description: '',
+      id: '', course_id: courseId, title: '', title_en: '', title_ar: '',
+      description: '', description_en: '', description_ar: '',
       video_url: '', duration_seconds: 180, display_order: 1, attachment_url: ''
     });
     setShowLessonModal(true);
@@ -110,7 +127,11 @@ export default function AdminTraining() {
     await saveCourse.mutateAsync({
       id: courseForm.id || undefined,
       title: courseForm.title.trim(),
+      title_ar: courseForm.title_ar.trim() || null,
+      title_en: courseForm.title_en.trim() || null,
       description: courseForm.description.trim() || null,
+      description_ar: courseForm.description_ar.trim() || null,
+      description_en: courseForm.description_en.trim() || null,
       category: courseForm.category,
       display_order: Number(courseForm.display_order),
     });
@@ -132,7 +153,11 @@ export default function AdminTraining() {
       id: lessonForm.id || undefined,
       course_id: lessonForm.course_id,
       title: lessonForm.title.trim(),
+      title_ar: lessonForm.title_ar.trim() || null,
+      title_en: lessonForm.title_en.trim() || null,
       description: lessonForm.description.trim() || null,
+      description_ar: lessonForm.description_ar.trim() || null,
+      description_en: lessonForm.description_en.trim() || null,
       video_url: lessonForm.video_url.trim(),
       duration_seconds: Number(lessonForm.duration_seconds),
       display_order: Number(lessonForm.display_order),
@@ -228,10 +253,10 @@ export default function AdminTraining() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                     <div>
                       <span style={{ background: '#E0F2FE', color: '#0369A1', padding: '3px 10px', borderRadius: 16, fontSize: 12, fontWeight: 700 }}>
-                        {tTraining(course.category)}
+                        {tFallback(course.category)}
                       </span>
-                      <h2 dir="auto" style={{ margin: '8px 0 4px', fontSize: 18, color: '#1E293B' }}>{tTraining(course.title)}</h2>
-                      {course.description && <p dir="auto" style={{ margin: 0, color: '#64748B', fontSize: 14 }}>{tTraining(course.description)}</p>}
+                      <h2 dir="auto" style={{ margin: '8px 0 4px', fontSize: 18, color: '#1E293B' }}>{pickTitle(course)}</h2>
+                      {course.description && <p dir="auto" style={{ margin: 0, color: '#64748B', fontSize: 14 }}>{pickDesc(course)}</p>}
                     </div>
                     <button
                       onClick={() => openNewLesson(course.id)}
@@ -269,7 +294,7 @@ export default function AdminTraining() {
                                   {i + 1}
                                 </span>
                                 <div>
-                                  <div dir="auto" style={{ fontSize: 14, fontWeight: '600', color: '#1E293B' }}>{tTraining(lesson.title)}</div>
+                                  <div dir="auto" style={{ fontSize: 14, fontWeight: '600', color: '#1E293B' }}>{pickTitle(lesson)}</div>
                                   <div style={{ fontSize: 12, color: '#64748B', display: 'flex', gap: 12 }}>
                                     <span>{t('المدة: {m} دقيقة', { m: Math.floor(lesson.duration_seconds / 60) })}</span>
                                     {lesson.attachment_url && <span style={{ color: '#2563EB' }}>{t('✓ يوجد ملخص PDF')}</span>}
@@ -412,7 +437,7 @@ export default function AdminTraining() {
             <h3 style={{ margin: '0 0 16px', fontSize: 18 }}>{t('إضافة مسار تدريبي جديد')}</h3>
             <form onSubmit={submitCourse} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('عنوان المسار التدريبي')}</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('عنوان المسار (عربي)')} <span style={{ color: '#EF4444' }}>*</span></label>
                 <input
                   type="text"
                   required
@@ -421,6 +446,20 @@ export default function AdminTraining() {
                   onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
                   className="input"
                   style={{ width: '100%' }}
+                  dir="rtl"
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>Course Title (English)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. The Art of Effective Sales Visits"
+                  value={courseForm.title_en}
+                  onChange={(e) => setCourseForm({ ...courseForm, title_en: e.target.value })}
+                  className="input"
+                  style={{ width: '100%' }}
+                  dir="ltr"
                 />
               </div>
 
@@ -436,14 +475,28 @@ export default function AdminTraining() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('الوصف والهدف من المسار')}</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('الوصف والهدف من المسار (عربي)')}</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   placeholder={t('اكتب نبذة للمشرف توضح ما سيتعلمه في هذا المسار...')}
                   value={courseForm.description}
                   onChange={(e) => setCourseForm({ ...courseForm, description: e.target.value })}
                   className="input"
                   style={{ width: '100%' }}
+                  dir="rtl"
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>Course Description (English)</label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Learn the essential steps for effective field visits..."
+                  value={courseForm.description_en}
+                  onChange={(e) => setCourseForm({ ...courseForm, description_en: e.target.value })}
+                  className="input"
+                  style={{ width: '100%' }}
+                  dir="ltr"
                 />
               </div>
 
@@ -481,7 +534,7 @@ export default function AdminTraining() {
 
             <form onSubmit={submitLesson} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('عنوان الدرس')}</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('عنوان الدرس (عربي)')} <span style={{ color: '#EF4444' }}>*</span></label>
                 <input
                   type="text"
                   required
@@ -490,11 +543,25 @@ export default function AdminTraining() {
                   onChange={(e) => setLessonForm({ ...lessonForm, title: e.target.value })}
                   className="input"
                   style={{ width: '100%' }}
+                  dir="rtl"
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('نبذة عن الدرس')}</label>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>Lesson Title (English)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Steps to Open & Qualify a New Field Customer"
+                  value={lessonForm.title_en}
+                  onChange={(e) => setLessonForm({ ...lessonForm, title_en: e.target.value })}
+                  className="input"
+                  style={{ width: '100%' }}
+                  dir="ltr"
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 'bold', marginBottom: 4 }}>{t('نبذة عن الدرس (عربي)')}</label>
                 <textarea
                   rows={2}
                   placeholder={t('شرح موجز لأهم النقاط في الفيديو...')}
@@ -502,6 +569,7 @@ export default function AdminTraining() {
                   onChange={(e) => setLessonForm({ ...lessonForm, description: e.target.value })}
                   className="input"
                   style={{ width: '100%' }}
+                  dir="rtl"
                 />
               </div>
 

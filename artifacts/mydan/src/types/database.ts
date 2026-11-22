@@ -110,11 +110,15 @@ export interface Attendance {
 }
 export interface TrainingCourse {
   id: ID; company_id: ID; title: string; description: string | null;
+  title_ar?: string | null; title_en?: string | null;
+  description_ar?: string | null; description_en?: string | null;
   category: string; thumbnail_url: string | null; display_order: number;
   is_published: boolean; created_at: string;
 }
 export interface TrainingLesson {
   id: ID; course_id: ID; company_id: ID; title: string; description: string | null;
+  title_ar?: string | null; title_en?: string | null;
+  description_ar?: string | null; description_en?: string | null;
   video_url: string; duration_seconds: number; attachment_url: string | null;
   display_order: number; is_published: boolean; created_at: string;
 }
