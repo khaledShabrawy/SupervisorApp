@@ -64,8 +64,8 @@ importers:
   artifacts/mydan:
     dependencies:
       '@capacitor/android':
-        specifier: ^7.6.9
-        version: 7.6.9(@capacitor/core@7.6.9)
+        specifier: ^8.6.0
+        version: 8.6.0(@capacitor/core@7.6.9)
       '@capacitor/core':
         specifier: ^7.6.9
         version: 7.6.9
@@ -629,10 +629,10 @@ packages:
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
     engines: {node: '>=6.9.0'}
 
-  '@capacitor/android@7.6.9':
-    resolution: {integrity: sha512-jvfU42aOuj92/KJqRscfDm+5612WzJainFL09xjJgD9oI3OMXN4PBfccn8Ig9i8x7bkVqZv/XNwFshiIRqmggg==}
+  '@capacitor/android@8.6.0':
+    resolution: {integrity: sha512-6IJS0TCfV/F/8+324CCwYd3xL6r+TH0W7zzaxYzPz9IV3YWCNvsZDuCCPHUIBC5iASb9od827ddSJ6rz+9Pu1Q==}
     peerDependencies:
-      '@capacitor/core': ^7.6.0
+      '@capacitor/core': ^8.6.0
 
   '@capacitor/cli@7.6.10':
     resolution: {integrity: sha512-8S0h44+339hCJyDw0EWqKz4ivR08tzSY35WzSs49pQ4gNOrGiyKpBUaZc08zlJgvN8yfzMY1pi8QfKDsSn1eHg==}
@@ -3185,7 +3185,7 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@capacitor/android@7.6.9(@capacitor/core@7.6.9)':
+  '@capacitor/android@8.6.0(@capacitor/core@7.6.9)':
     dependencies:
       '@capacitor/core': 7.6.9
 
