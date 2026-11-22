@@ -250,11 +250,24 @@ function CustomerForm({ edit, sups, onClose }: { edit: AdminCustomerRow | null; 
     <button className="btn" disabled={m.isPending}>{m.isPending ? t('جاري الحفظ...') : t('حفظ')}</button>
   </Modal>;
 }
+function sourceLabel(createdBy: string | null | undefined): { label: string; cls: string } | null {
+  if (!createdBy) return null;
+  if (createdBy === 'import' || createdBy === 'upload' || createdBy === 'system_import') return { label: t('رفع ملف'), cls: 'b-blue' };
+  if (createdBy === 'system' || createdBy === 'admin_manual') return { label: t('النظام'), cls: 'b-gray' };
+  // UUID pattern — real user
+  if (/^[0-9a-f-]{36}$/i.test(createdBy)) return { label: t('مستخدم'), cls: 'b-green' };
+  return null;
+}
+
 export function AdminCustomers() {
   const { supervisor } = useAuth();
   const [search, setSearch] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
   const [supFilter, setSupFilter] = useState('all');
+  const [createdFrom, setCreatedFrom] = useState('');
+  const [createdTo, setCreatedTo] = useState('');
+  const [updatedFrom, setUpdatedFrom] = useState('');
+  const [updatedTo, setUpdatedTo] = useState('');
   const branches = useBranches();
   const sups = useSupervisors();
 
@@ -280,8 +293,21 @@ export function AdminCustomers() {
   const [deleteTarget, setDeleteTarget] = useState<AdminCustomerRow | null>(null);
   const canDelete = ['admin', 'super_admin', 'branch_manager', 'manager'].includes(supervisor?.role ?? '');
 
+  const dateFilteredItems = useMemo(() => {
+    if (!createdFrom && !createdTo && !updatedFrom && !updatedTo) return q.items;
+    return q.items.filter((c) => {
+      if (createdFrom && c.created_at && c.created_at < createdFrom) return false;
+      if (createdTo && c.created_at && c.created_at > createdTo + 'T23:59:59') return false;
+      if (updatedFrom && c.updated_at && c.updated_at < updatedFrom) return false;
+      if (updatedTo && c.updated_at && c.updated_at > updatedTo + 'T23:59:59') return false;
+      return true;
+    });
+  }, [q.items, createdFrom, createdTo, updatedFrom, updatedTo]);
+
+  const hasDateFilter = !!(createdFrom || createdTo || updatedFrom || updatedTo);
+
   const handleExportCustomers = () => {
-    if (!q.items.length) return;
+    if (!dateFilteredItems.length) return;
     exportToCsv(
       `Customers_${new Date().toISOString().slice(0, 10)}`,
       [
@@ -295,9 +321,11 @@ export function AdminCustomers() {
         { header: t('خط العرض'), accessor: (c) => c.latitude ?? '' },
         { header: t('خط الطول'), accessor: (c) => c.longitude ?? '' },
         { header: t('المشرف المسؤول'), accessor: (c) => c.supervisors?.full_name || '' },
+        { header: t('تاريخ الإنشاء'), accessor: (c) => c.created_at ? new Date(c.created_at).toLocaleDateString('ar-EG') : '' },
+        { header: t('المصدر'), accessor: (c) => sourceLabel(c.created_by)?.label ?? '' },
         { header: t('الحالة'), accessor: (c) => (c.is_active ? t('نشط') : t('متوقف')) },
       ],
-      q.items
+      dateFilteredItems
     );
   };
 
@@ -309,7 +337,7 @@ export function AdminCustomers() {
           type="button"
           className="btn ghost"
           onClick={handleExportCustomers}
-          disabled={!q.items.length}
+          disabled={!dateFilteredItems.length}
           title={t('تصدير بيانات العملاء إلى ملف Excel')}
         >
           <Download size={16} /> {t('تصدير Excel')}
@@ -333,37 +361,78 @@ export function AdminCustomers() {
         <button className="btn sm ghost" onClick={() => { setSearch(''); setBranchFilter('all'); setSupFilter('all'); }}>{t('إعادة ضبط')}</button>
       )}
     </div>
+
+    {/* Date Filters */}
+    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: '10px 14px', margin: '8px 0 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontWeight: 700, fontSize: 12, color: '#475569' }}>{t('فلتر بالتاريخ')}</span>
+        {hasDateFilter && (
+          <button className="btn ghost sm" style={{ fontSize: 11, color: '#EF4444', borderColor: '#EF4444', padding: '2px 8px' }}
+            onClick={() => { setCreatedFrom(''); setCreatedTo(''); setUpdatedFrom(''); setUpdatedTo(''); }}>
+            {t('مسح')}
+          </button>
+        )}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 2 }}>{t('تاريخ الإنشاء من')}</label>
+          <input type="date" className="input" style={{ width: '100%', fontSize: 12, padding: '4px 6px' }} value={createdFrom} onChange={(e) => setCreatedFrom(e.target.value)} dir="ltr" />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 2 }}>{t('إلى')}</label>
+          <input type="date" className="input" style={{ width: '100%', fontSize: 12, padding: '4px 6px' }} value={createdTo} onChange={(e) => setCreatedTo(e.target.value)} dir="ltr" />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 2 }}>{t('تاريخ التعديل من')}</label>
+          <input type="date" className="input" style={{ width: '100%', fontSize: 12, padding: '4px 6px' }} value={updatedFrom} onChange={(e) => setUpdatedFrom(e.target.value)} dir="ltr" />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 2 }}>{t('إلى')}</label>
+          <input type="date" className="input" style={{ width: '100%', fontSize: 12, padding: '4px 6px' }} value={updatedTo} onChange={(e) => setUpdatedTo(e.target.value)} dir="ltr" />
+        </div>
+      </div>
+      {hasDateFilter && <div style={{ marginTop: 6, fontSize: 12, color: '#475569' }}>{t('تعرض')} <strong>{dateFilteredItems.length}</strong> {t('من أصل')} <strong>{q.items.length}</strong> {t('سجل')}</div>}
+    </div>
+
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
-      : !q.items.length ? <EmptyState icon={<Store />} title={t('لا يوجد عملاء')} action={{ label: t('إضافة عميل'), onClick: () => setEdit(null) }} />
+      : !dateFilteredItems.length ? <EmptyState icon={<Store />} title={hasDateFilter ? t('لا توجد سجلات في هذا النطاق الزمني') : t('لا يوجد عملاء')} action={!hasDateFilter ? { label: t('إضافة عميل'), onClick: () => setEdit(null) } : undefined} />
       : <div className="adm-table-wrap"><table className="adm-table">
-          <thead><tr><th>{t('الكود')}</th><th>{t('الاسم')}</th><th>{t('النوع')}</th><th>{t('الهاتف')}</th><th>{t('الفرع')}</th><th>{t('المشرف')}</th><th>{t('الحالة')}</th><th /></tr></thead>
-          <tbody>{q.items.map((c) => <tr key={c.id}>
-            <td dir="ltr" style={{ fontWeight: 600, color: 'var(--color-primary)', fontSize: 13, whiteSpace: 'nowrap' }}>{c.customer_code || '—'}</td>
-            <td><div className="title">{c.name}</div><div className="muted" style={{ fontSize: 12 }}>{c.address}</div></td>
-            <td>{c.type}</td>
-            <td dir="ltr" style={{ textAlign: 'start' }}>{c.phone ?? '—'}</td>
-            <td>{c.branch ?? '—'}</td>
-            <td>{c.supervisors?.full_name ?? '—'}</td>
-            <td><span className={`badge ${c.is_active ? 'b-green' : 'b-gray'}`}>{c.is_active ? t('نشط') : t('متوقف')}</span></td>
-            <td className="row gap-1">
-              <button className="btn sm ghost" onClick={() => setEdit(c)}>{t('تعديل')}</button>
-              {c.is_active ? (
-                <button className="btn sm ghost danger" title={t('تعطيل')} onClick={async () => { if (await confirm(t('تعطيل العميل؟'))) toggleActive.mutate({ id: c.id, is_active: false }); }}><Trash2 size={14} /></button>
-              ) : (
-                <button className="btn sm ghost success" title={t('تفعيل')} onClick={async () => { if (await confirm(t('إعادة تفعيل العميل؟'))) toggleActive.mutate({ id: c.id, is_active: true }); }}>{t('تفعيل')}</button>
-              )}
-              {canDelete && (
-                <button
-                  className="btn sm danger"
-                  style={{ padding: '4px 8px', fontSize: 11 }}
-                  title={t('حذف نهائي (مدراء فقط)')}
-                  onClick={() => setDeleteTarget(c)}
-                >
-                  {t('حذف')}
-                </button>
-              )}
-            </td>
-          </tr>)}</tbody>
+          <thead><tr><th>{t('الكود')}</th><th>{t('الاسم')}</th><th>{t('النوع')}</th><th>{t('الهاتف')}</th><th>{t('الفرع')}</th><th>{t('المشرف')}</th><th>{t('المصدر')}</th><th>{t('الحالة')}</th><th /></tr></thead>
+          <tbody>{dateFilteredItems.map((c) => {
+            const src = sourceLabel(c.created_by);
+            return <tr key={c.id}>
+              <td dir="ltr" style={{ fontWeight: 600, color: 'var(--color-primary)', fontSize: 13, whiteSpace: 'nowrap' }}>{c.customer_code || '—'}</td>
+              <td>
+                <div className="title">{c.name}</div>
+                <div className="muted" style={{ fontSize: 12 }}>{c.address}</div>
+                {c.created_at && <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 1 }}>{new Date(c.created_at).toLocaleDateString('ar-EG')}</div>}
+              </td>
+              <td>{c.type}</td>
+              <td dir="ltr" style={{ textAlign: 'start' }}>{c.phone ?? '—'}</td>
+              <td>{c.branch ?? '—'}</td>
+              <td>{c.supervisors?.full_name ?? '—'}</td>
+              <td>{src ? <span className={`badge ${src.cls}`} style={{ fontSize: 11 }}>{src.label}</span> : <span className="muted">—</span>}</td>
+              <td><span className={`badge ${c.is_active ? 'b-green' : 'b-gray'}`}>{c.is_active ? t('نشط') : t('متوقف')}</span></td>
+              <td className="row gap-1">
+                <button className="btn sm ghost" onClick={() => setEdit(c)}>{t('تعديل')}</button>
+                {c.is_active ? (
+                  <button className="btn sm ghost danger" title={t('تعطيل')} onClick={async () => { if (await confirm(t('تعطيل العميل؟'))) toggleActive.mutate({ id: c.id, is_active: false }); }}><Trash2 size={14} /></button>
+                ) : (
+                  <button className="btn sm ghost success" title={t('تفعيل')} onClick={async () => { if (await confirm(t('إعادة تفعيل العميل؟'))) toggleActive.mutate({ id: c.id, is_active: true }); }}>{t('تفعيل')}</button>
+                )}
+                {canDelete && (
+                  <button
+                    className="btn sm danger"
+                    style={{ padding: '4px 8px', fontSize: 11 }}
+                    title={t('حذف نهائي (مدراء فقط)')}
+                    onClick={() => setDeleteTarget(c)}
+                  >
+                    {t('حذف')}
+                  </button>
+                )}
+              </td>
+            </tr>;
+          })}</tbody>
         </table></div>}
     <LoadMore q={q} />
     {edit !== undefined && <CustomerForm edit={edit} sups={sups.items} onClose={() => setEdit(undefined)} />}
@@ -759,6 +828,10 @@ function ProductForm({ edit, onClose }: { edit: CatalogProduct | null; onClose: 
 export function AdminProducts() {
   const [availability, setAvailability] = useState<'all' | 'active' | 'inactive'>('all');
   const [search, setSearch] = useState('');
+  const [prodCreatedFrom, setProdCreatedFrom] = useState('');
+  const [prodCreatedTo, setProdCreatedTo] = useState('');
+  const [prodUpdatedFrom, setProdUpdatedFrom] = useState('');
+  const [prodUpdatedTo, setProdUpdatedTo] = useState('');
   const q = useAdminProducts(availability);
   const retry = useRefetch(q.refetch);
   const toggleActive = useToggleActiveRecord('products', 'products');
@@ -766,19 +839,28 @@ export function AdminProducts() {
   const [edit, setEdit] = useState<CatalogProduct | null | undefined>(undefined);
 
   const filteredItems = useMemo(() => {
-    if (!search.trim()) return q.items;
-    const term = search.trim().toLowerCase();
-    return q.items.filter((p) =>
-      (p.name || '').toLowerCase().includes(term) ||
-      (p.sku || '').toLowerCase().includes(term) ||
-      (p.item_code || '').toLowerCase().includes(term) ||
-      (p.master_brand || '').toLowerCase().includes(term) ||
-      (p.sub_brand || '').toLowerCase().includes(term) ||
-      (p.category || '').toLowerCase().includes(term) ||
-      (p.unit || '').toLowerCase().includes(term) ||
-      (p.units_per_carton != null && String(p.units_per_carton).includes(term))
-    );
-  }, [q.items, search]);
+    let items = q.items;
+    if (search.trim()) {
+      const term = search.trim().toLowerCase();
+      items = items.filter((p) =>
+        (p.name || '').toLowerCase().includes(term) ||
+        (p.sku || '').toLowerCase().includes(term) ||
+        (p.item_code || '').toLowerCase().includes(term) ||
+        (p.master_brand || '').toLowerCase().includes(term) ||
+        (p.sub_brand || '').toLowerCase().includes(term) ||
+        (p.category || '').toLowerCase().includes(term) ||
+        (p.unit || '').toLowerCase().includes(term) ||
+        (p.units_per_carton != null && String(p.units_per_carton).includes(term))
+      );
+    }
+    if (prodCreatedFrom) items = items.filter((p) => !p.created_at || p.created_at >= prodCreatedFrom);
+    if (prodCreatedTo)   items = items.filter((p) => !p.created_at || p.created_at <= prodCreatedTo + 'T23:59:59');
+    if (prodUpdatedFrom) items = items.filter((p) => !p.updated_at || p.updated_at >= prodUpdatedFrom);
+    if (prodUpdatedTo)   items = items.filter((p) => !p.updated_at || p.updated_at <= prodUpdatedTo + 'T23:59:59');
+    return items;
+  }, [q.items, search, prodCreatedFrom, prodCreatedTo, prodUpdatedFrom, prodUpdatedTo]);
+
+  const hasDateFilter = !!(prodCreatedFrom || prodCreatedTo || prodUpdatedFrom || prodUpdatedTo);
 
   return <>
     <div className="row between items-center">
@@ -790,7 +872,7 @@ export function AdminProducts() {
       </div>
       <button className="btn" onClick={() => setEdit(null)}><Plus size={18} /> {t('منتج جديد')}</button>
     </div>
-    <div className="row" style={{ gap: 10, alignItems: 'center', margin: '14px 0 12px', flexWrap: 'wrap' }}>
+    <div className="row" style={{ gap: 10, alignItems: 'center', margin: '14px 0 8px', flexWrap: 'wrap' }}>
       <div className="row items-center" style={{ gap: 8, flex: '1 1 280px', maxWidth: 420, position: 'relative' }}>
         <input
           className="input block"
@@ -811,14 +893,47 @@ export function AdminProducts() {
           <option value="inactive">{t('غير المتاحة (المتوقفة)')}</option>
         </select>
       </div>
-      {search && (
-        <button className="btn sm ghost" onClick={() => setSearch('')}>
-          {t('مسح البحث')}
+      {(search || hasDateFilter) && (
+        <button className="btn sm ghost" onClick={() => { setSearch(''); setProdCreatedFrom(''); setProdCreatedTo(''); setProdUpdatedFrom(''); setProdUpdatedTo(''); }}>
+          {t('مسح الفلاتر')}
         </button>
       )}
     </div>
+
+    {/* Date Filters */}
+    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: '10px 14px', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontWeight: 700, fontSize: 12, color: '#475569' }}>{t('فلتر بالتاريخ')}</span>
+        {hasDateFilter && (
+          <button className="btn ghost sm" style={{ fontSize: 11, color: '#EF4444', borderColor: '#EF4444', padding: '2px 8px' }}
+            onClick={() => { setProdCreatedFrom(''); setProdCreatedTo(''); setProdUpdatedFrom(''); setProdUpdatedTo(''); }}>
+            {t('مسح')}
+          </button>
+        )}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 2 }}>{t('تاريخ الإنشاء من')}</label>
+          <input type="date" className="input" style={{ width: '100%', fontSize: 12, padding: '4px 6px' }} value={prodCreatedFrom} onChange={(e) => setProdCreatedFrom(e.target.value)} dir="ltr" />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 2 }}>{t('إلى')}</label>
+          <input type="date" className="input" style={{ width: '100%', fontSize: 12, padding: '4px 6px' }} value={prodCreatedTo} onChange={(e) => setProdCreatedTo(e.target.value)} dir="ltr" />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 2 }}>{t('تاريخ التعديل من')}</label>
+          <input type="date" className="input" style={{ width: '100%', fontSize: 12, padding: '4px 6px' }} value={prodUpdatedFrom} onChange={(e) => setProdUpdatedFrom(e.target.value)} dir="ltr" />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 2 }}>{t('إلى')}</label>
+          <input type="date" className="input" style={{ width: '100%', fontSize: 12, padding: '4px 6px' }} value={prodUpdatedTo} onChange={(e) => setProdUpdatedTo(e.target.value)} dir="ltr" />
+        </div>
+      </div>
+      {hasDateFilter && <div style={{ marginTop: 6, fontSize: 12, color: '#475569' }}>{t('تعرض')} <strong>{filteredItems.length}</strong> {t('من أصل')} <strong>{q.items.length}</strong> {t('سجل')}</div>}
+    </div>
+
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
-      : !filteredItems.length ? <EmptyState icon={<Package />} title={search ? t('لا توجد نتائج للبحث') : t('لا توجد منتجات')} />
+      : !filteredItems.length ? <EmptyState icon={<Package />} title={search || hasDateFilter ? t('لا توجد نتائج للفلاتر المحددة') : t('لا توجد منتجات')} />
       : <div className="adm-table-wrap"><table className="adm-table">
           <thead><tr>
             <th>{t('كود الصنف')}</th>
@@ -826,24 +941,33 @@ export function AdminProducts() {
             <th>Master Brand</th>
             <th>Sub Brand</th>
             <th>{t('التعبئة والوحدة')}</th>
+            <th>{t('المصدر')}</th>
             <th>{t('الحالة')}</th>
             <th />
           </tr></thead>
-          <tbody>{filteredItems.map((p) => <tr key={p.id}>
-            <td dir="ltr" style={{ fontWeight: 600, color: 'var(--color-primary)' }}>{p.item_code || p.sku || '—'}</td>
-            <td className="title">{p.name}</td>
-            <td>{p.master_brand || '—'}</td>
-            <td>{p.sub_brand || '—'}</td>
-            <td>{p.units_per_carton && p.units_per_carton > 1 ? `${p.units_per_carton} ${p.unit || 'قطعة'} / كرتونة` : (p.unit || 'قطعة')}</td>
-            <td><span className={`badge ${p.is_active ? 'b-green' : 'b-gray'}`}>{p.is_active ? t('متاح') : t('متوقف')}</span></td>
-            <td className="row gap-1">
-              <button className="btn sm ghost" onClick={() => setEdit(p)}>{t('تعديل')}</button>
-              {p.is_active ? (
-                <button className="btn sm ghost danger" title={t('تعطيل')} onClick={async () => { if (await confirm(t('تعطيل المنتج؟'))) toggleActive.mutate({ id: p.id, is_active: false }); }}><Trash2 size={14} /></button>
-              ) : (
-                <button className="btn sm ghost success" title={t('تفعيل')} onClick={async () => { if (await confirm(t('إعادة تفعيل المنتج؟'))) toggleActive.mutate({ id: p.id, is_active: true }); }}>{t('تفعيل')}</button>
-              )}
-            </td></tr>)}</tbody>
+          <tbody>{filteredItems.map((p) => {
+            const src = sourceLabel(p.created_by);
+            return <tr key={p.id}>
+              <td dir="ltr" style={{ fontWeight: 600, color: 'var(--color-primary)' }}>{p.item_code || p.sku || '—'}</td>
+              <td>
+                <div className="title">{p.name}</div>
+                {p.created_at && <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 1 }}>{new Date(p.created_at).toLocaleDateString('ar-EG')}</div>}
+              </td>
+              <td>{p.master_brand || '—'}</td>
+              <td>{p.sub_brand || '—'}</td>
+              <td>{p.units_per_carton && p.units_per_carton > 1 ? `${p.units_per_carton} ${p.unit || 'قطعة'} / كرتونة` : (p.unit || 'قطعة')}</td>
+              <td>{src ? <span className={`badge ${src.cls}`} style={{ fontSize: 11 }}>{src.label}</span> : <span className="muted">—</span>}</td>
+              <td><span className={`badge ${p.is_active ? 'b-green' : 'b-gray'}`}>{p.is_active ? t('متاح') : t('متوقف')}</span></td>
+              <td className="row gap-1">
+                <button className="btn sm ghost" onClick={() => setEdit(p)}>{t('تعديل')}</button>
+                {p.is_active ? (
+                  <button className="btn sm ghost danger" title={t('تعطيل')} onClick={async () => { if (await confirm(t('تعطيل المنتج؟'))) toggleActive.mutate({ id: p.id, is_active: false }); }}><Trash2 size={14} /></button>
+                ) : (
+                  <button className="btn sm ghost success" title={t('تفعيل')} onClick={async () => { if (await confirm(t('إعادة تفعيل المنتج؟'))) toggleActive.mutate({ id: p.id, is_active: true }); }}>{t('تفعيل')}</button>
+                )}
+              </td>
+            </tr>;
+          })}</tbody>
         </table></div>}
     <LoadMore q={q} />
     {edit !== undefined && <ProductForm edit={edit} onClose={() => setEdit(undefined)} />}
@@ -1352,30 +1476,98 @@ function AuditDetail({ row }: { row: AuditRow }) {
 }
 export function AdminAuditLogs() {
   const [tableFilter, setTableFilter] = useState('');
-  const q = useAuditLogs(tableFilter);
+  const [actionFilter, setActionFilter] = useState('');
+  const [auditDateFrom, setAuditDateFrom] = useState('');
+  const [auditDateTo, setAuditDateTo] = useState('');
+  const [auditSearch, setAuditSearch] = useState('');
+
+  const q = useAuditLogs(tableFilter, auditDateFrom || undefined, auditDateTo || undefined);
   const retry = useRefetch(q.refetch);
+
+  const filteredItems = useMemo(() => {
+    if (!actionFilter && !auditSearch) return q.items;
+    return q.items.filter((r) => {
+      if (actionFilter && r.action !== actionFilter) return false;
+      if (auditSearch) {
+        const term = auditSearch.toLowerCase();
+        const inPerformed = String(r.performed_by ?? '').toLowerCase().includes(term);
+        const inTable = String(r.table_name ?? '').toLowerCase().includes(term);
+        const inNewData = r.new_data ? JSON.stringify(r.new_data).toLowerCase().includes(term) : false;
+        if (!inPerformed && !inTable && !inNewData) return false;
+      }
+      return true;
+    });
+  }, [q.items, actionFilter, auditSearch]);
+
+  const hasFilter = !!(tableFilter || actionFilter || auditDateFrom || auditDateTo || auditSearch);
+
   return <>
     <div className="row between" style={{ flexWrap: 'wrap', gap: 10 }}>
       <h2>{t('سجل المراجعة')}</h2>
-      <select className="input" style={{ width: 'auto', minWidth: 160, minHeight: 40 }} value={tableFilter} onChange={(e) => setTableFilter(e.target.value)}>
-        {TABLE_OPTIONS.map((k) => <option key={k} value={k}>{t(TABLE_LABELS[k] ?? k)}</option>)}
-      </select>
+      {q.data && <span className="badge b-blue">{hasFilter ? `${filteredItems.length} / ${q.items.length}` : q.items.length}</span>}
     </div>
+
+    {/* Filter Bar */}
+    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: '12px 16px', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <span style={{ fontWeight: 700, fontSize: 13, color: '#475569' }}>{t('فلترة السجلات')}</span>
+        {hasFilter && (
+          <button className="btn ghost sm" style={{ fontSize: 12, color: '#EF4444', borderColor: '#EF4444', padding: '2px 10px' }}
+            onClick={() => { setTableFilter(''); setActionFilter(''); setAuditDateFrom(''); setAuditDateTo(''); setAuditSearch(''); }}>
+            {t('مسح الفلاتر')}
+          </button>
+        )}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('الجدول')}</label>
+          <select className="input" style={{ width: '100%', fontSize: 13, padding: '5px 8px' }} value={tableFilter} onChange={(e) => setTableFilter(e.target.value)}>
+            {TABLE_OPTIONS.map((k) => <option key={k} value={k}>{t(TABLE_LABELS[k] ?? k)}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('نوع الإجراء')}</label>
+          <select className="input" style={{ width: '100%', fontSize: 13, padding: '5px 8px' }} value={actionFilter} onChange={(e) => setActionFilter(e.target.value)}>
+            <option value="">{t('الكل')}</option>
+            <option value="INSERT">{t('إضافة')}</option>
+            <option value="UPDATE">{t('تعديل')}</option>
+            <option value="DELETE">{t('حذف')}</option>
+          </select>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('بحث (بيانات/منفذ)')}</label>
+          <input className="input" style={{ width: '100%', fontSize: 13, padding: '5px 8px' }} placeholder={t('بحث...')} value={auditSearch} onChange={(e) => setAuditSearch(e.target.value)} />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('التاريخ من')}</label>
+          <input type="date" className="input" style={{ width: '100%', fontSize: 13, padding: '5px 8px' }} value={auditDateFrom} onChange={(e) => setAuditDateFrom(e.target.value)} dir="ltr" />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('إلى')}</label>
+          <input type="date" className="input" style={{ width: '100%', fontSize: 13, padding: '5px 8px' }} value={auditDateTo} onChange={(e) => setAuditDateTo(e.target.value)} dir="ltr" />
+        </div>
+      </div>
+    </div>
+
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
-      : !q.items.length ? <EmptyState icon={<Bell />} title={t('لا توجد سجلات')} />
+      : !filteredItems.length ? <EmptyState icon={<Bell />} title={t('لا توجد سجلات')} text={hasFilter ? t('لا توجد سجلات تطابق الفلاتر المحددة') : t('لم يتم تسجيل أي تعديلات بعد')} />
       : <div className="adm-table-wrap"><table className="adm-table">
           <thead><tr>
             <th>{t('التاريخ')}</th>
             <th>{t('الجدول')}</th>
             <th>{t('الإجراء')}</th>
-            <th>{t('المشرف')}</th>
+            <th>{t('منفذ بواسطة')}</th>
             <th />
           </tr></thead>
-          <tbody>{q.items.map((r) => <tr key={r.id}>
+          <tbody>{filteredItems.map((r) => <tr key={r.id}>
             <td style={{ fontSize: 12, whiteSpace: 'nowrap' }} dir="ltr">{new Date(r.created_at).toLocaleString('ar-EG', { dateStyle: 'short', timeStyle: 'short' })}</td>
             <td style={{ fontSize: 13 }}>{t(TABLE_LABELS[r.table_name] ?? r.table_name)}</td>
             <td><span className={`badge ${ACTION_BADGE[r.action] ?? 'b-gray'}`}>{t(ACTION_LABEL[r.action] ?? r.action)}</span></td>
-            <td style={{ fontSize: 13 }}>{r.supervisors?.full_name ?? '—'}</td>
+            <td style={{ fontSize: 12 }}>
+              {r.performed_by
+                ? <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#475569', background: '#F1F5F9', padding: '2px 6px', borderRadius: 4 }}>{String(r.performed_by).slice(0, 8)}…</span>
+                : <span className="muted">—</span>}
+            </td>
             <td><AuditDetail row={r} /></td>
           </tr>)}</tbody>
         </table></div>}
@@ -1651,38 +1843,131 @@ const FS_STATUS: Record<string, { label: string; cls: string }> = {
 export function AdminFieldSurveys() {
   const q = useAdminFieldSurveys();
   const retry = useRefetch(q.refetch);
+
+  const [fsCode,       setFsCode]       = useState('');
+  const [fsName,       setFsName]       = useState('');
+  const [fsBranch,     setFsBranch]     = useState('');
+  const [fsRegion,     setFsRegion]     = useState('');
+  const [fsDateFrom,   setFsDateFrom]   = useState('');
+  const [fsDateTo,     setFsDateTo]     = useState('');
+  const [fsStatus,     setFsStatus]     = useState('');
+
+  const hasFilter = !!(fsCode || fsName || fsBranch || fsRegion || fsDateFrom || fsDateTo || fsStatus);
+
+  const clearFilters = useCallback(() => {
+    setFsCode(''); setFsName(''); setFsBranch(''); setFsRegion('');
+    setFsDateFrom(''); setFsDateTo(''); setFsStatus('');
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!q.data) return [];
+    return q.data.filter((r) => {
+      if (fsCode   && !String(r.supervisors?.supervisor_code ?? '').toLowerCase().includes(fsCode.toLowerCase())) return false;
+      if (fsName   && !String(r.supervisors?.full_name ?? '').toLowerCase().includes(fsName.toLowerCase())) return false;
+      if (fsBranch && !String(r.supervisors?.branch?.name ?? '').toLowerCase().includes(fsBranch.toLowerCase())) return false;
+      if (fsRegion && !String(r.supervisors?.branch?.region ?? '').toLowerCase().includes(fsRegion.toLowerCase())) return false;
+      if (fsStatus && r.status !== fsStatus) return false;
+      const day = r.created_at.slice(0, 10);
+      if (fsDateFrom && day < fsDateFrom) return false;
+      if (fsDateTo   && day > fsDateTo)   return false;
+      return true;
+    });
+  }, [q.data, fsCode, fsName, fsBranch, fsRegion, fsDateFrom, fsDateTo, fsStatus]);
+
   const handleExport = useCallback(() => {
-    if (!q.data?.length) return;
+    if (!filtered.length) return;
     exportToCsv<FieldSurveyRecord>('سجل-المسح-الميداني', [
       { header: 'المشرف',         accessor: (r) => r.supervisors?.full_name ?? '' },
+      { header: 'كود المشرف',     accessor: (r) => r.supervisors?.supervisor_code ?? '' },
+      { header: 'الفرع',          accessor: (r) => r.supervisors?.branch?.name ?? '' },
+      { header: 'المنطقة',        accessor: (r) => r.supervisors?.branch?.region ?? '' },
       { header: 'الحالة',         key: 'status' },
       { header: 'محلات مكتشفة',  key: 'stores_found' },
       { header: 'التاريخ',        accessor: (r) => new Date(r.created_at).toLocaleDateString('ar-EG') },
       { header: 'خط العرض',      key: 'latitude' },
       { header: 'خط الطول',      key: 'longitude' },
-    ], q.data);
-  }, [q.data]);
+    ], filtered);
+  }, [filtered]);
+
   return <>
     <div className="row between">
       <h2>{t('سجل المسح الميداني')}</h2>
       <div className="row" style={{ gap: 8 }}>
-        {q.data && <span className="badge b-blue">{q.data.length}</span>}
-        {!!q.data?.length && <button className="btn sm ghost" onClick={handleExport}><Download size={15} /> {t('تصدير CSV')}</button>}
+        {q.data && (
+          <span className="badge b-blue">
+            {hasFilter ? `${filtered.length} / ${q.data.length}` : q.data.length}
+          </span>
+        )}
+        {!!filtered.length && <button className="btn sm ghost" onClick={handleExport}><Download size={15} /> {t('تصدير CSV')}</button>}
       </div>
     </div>
     <p className="muted" style={{ marginTop: 0 }}>{t('سجلات المسح الميداني بالذكاء الاصطناعي — اكتشاف المحلات عبر الكاميرا.')}</p>
+
+    {/* Filter Bar */}
+    {q.data && q.data.length > 0 && (
+      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: '12px 16px', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <span style={{ fontWeight: 700, fontSize: 13, color: '#475569' }}>{t('فلترة السجلات')}</span>
+          {hasFilter && (
+            <button className="btn ghost sm" style={{ fontSize: 12, color: '#EF4444', borderColor: '#EF4444', padding: '2px 10px' }} onClick={clearFilters}>
+              {t('مسح الفلاتر')}
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('كود المشرف')}</label>
+            <input className="input" style={{ width: '100%', fontSize: 13, padding: '5px 8px' }} placeholder="SUP-001..." value={fsCode} onChange={(e) => setFsCode(e.target.value)} dir="ltr" />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('اسم المشرف')}</label>
+            <input className="input" style={{ width: '100%', fontSize: 13, padding: '5px 8px' }} placeholder={t('بحث...')} value={fsName} onChange={(e) => setFsName(e.target.value)} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('الفرع')}</label>
+            <input className="input" style={{ width: '100%', fontSize: 13, padding: '5px 8px' }} placeholder={t('بحث...')} value={fsBranch} onChange={(e) => setFsBranch(e.target.value)} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>Region</label>
+            <input className="input" style={{ width: '100%', fontSize: 13, padding: '5px 8px' }} placeholder={t('بحث...')} value={fsRegion} onChange={(e) => setFsRegion(e.target.value)} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('الحالة')}</label>
+            <select className="input" style={{ width: '100%', fontSize: 13, padding: '5px 8px' }} value={fsStatus} onChange={(e) => setFsStatus(e.target.value)}>
+              <option value="">{t('الكل')}</option>
+              <option value="completed">{t('مكتمل')}</option>
+              <option value="pending">{t('في الانتظار')}</option>
+              <option value="in_progress">{t('قيد المعالجة')}</option>
+              <option value="failed">{t('فشل')}</option>
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('التاريخ من')}</label>
+            <input type="date" className="input" style={{ width: '100%', fontSize: 13, padding: '5px 8px' }} value={fsDateFrom} onChange={(e) => setFsDateFrom(e.target.value)} dir="ltr" />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748B', marginBottom: 3 }}>{t('إلى')}</label>
+            <input type="date" className="input" style={{ width: '100%', fontSize: 13, padding: '5px 8px' }} value={fsDateTo} onChange={(e) => setFsDateTo(e.target.value)} dir="ltr" />
+          </div>
+        </div>
+      </div>
+    )}
+
     {q.isPending ? <SkeletonList /> : q.isError ? <ErrorState error={q.error} onRetry={retry} />
       : !q.data?.length
         ? <EmptyState icon={<Camera />} title={t('لا توجد سجلات مسح')} text={t('استخدم المسح الميداني في التطبيق لاكتشاف عملاء جدد.')} />
-        : <div className="adm-table-wrap"><table className="adm-table">
+        : filtered.length === 0
+          ? <div className="muted" style={{ padding: 24, textAlign: 'center' }}>{t('لا توجد سجلات تطابق الفلاتر المحددة.')}</div>
+          : <div className="adm-table-wrap"><table className="adm-table">
             <thead><tr>
               <th>{t('المشرف')}</th>
+              <th>{t('الفرع')}</th>
               <th>{t('الحالة')}</th>
               <th>{t('المحلات')}</th>
               <th>{t('التاريخ')}</th>
               <th>{t('الموقع')}</th>
             </tr></thead>
-            <tbody>{q.data.map((r) => {
+            <tbody>{filtered.map((r) => {
               const st = FS_STATUS[r.status] ?? { label: r.status, cls: 'b-gray' };
               return <tr key={r.id}>
                 <td className="title">
@@ -1694,6 +1979,11 @@ export function AdminFieldSurveys() {
                     )}
                     {r.supervisors?.full_name ?? '—'}
                   </div>
+                </td>
+                <td className="muted" style={{ fontSize: 13 }}>
+                  {r.supervisors?.branch?.name
+                    ? <><span>{r.supervisors.branch.name}</span>{r.supervisors.branch.region && <span style={{ fontSize: 11, display: 'block', color: '#94A3B8' }}>{r.supervisors.branch.region}</span>}</>
+                    : '—'}
                 </td>
                 <td><span className={`badge ${st.cls}`}>{t(st.label)}</span></td>
                 <td>{r.status === 'completed' ? <strong style={{ color: 'var(--color-success)' }}>{r.stores_found}</strong> : '—'}</td>

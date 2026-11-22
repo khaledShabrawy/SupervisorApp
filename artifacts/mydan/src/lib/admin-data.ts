@@ -588,18 +588,19 @@ export type AuditRow = {
   old_data: Record<string, unknown> | null;
   new_data: Record<string, unknown> | null;
   created_at: string;
-  supervisors: { full_name: string } | null;
 };
-export function useAuditLogs(tableFilter: string) {
+export function useAuditLogs(tableFilter: string, dateFrom?: string, dateTo?: string) {
   const sc = useScope();
-  return usePaged<AuditRow>(sc, 'audit-logs', [tableFilter], async (from, to, signal) => {
+  return usePaged<AuditRow>(sc, 'audit-logs', [tableFilter, dateFrom ?? '', dateTo ?? ''], async (from, to, signal) => {
     let q = supabase.from('audit_logs')
-      .select('id,table_name,action,performed_by,old_data,new_data,created_at,supervisors!performed_by(full_name)')
+      .select('id,table_name,action,performed_by,old_data,new_data,created_at')
       .eq('company_id', sc.companyId);
     if (tableFilter) q = q.eq('table_name', tableFilter);
+    if (dateFrom) q = q.gte('created_at', dateFrom);
+    if (dateTo)   q = q.lte('created_at', dateTo + 'T23:59:59');
     const { data, error } = await q.order('created_at', { ascending: false }).range(from, to).abortSignal(signal);
     if (error) fail('تعذر تحميل سجل المراجعة.', error);
-    return data as unknown as AuditRow[];
+    return (data ?? []) as unknown as AuditRow[];
   }, sc.isAdmin);
 }
 
@@ -609,6 +610,7 @@ export type AdminCustomerRow = {
   owner_name: string | null; phone: string | null; address: string;
   latitude: number | null; longitude: number | null; branch: string | null;
   supervisor_id: string | null; is_active: boolean;
+  created_at?: string | null; updated_at?: string | null; created_by?: string | null;
   supervisors: { full_name: string } | null;
 };
 export function useAdminCustomers(search: string, supervisorId?: string, branch?: string) {
@@ -616,7 +618,7 @@ export function useAdminCustomers(search: string, supervisorId?: string, branch?
   return usePaged<AdminCustomerRow>(sc, 'admin-customers', [search, supervisorId ?? 'all', branch ?? 'all'], async (from, to, signal) => {
     const term = search.trim().replace(/[%,()]/g, '');
     let q = supabase.from('customers')
-      .select('id,customer_code,name,type,customer_type,owner_name,phone,address,latitude,longitude,branch,supervisor_id,is_active,supervisors!supervisor_id(full_name)')
+      .select('id,customer_code,name,type,customer_type,owner_name,phone,address,latitude,longitude,branch,supervisor_id,is_active,created_at,updated_at,created_by,supervisors!supervisor_id(full_name)')
       .eq('company_id', sc.companyId);
     if (supervisorId && supervisorId !== 'all') {
       q = q.eq('supervisor_id', supervisorId);

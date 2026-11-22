@@ -33,6 +33,9 @@ export type CatalogProduct = {
   units_per_carton?: number;
   unit?: string;
   is_active: boolean;
+  created_at?: string | null;
+  updated_at?: string | null;
+  created_by?: string | null;
 };
 export type SettingsInput = Pick<AppSettings, 'app_name' | 'primary_color' | 'geofence_radius_m' | 'target_brand_name' | 'competitor_brands'> &
   Partial<Pick<AppSettings, 'logo_url' | 'allow_password_change' | 'allow_forgot_password' | 'password_expiry_enabled' | 'password_expiry_days' | 'branch_lock_mode'>>;
@@ -164,7 +167,7 @@ export function useMonthlyTargets() {
 export function useAdminProducts(availability: 'all' | 'active' | 'inactive' = 'all') {
   const sc = useScope();
   return usePaged<CatalogProduct>(sc, 'products', [availability], async (from, to, signal) => {
-    let q = supabase.from('products').select('id,name,category,sku:sku_code,item_code,master_brand,sub_brand,unit,units_per_carton,is_active').eq('company_id', sc.companyId);
+    let q = supabase.from('products').select('id,name,category,sku:sku_code,item_code,master_brand,sub_brand,unit,units_per_carton,is_active,created_at,updated_at,created_by').eq('company_id', sc.companyId);
     if (availability === 'active') q = q.eq('is_active', true);
     if (availability === 'inactive') q = q.or('is_active.eq.false,is_active.is.null');
     const r = await q.order('name').order('id').range(from, to).abortSignal(signal);
