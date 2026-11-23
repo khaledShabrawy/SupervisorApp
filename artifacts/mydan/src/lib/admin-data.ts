@@ -591,17 +591,18 @@ export type AuditRow = {
 };
 export function useAuditLogs(tableFilter: string, dateFrom?: string, dateTo?: string) {
   const sc = useScope();
+  const canView = sc.isAdmin || sc.supervisor.role === 'senior_supervisor';
   return usePaged<AuditRow>(sc, 'audit-logs', [tableFilter, dateFrom ?? '', dateTo ?? ''], async (from, to, signal) => {
     let q = supabase.from('audit_logs')
       .select('id,table_name,action,performed_by,old_data,new_data,created_at')
       .eq('company_id', sc.companyId);
     if (tableFilter) q = q.eq('table_name', tableFilter);
     if (dateFrom) q = q.gte('created_at', dateFrom);
-    if (dateTo)   q = q.lte('created_at', dateTo + 'T23:59:59');
+    if (dateTo)   q = q.lte('created_at', dateTo + 'T23:59:59.999');
     const { data, error } = await q.order('created_at', { ascending: false }).range(from, to).abortSignal(signal);
     if (error) fail('تعذر تحميل سجل المراجعة.', error);
     return (data ?? []) as unknown as AuditRow[];
-  }, sc.isAdmin);
+  }, canView);
 }
 
 /* ---------- Admin Customers ---------- */
@@ -630,7 +631,7 @@ export function useAdminCustomers(search: string, supervisorId?: string, branch?
     const { data, error } = await q.order('name').order('id').range(from, to).abortSignal(signal);
     if (error) fail('تعذر تحميل العملاء.', error);
     return data as unknown as AdminCustomerRow[];
-  }, sc.isAdmin);
+  }, sc.isAdmin || sc.supervisor.role === 'senior_supervisor');
 }
 export function useSaveAdminCustomer() {
   const sc = useScope(); const qc = useQueryClient();

@@ -988,14 +988,24 @@ export function useSupervisors() {
     const r = sc.supervisor.role;
     if ((r === 'branch_manager' || r === 'manager') && sc.supervisor.branch_id) {
       supQ = supQ.eq('branch_id', sc.supervisor.branch_id);
-    } else if (r === 'senior_supervisor' && sc.supervisor.branch_id) {
-      const { data: myBranch } = await supabase.from('branches')
-        .select('region_id').eq('id', sc.supervisor.branch_id).eq('company_id', sc.companyId).single();
-      if (myBranch?.region_id) {
-        const { data: regionBranches } = await supabase.from('branches')
-          .select('id').eq('company_id', sc.companyId).eq('region_id', myBranch.region_id).abortSignal(signal);
-        if (regionBranches?.length) {
-          supQ = supQ.in('branch_id', regionBranches.map((b: { id: string }) => b.id));
+    } else if (r === 'senior_supervisor') {
+      if (!sc.supervisor.branch_id) {
+        // Fail-closed: senior_supervisor with no branch assigned must not see any supervisors
+        supQ = supQ.eq('branch_id', '00000000-0000-0000-0000-000000000000');
+      } else {
+        const { data: myBranch } = await supabase.from('branches')
+          .select('region_id').eq('id', sc.supervisor.branch_id).eq('company_id', sc.companyId).single();
+        if (!myBranch?.region_id) {
+          // Fail-closed: branch with no region must not expand to company-wide scope
+          supQ = supQ.eq('branch_id', sc.supervisor.branch_id);
+        } else {
+          const { data: regionBranches } = await supabase.from('branches')
+            .select('id').eq('company_id', sc.companyId).eq('region_id', myBranch.region_id).abortSignal(signal);
+          if (regionBranches?.length) {
+            supQ = supQ.in('branch_id', regionBranches.map((b: { id: string }) => b.id));
+          } else {
+            supQ = supQ.eq('branch_id', sc.supervisor.branch_id);
+          }
         }
       }
     }

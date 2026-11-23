@@ -290,13 +290,13 @@ export default function AdminDashboard() {
           {filteredSupervisors.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
         </select>
 
-        {(!isRegionLocked && !isBranchLocked && (regionId !== 'all' || branchId !== 'all') || supervisorId !== 'all' || preset !== 'month') && (
+        {((!isRegionLocked && regionId !== 'all') || (!isBranchLocked && branchId !== 'all') || supervisorId !== 'all' || preset !== 'month') && (
           <button
             type="button"
             className="btn sm ghost"
             onClick={() => {
               if (!isRegionLocked) setRegionId('all');
-              if (!isBranchLocked && !isRegionLocked) setBranchId('all');
+              if (!isBranchLocked) setBranchId('all');
               setSupervisorId('all');
               applyPreset('month');
             }}

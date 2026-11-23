@@ -220,13 +220,19 @@ function ReportViewer({ config, onClose }: { config: ReportConfig; onClose: () =
     );
   };
 
-  // Detect which filter fields are relevant for this view
-  const sample = q.data?.[0];
-  const hasCodeCol   = sample ? !!findCol(sample, FILTER_ALIASES.supervisor_code) : true;
-  const hasNameCol   = sample ? !!findCol(sample, FILTER_ALIASES.supervisor_name) : true;
-  const hasBranchCol = sample ? !!findCol(sample, FILTER_ALIASES.branch) : true;
-  const hasRegionCol = sample ? !!findCol(sample, FILTER_ALIASES.region) : true;
-  const hasDateCol   = sample ? !!findCol(sample, FILTER_ALIASES.date) : true;
+  // Detect which filter fields are relevant for this view — scan all rows so null values in row[0] don't hide a column
+  const allKeys = useMemo(() => {
+    const keys = new Set<string>();
+    (q.data ?? []).forEach((r) => Object.keys(r).forEach((k) => keys.add(k)));
+    return keys;
+  }, [q.data]);
+  const hasData = (q.data?.length ?? 0) > 0;
+  const hasAnyKey = (aliases: string[]) => !hasData || aliases.some((a) => allKeys.has(a));
+  const hasCodeCol   = hasAnyKey(FILTER_ALIASES.supervisor_code);
+  const hasNameCol   = hasAnyKey(FILTER_ALIASES.supervisor_name);
+  const hasBranchCol = hasAnyKey(FILTER_ALIASES.branch);
+  const hasRegionCol = hasAnyKey(FILTER_ALIASES.region);
+  const hasDateCol   = hasAnyKey(FILTER_ALIASES.date);
 
   return (
     <div className="col" style={{ gap: 14 }}>

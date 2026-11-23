@@ -296,10 +296,10 @@ export function AdminCustomers() {
   const dateFilteredItems = useMemo(() => {
     if (!createdFrom && !createdTo && !updatedFrom && !updatedTo) return q.items;
     return q.items.filter((c) => {
-      if (createdFrom && c.created_at && c.created_at < createdFrom) return false;
-      if (createdTo && c.created_at && c.created_at > createdTo + 'T23:59:59') return false;
-      if (updatedFrom && c.updated_at && c.updated_at < updatedFrom) return false;
-      if (updatedTo && c.updated_at && c.updated_at > updatedTo + 'T23:59:59') return false;
+      if (createdFrom && (!c.created_at || c.created_at < createdFrom)) return false;
+      if (createdTo && (!c.created_at || c.created_at > createdTo + 'T23:59:59.999')) return false;
+      if (updatedFrom && (!c.updated_at || c.updated_at < updatedFrom)) return false;
+      if (updatedTo && (!c.updated_at || c.updated_at > updatedTo + 'T23:59:59.999')) return false;
       return true;
     });
   }, [q.items, createdFrom, createdTo, updatedFrom, updatedTo]);
@@ -853,10 +853,10 @@ export function AdminProducts() {
         (p.units_per_carton != null && String(p.units_per_carton).includes(term))
       );
     }
-    if (prodCreatedFrom) items = items.filter((p) => !p.created_at || p.created_at >= prodCreatedFrom);
-    if (prodCreatedTo)   items = items.filter((p) => !p.created_at || p.created_at <= prodCreatedTo + 'T23:59:59');
-    if (prodUpdatedFrom) items = items.filter((p) => !p.updated_at || p.updated_at >= prodUpdatedFrom);
-    if (prodUpdatedTo)   items = items.filter((p) => !p.updated_at || p.updated_at <= prodUpdatedTo + 'T23:59:59');
+    if (prodCreatedFrom) items = items.filter((p) => !!p.created_at && p.created_at >= prodCreatedFrom);
+    if (prodCreatedTo)   items = items.filter((p) => !!p.created_at && p.created_at <= prodCreatedTo + 'T23:59:59.999');
+    if (prodUpdatedFrom) items = items.filter((p) => !!p.updated_at && p.updated_at >= prodUpdatedFrom);
+    if (prodUpdatedTo)   items = items.filter((p) => !!p.updated_at && p.updated_at <= prodUpdatedTo + 'T23:59:59.999');
     return items;
   }, [q.items, search, prodCreatedFrom, prodCreatedTo, prodUpdatedFrom, prodUpdatedTo]);
 
@@ -1482,6 +1482,13 @@ export function AdminAuditLogs() {
   const [auditSearch, setAuditSearch] = useState('');
 
   const q = useAuditLogs(tableFilter, auditDateFrom || undefined, auditDateTo || undefined);
+  const sups = useSupervisors();
+  // Build user_id → name lookup from loaded supervisors
+  const userIdToName = useMemo(() => {
+    const m = new Map<string, string>();
+    sups.items.forEach((s) => { if (s.user_id) m.set(s.user_id, s.full_name); });
+    return m;
+  }, [sups.items]);
   const retry = useRefetch(q.refetch);
 
   const filteredItems = useMemo(() => {
@@ -1565,8 +1572,13 @@ export function AdminAuditLogs() {
             <td><span className={`badge ${ACTION_BADGE[r.action] ?? 'b-gray'}`}>{t(ACTION_LABEL[r.action] ?? r.action)}</span></td>
             <td style={{ fontSize: 12 }}>
               {r.performed_by
-                ? <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#475569', background: '#F1F5F9', padding: '2px 6px', borderRadius: 4 }}>{String(r.performed_by).slice(0, 8)}…</span>
-                : <span className="muted">—</span>}
+                ? (() => {
+                    const name = userIdToName.get(String(r.performed_by));
+                    return name
+                      ? <span style={{ fontWeight: 600 }}>{name}</span>
+                      : <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#475569', background: '#F1F5F9', padding: '2px 6px', borderRadius: 4 }} title={String(r.performed_by)}>{String(r.performed_by).slice(0, 8)}…</span>;
+                  })()
+                : <span className="muted">{t('النظام')}</span>}
             </td>
             <td><AuditDetail row={r} /></td>
           </tr>)}</tbody>
