@@ -38,6 +38,9 @@ const SOURCES = [
 
 const ALLOWED_SOURCES = new Set(SOURCES.map((s) => s.id));
 
+// Internal tenant-isolation columns — never shown to end users
+const HIDDEN_COLS = new Set(['company_id']);
+
 // ─── LocalStorage helpers ────────────────────────────────────────────────────
 
 function storeKey(cid: string) { return `mydan_reports_${cid}`; }
@@ -56,13 +59,14 @@ function persist(cid: string, list: ReportConfig[]) {
 type Row = Record<string, unknown>;
 
 function ReportTable({ data, cols }: { data: Row[]; cols: string[] }) {
+  const visibleCols = cols.filter((c) => !HIDDEN_COLS.has(c));
   return (
     <div className="adm-table-wrap">
       <table className="adm-table">
-        <thead><tr>{cols.map((c) => <th key={c}>{c}</th>)}</tr></thead>
+        <thead><tr>{visibleCols.map((c) => <th key={c}>{c}</th>)}</tr></thead>
         <tbody>
           {data.map((row, i) => (
-            <tr key={i}>{cols.map((c) => <td key={c}>{String(row[c] ?? '—')}</td>)}</tr>
+            <tr key={i}>{visibleCols.map((c) => <td key={c}>{String(row[c] ?? '—')}</td>)}</tr>
           ))}
         </tbody>
       </table>
@@ -96,9 +100,10 @@ function BarChart({ data, labelCol, valueCol }: { data: Row[]; labelCol: string;
 function KpiCards({ data, cols }: { data: Row[]; cols: string[] }) {
   const row = data[0];
   if (!row) return <p className="muted">{t('لا توجد بيانات')}</p>;
+  const visibleCols = cols.filter((c) => !HIDDEN_COLS.has(c));
   return (
     <div className="adm-kpis">
-      {cols.map((c) => (
+      {visibleCols.map((c) => (
         <div key={c} className="kpi">
           <span className="muted" style={{ fontSize: 12 }}>{c}</span>
           <span className="big" style={{ fontSize: 22 }}>{String(row[c] ?? '—')}</span>
@@ -124,7 +129,8 @@ function ReportViewer({ config, onClose }: { config: ReportConfig; onClose: () =
 
   const handleExport = () => {
     if (!q.data?.length) return;
-    const cols = config.columns.length > 0 ? config.columns : Object.keys(q.data[0]);
+    const cols = (config.columns.length > 0 ? config.columns : Object.keys(q.data[0]))
+      .filter((c) => !HIDDEN_COLS.has(c));
     exportToCsv(
       `${config.name}_${new Date().toISOString().slice(0, 10)}`,
       cols.map((c) => ({ header: c, accessor: (row) => row[c] ?? '' })),
@@ -211,7 +217,9 @@ function ReportWizard({
     enabled: wizard.step === 2,
   });
 
-  const allCols = previewQ.data?.[0] ? Object.keys(previewQ.data[0]) : [];
+  const allCols = previewQ.data?.[0]
+    ? Object.keys(previewQ.data[0]).filter((c) => !HIDDEN_COLS.has(c))
+    : [];
 
   // ── Drag-and-drop for column reordering ────────────────────────────────────
   const dragIdx = useRef<number | null>(null);
