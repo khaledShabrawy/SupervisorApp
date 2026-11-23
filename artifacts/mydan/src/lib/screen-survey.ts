@@ -67,7 +67,7 @@ export function useUploadSurveyPhoto() {
         latitude,
         longitude,
         status: 'pending',
-      }).select('*').single();
+      }).select('id,company_id,supervisor_id,photo_url,latitude,longitude,stores_found,ai_raw_result,status,created_at').single();
 
       if (insertError || !data) {
         await supabase.storage.from(SURVEY_BUCKET).remove([path]);
@@ -119,7 +119,7 @@ export function useSurveyResult(id: string | null) {
     retry: 1,
     queryFn: async ({ signal }) => {
       const { data, error } = await supabase.from('field_surveys')
-        .select('*').eq('id', id!).eq('company_id', sc.companyId).abortSignal(signal).single();
+        .select('id,company_id,supervisor_id,photo_url,latitude,longitude,stores_found,ai_raw_result,status,created_at').eq('id', id!).eq('company_id', sc.companyId).abortSignal(signal).single();
       if (error || !data) throw new Error('تعذر تحميل نتيجة المسح.');
       return data as FieldSurvey;
     },

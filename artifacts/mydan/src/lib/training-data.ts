@@ -25,7 +25,7 @@ export function useCourses() {
     queryFn: async () => {
       const { data: courses, error: coursesErr } = await supabase
         .from('training_courses')
-        .select('*')
+        .select('id,company_id,title,description,category,thumbnail_url,display_order,is_published,created_at')
         .eq('company_id', sc.companyId)
         .eq('is_published', true)
         .order('display_order', { ascending: true });
@@ -78,7 +78,7 @@ export function useCourseLessons(courseId: string | null) {
     queryFn: async () => {
       const { data: lessons, error: lErr } = await supabase
         .from('training_lessons')
-        .select('*')
+        .select('id,course_id,company_id,title,description,video_url,duration_seconds,attachment_url,display_order,is_published,created_at')
         .eq('course_id', courseId!)
         .eq('company_id', sc.companyId)
         .eq('is_published', true)
@@ -188,7 +188,7 @@ export function useAdminCourses() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('training_courses')
-        .select('*, training_lessons(*)')
+        .select('id,company_id,title,description,category,thumbnail_url,display_order,is_published,created_at, training_lessons(id,course_id,company_id,title,description,video_url,duration_seconds,attachment_url,display_order,is_published,created_at)')
         .eq('company_id', sc.companyId)
         .order('display_order', { ascending: true });
       if (error) throw new Error(error.message);

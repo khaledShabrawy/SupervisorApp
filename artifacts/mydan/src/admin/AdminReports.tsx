@@ -36,6 +36,8 @@ const SOURCES = [
   { id: 'vw_asset_fleet_health',    label: t('صحة أسطول الأصول') },
 ];
 
+const ALLOWED_SOURCES = new Set(SOURCES.map((s) => s.id));
+
 // ─── LocalStorage helpers ────────────────────────────────────────────────────
 
 function storeKey(cid: string) { return `mydan_reports_${cid}`; }
@@ -112,6 +114,7 @@ function ReportViewer({ config, onClose }: { config: ReportConfig; onClose: () =
   const q = useQuery({
     queryKey: ['mydan', 'report', config.id, config.source, config.rowLimit],
     queryFn: async () => {
+      if (!ALLOWED_SOURCES.has(config.source)) throw new Error('مصدر التقرير غير مصرح به.');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any).from(config.source).select('*').limit(config.rowLimit);
       if (error) throw new Error(error.message);
@@ -199,6 +202,7 @@ function ReportWizard({
   const previewQ = useQuery({
     queryKey: ['mydan', 'report-preview', wizard.source],
     queryFn: async () => {
+      if (!ALLOWED_SOURCES.has(wizard.source)) throw new Error('مصدر التقرير غير مصرح به.');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any).from(wizard.source).select('*').limit(3);
       if (error) throw new Error(error.message);
