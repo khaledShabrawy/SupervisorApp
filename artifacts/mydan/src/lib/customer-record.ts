@@ -17,9 +17,11 @@ export function customerRecord(input: CustomerInput): CustomerInput {
     || (longitude !== null && (!Number.isFinite(longitude) || Math.abs(longitude) > 180))) {
     throw new Error('الإحداثيات غير صالحة. أدخل القيمتين معا أو اتركهما فارغتين.');
   }
-  return {
+  const result: CustomerInput = {
     name: input.name.trim(), type: input.type.trim(), address: input.address.trim(),
-    customer_code: input.customer_code?.trim() || null,
     latitude, longitude, is_active: input.is_active,
   };
+  const code = input.customer_code?.trim();
+  if (code) result.customer_code = code;
+  return result;
 }

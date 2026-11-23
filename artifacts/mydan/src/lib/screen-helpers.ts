@@ -3,7 +3,7 @@ export const CUSTOMER_TYPES: Record<string, string[]> = {
   'سوبر ماركت': ['سوبر ماركت', 'سوبرماركت', 'supermarket'],
   'هايبر ماركت': ['هايبر ماركت', 'هايبرماركت', 'hypermarket'],
   'منظفات': ['منظفات', 'detergents', 'cleaning'],
-  'صيدليات': ['صيدليات', 'صيدلية', 'pharmacy', 'pharmacies'],
+  'صيدليات': ['صيدليات', 'pharmacy', 'pharmacies'],
   'كافيه': ['كافيه', 'cafe', 'coffee_shop'],
   'أخرى': ['أخرى', 'other'],
 };
