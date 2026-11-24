@@ -1,7 +1,7 @@
 import { VerificationError } from '@/components/VerificationError';
 import { Suspense, useCallback, useEffect } from 'react';
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { BarChart3, Bell, Building2, Camera, ClipboardList, Download, FileText, GraduationCap, Home, LogOut, MapPin, Package, PieChart, ScanSearch, Settings2, ShieldCheck, ShoppingCart, Store, Target, Users } from '@/components/Icons';
+import { BarChart3, Bell, Building2, Camera, ClipboardList, Download, FileText, GraduationCap, Home, Landmark, LogOut, MapPin, Package, PieChart, ScanSearch, Settings2, ShieldCheck, ShoppingCart, Store, Target, Users } from '@/components/Icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { canAdminPanel } from '@/lib/policy';
@@ -23,6 +23,8 @@ export const ADMIN_NAV = [
   { to: '/admin/branches', label: t('الفروع'), icon: MapPin },
   { to: '/admin/customers', label: t('العملاء'), icon: Store },
   { to: '/admin/products', label: t('المنتجات'), icon: Package },
+  { to: '/admin/ar-ageing', label: t('الذمم المدينة'), icon: Landmark },
+  { to: '/admin/collections', label: t('التحصيلات'), icon: ShoppingCart },
   { to: '/admin/targets', label: t('الأهداف'), icon: Target },
   { to: '/admin/assets', label: t('الأصول'), icon: ShieldCheck },
   { to: '/admin/surveys', label: t('الاستبيانات'), icon: FileText },
@@ -37,7 +39,7 @@ export const ADMIN_NAV = [
 
 const ADMIN_NAV_GROUPS = [
   { label: 'المتابعة والتقارير', paths: ['/admin','/admin/live-map','/admin/shelf-share','/admin/training','/admin/reports','/admin/field-surveys'] },
-  { label: 'الفرق والبيانات', paths: ['/admin/users','/admin/branches','/admin/customers','/admin/products','/admin/targets','/admin/assets','/admin/surveys','/admin/bulk-import','/admin/prospects'] },
+  { label: 'الفرق والبيانات', paths: ['/admin/users','/admin/branches','/admin/customers','/admin/products','/admin/ar-ageing','/admin/collections','/admin/targets','/admin/assets','/admin/surveys','/admin/bulk-import','/admin/prospects'] },
   { label: 'إعدادات النظام', paths: ['/admin/companies','/admin/notifications','/admin/settings','/admin/audit'] },
 ];
 

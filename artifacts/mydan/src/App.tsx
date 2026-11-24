@@ -47,6 +47,8 @@ const BulkImport = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/BulkTemplat
 const AdminCompanies = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminCompanies'));
 const AdminReports = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminReports'));
 const AdminLiveMap = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminLiveMap'));
+const AdminARAgeing = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminARAgeing'));
+const AdminCollections = lazy(IS_ANDROID ? noAdmin : () => import('@/admin/AdminCollections'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,6 +81,8 @@ function App() {
                         <Route path="branches" element={<AdminBranches />} />
                         <Route path="customers" element={<AdminCustomers />} />
                         <Route path="products" element={<AdminProducts />} />
+                        <Route path="ar-ageing" element={<AdminARAgeing />} />
+                        <Route path="collections" element={<AdminCollections />} />
                         <Route path="targets" element={<AdminTargets />} />
                         <Route path="assets" element={<AdminAssets />} />
                         <Route path="surveys" element={<AdminSurveys />} />

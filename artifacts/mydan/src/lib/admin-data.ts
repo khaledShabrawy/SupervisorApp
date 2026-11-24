@@ -837,6 +837,171 @@ export function useToggleActiveRecord(table: 'branches' | 'customers' | 'product
   });
 }
 
+/* ---------- AR Ageing (vw_customer_aging) ---------- */
+export interface AgeingRow {
+  id: string;
+  company_id: string;
+  customer_id: string;
+  customer_name: string;
+  customer_class: string | null;
+  credit_limit: number;
+  trans_type: number;
+  ref_id: string;
+  amount: number;
+  outstanding: number;
+  due_date: string | null;
+  aging_days: number | null;
+  aging_bucket: string;
+  supervisor_id: string;
+  supervisor_name: string;
+  supervisor_code: string | null;
+  branch_name: string | null;
+}
+export function useARAgeing(filters?: { supervisorId?: string; branchName?: string; searchCustomer?: string }) {
+  const sc = useScope();
+  return useQuery({
+    queryKey: [...sc.base, 'ar-ageing', filters?.supervisorId ?? 'all', filters?.branchName ?? 'all', filters?.searchCustomer ?? ''],
+    enabled: sc.isAdmin,
+    retry: 1,
+    queryFn: async ({ signal }) => {
+      let q = supabase.from('vw_customer_aging').select(
+        'id,company_id,customer_id,customer_name,customer_class,credit_limit,trans_type,ref_id,amount,outstanding,due_date,aging_days,aging_bucket,supervisor_id,supervisor_name,supervisor_code,branch_name'
+      ).eq('company_id', sc.companyId);
+      if (filters?.supervisorId && filters.supervisorId !== 'all') q = q.eq('supervisor_id', filters.supervisorId);
+      if (filters?.branchName && filters.branchName !== 'all') q = q.eq('branch_name', filters.branchName);
+      const term = filters?.searchCustomer?.trim().replace(/[%,()]/g, '') ?? '';
+      if (term) q = q.ilike('customer_name', `%${term}%`);
+      const { data, error } = await q.order('aging_days', { ascending: false, nullsFirst: false }).limit(500).abortSignal(signal);
+      if (error) fail('تعذر تحميل بيانات الذمم.', error);
+      return (data ?? []) as AgeingRow[];
+    },
+  });
+}
+
+export interface AgeingSummaryRow {
+  aging_bucket: string;
+  record_count: number;
+  total_outstanding: number;
+}
+export function useAgeingSummary(filters?: { supervisorId?: string; branchName?: string }) {
+  const sc = useScope();
+  return useQuery({
+    queryKey: [...sc.base, 'ar-ageing-summary', filters?.supervisorId ?? 'all', filters?.branchName ?? 'all'],
+    enabled: sc.isAdmin,
+    retry: 1,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_ar_ageing_summary', {
+        p_supervisor_id: filters?.supervisorId ?? null,
+        p_branch_name:   filters?.branchName   ?? null,
+      });
+      if (error) {
+        // RPC not yet deployed — fallback to empty (view totals already computed client-side from first 500 rows)
+        return [] as AgeingSummaryRow[];
+      }
+      return (data ?? []) as AgeingSummaryRow[];
+    },
+  });
+}
+
+/* ---------- Collections ---------- */
+export interface CollectionRow {
+  id: string;
+  collection_no: string;
+  invoice_id: string | null;
+  customer_id: string;
+  supervisor_id: string;
+  payment_type: number;
+  amount: number;
+  cheque_no: string | null;
+  cheque_bank: string | null;
+  cheque_date: string | null;
+  collection_date: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  customers: { name: string } | null;
+  supervisors: { full_name: string } | null;
+}
+export function useCollections(filters?: { supervisorId?: string; paymentType?: number; dateFrom?: string; dateTo?: string; status?: string }) {
+  const sc = useScope();
+  return usePaged<CollectionRow>(
+    sc,
+    'collections',
+    [filters?.supervisorId ?? 'all', String(filters?.paymentType ?? 'all'), filters?.dateFrom ?? '', filters?.dateTo ?? '', filters?.status ?? 'all'],
+    async (from, to, signal) => {
+      let q = supabase.from('collections')
+        .select('id,collection_no,invoice_id,customer_id,supervisor_id,payment_type,amount,cheque_no,cheque_bank,cheque_date,collection_date,status,notes,created_at,customers(name),supervisors(full_name)')
+        .eq('company_id', sc.companyId);
+      if (filters?.supervisorId && filters.supervisorId !== 'all') q = q.eq('supervisor_id', filters.supervisorId);
+      if (filters?.paymentType) q = q.eq('payment_type', filters.paymentType);
+      if (filters?.dateFrom) q = q.gte('collection_date', filters.dateFrom);
+      if (filters?.dateTo) q = q.lte('collection_date', filters.dateTo);
+      if (filters?.status && filters.status !== 'all') q = q.eq('status', filters.status);
+      const { data, error } = await q.order('collection_date', { ascending: false }).order('created_at', { ascending: false }).range(from, to).abortSignal(signal);
+      if (error) fail('تعذر تحميل التحصيلات.', error);
+      return (data ?? []) as unknown as CollectionRow[];
+    },
+    sc.isAdmin
+  );
+}
+
+export function useCreateCollection() {
+  const sc = useScope(); const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      collection_no: string;
+      invoice_id?: string;
+      customer_id: string;
+      supervisor_id: string;
+      payment_type: number;
+      amount: number;
+      cheque_no?: string;
+      cheque_bank?: string;
+      cheque_date?: string;
+      collection_date: string;
+      notes?: string;
+    }) => {
+      requireAdmin(sc);
+      if (!input.collection_no.trim()) throw new Error('رقم التحصيل مطلوب.');
+      if (!input.customer_id) throw new Error('العميل مطلوب.');
+      if (!input.supervisor_id) throw new Error('المشرف مطلوب.');
+      if (input.amount <= 0) throw new Error('المبلغ يجب أن يكون أكبر من صفر.');
+      if (![1, 2, 3].includes(input.payment_type)) throw new Error('نوع الدفع غير صالح.');
+      if (input.payment_type === 2 && !input.cheque_no?.trim()) throw new Error('رقم الشيك مطلوب لطريقة الدفع بالشيك.');
+
+      // Single atomic RPC — both inserts in one Postgres transaction
+      const { data: collId, error: rpcErr } = await supabase.rpc('create_collection_with_ledger', {
+        p_collection_no:   input.collection_no.trim(),
+        p_invoice_id:      input.invoice_id   || null,
+        p_customer_id:     input.customer_id,
+        p_supervisor_id:   input.supervisor_id,
+        p_payment_type:    input.payment_type,
+        p_amount:          input.amount,
+        p_cheque_no:       input.cheque_no?.trim()   || null,
+        p_cheque_bank:     input.cheque_bank?.trim() || null,
+        p_cheque_date:     input.cheque_date         || null,
+        p_collection_date: input.collection_date,
+        p_notes:           input.notes?.trim()       || null,
+      });
+      if (rpcErr) {
+        const msg = rpcErr.message?.includes('duplicate') || rpcErr.message?.includes('23505')
+          ? 'رقم التحصيل مستخدم من قبل.'
+          : rpcErr.message?.includes('غير مصرح')
+          ? 'غير مصرح لك بهذه العملية.'
+          : 'تعذر حفظ التحصيل.';
+        fail(msg, msg === 'تعذر حفظ التحصيل.' ? rpcErr : null);
+      }
+
+      return collId as string;
+    },
+    onSuccess: () => {
+      notify('✅ تم تسجيل التحصيل بنجاح', 'success');
+      void invalidate(qc, sc, 'collections', 'ar-ageing');
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  });
+}
+
 export function useDeactivateRecord(table: 'branches' | 'customers' | 'products' | 'assets', queryKey: string) {
   const toggle = useToggleActiveRecord(table, queryKey);
   return {

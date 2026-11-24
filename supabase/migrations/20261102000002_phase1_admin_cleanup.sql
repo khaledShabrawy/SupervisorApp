@@ -6,6 +6,19 @@
 ALTER TABLE public.supervisors
   ADD COLUMN IF NOT EXISTS supervisor_code TEXT;
 
+-- Deduplicate supervisor_code before creating unique index.
+-- If the column was pre-populated with duplicates (e.g. SUP-003 × 2),
+-- keep only the first occurrence (by id ASC) and NULL-out the rest.
+UPDATE public.supervisors s
+SET supervisor_code = NULL
+WHERE supervisor_code IS NOT NULL
+  AND id NOT IN (
+    SELECT DISTINCT ON (supervisor_code) id
+    FROM public.supervisors
+    WHERE supervisor_code IS NOT NULL
+    ORDER BY supervisor_code, id
+  );
+
 -- Partial unique index: two NULLs are allowed (NULL ≠ NULL in SQL).
 DO $$
 BEGIN
